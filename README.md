@@ -4,6 +4,93 @@ Sistema mobile profesional para levantamiento de encuestas en campo con operaci�
 
 ---
 
+## 🚀 Inicio Rápido
+
+- **👤 Nuevo en el proyecto?** → Lee [`docs/EXECUTIVE_SUMMARY.md`](./docs/EXECUTIVE_SUMMARY.md) (10 min)
+- **🏗️ Ver arquitectura nueva?** → Revisa [`docs/ARCHITECTURE_NEW.md`](./docs/ARCHITECTURE_NEW.md) ⭐ **NUEVO**
+- **� ¿React Hook Form para encuestas?** → NO! Lee [`docs/FORMS_SYSTEM.md`](./docs/FORMS_SYSTEM.md) ⭐ **NUEVO**
+- **�👨‍💻 Listo para implementar?** → Ve a [`docs/NEXT_STEPS.md`](./docs/NEXT_STEPS.md) (5 pasos)
+- **📦 Instalar dependencias?** → Consulta [`DEPENDENCIES.md`](./DEPENDENCIES.md) ⭐ **NUEVO**
+- **📚 Ver toda la documentación?** → Explora [`docs/README.md`](./docs/README.md) (índice completo)
+
+---
+
+## 📂 Estructura del Proyecto
+
+````
+brigadaFrontEnd/
+├── app/                              # Expo Router - Navegación
+│   ├── _layout.tsx
+│   ├── (tabs)/                       # Navegación con tabs
+│   └── modal.tsx
+│
+├── features/                         # ⭐ NUEVO - Lógica de negocio por feature
+│   ├── questions/                    # Sistema de preguntas dinámicas
+│   │   ├── components/               # Componentes de tipos de pregunta
+│   │   │   └── question-renderer.tsx # Factory pattern ✅
+│   │   ├── types/                    # Tipos TypeScript ✅
+│   │   ├── hooks/                    # Hooks personalizados
+│   │   └── utils/                    # Utilidades
+│   ├── surveys/                      # Gestión de encuestas
+│   │   ├── utils/
+│   │   │   └── survey-engine.ts      # Motor de encuestas ✅
+│   │   └── types/                    # Tipos de surveys ✅
+│   └── sync/                         # Sistema de sincronización
+│       ├── services/                 # Servicios de sync
+│       ├── utils/
+│       │   └── network-detector.ts   # Detección de red ✅
+│       └── types/                    # Tipos de sync ✅
+│
+├── components/                       # Componentes reutilizables
+│   ├── ui/                           # Componentes base
+│   │   ├── button.tsx                # ✅ NUEVO
+│   │   ├── input.tsx                 # ✅ NUEVO
+│   │   ├── card.tsx                  # ✅ NUEVO
+│   │   └── loading-spinner.tsx       # ✅ NUEVO
+│   ├── survey/                       # ⭐ NUEVO - Componentes de encuestas
+│   ├── sync/                         # ⭐ NUEVO - Componentes de sync
+│   └── layout/                       # ⭐ NUEVO - Layouts
+│
+├── store/                            # ⭐ NUEVO - Estado global (Zustand)
+│   ├── survey-store.ts               # Estado de encuestas ✅
+│   └── sync-store.ts                 # Estado de sincronización ✅
+│
+├── repositories/                     # ⭐ NUEVO - Capa de acceso a datos
+│   └── (por crear)
+│
+├── lib/                              # Librerías core
+│   ├── db/                           # Base de datos SQLite + Drizzle
+│   │   ├── index.ts
+│   │   ├── schema.ts
+│   │   └── migrations.ts
+│   ├── api/                          # ⭐ NUEVO - Cliente API
+│   └── storage/                      # ⭐ NUEVO - Storage local
+│
+├── hooks/                            # Hooks globales
+│   └── use-color-scheme.ts
+│
+├── utils/                            # ⭐ NUEVO - Utilidades generales
+│   ├── validation.ts                 # ✅ Validadores
+│   └── date.ts                       # ✅ Formateo de fechas
+│
+├── types/                            # ⭐ NUEVO - Tipos globales
+│   └── index.ts                      # ✅ Re-exports
+│
+├── constants/                        # Constantes
+│   ├── theme.ts
+│   └── config.ts                     # ✅ NUEVO - Config de app
+│
+└── docs/                             # Documentación completa
+    ├── README.md                     # Índice de toda la documentación
+    ├── ARCHITECTURE_NEW.md           # ⭐ NUEVO - Nueva arquitectura
+    ├── MIGRATIONS_LIFECYCLE.md       # Ciclo de vida de migraciones
+    └── ...
+```- Sistema de Encuestas Offline-First
+
+Sistema mobile profesional para levantamiento de encuestas en campo con operación 100% offline y sincronización inteligente.
+
+---
+
 ## � Inicio Rápido
 
 - **👤 Nuevo en el proyecto?** → Lee [`docs/EXECUTIVE_SUMMARY.md`](./docs/EXECUTIVE_SUMMARY.md) (10 min)
@@ -14,7 +101,7 @@ Sistema mobile profesional para levantamiento de encuestas en campo con operaci�
 
 ## �📚 Documentación del Proyecto
 
-> 📁 **Toda la documentación está organizada en [`docs/`](./docs/)**  
+> 📁 **Toda la documentación está organizada en [`docs/`](./docs/)**
 > 👉 **Índice completo**: [`docs/README.md`](./docs/README.md)
 
 ### 🚀 Start Here
@@ -90,77 +177,79 @@ Sistema mobile profesional para levantamiento de encuestas en campo con operaci�
 
 ## 🗂️ Estructura del Proyecto
 
-```
+````
+
 brigadaFrontEnd/
-├── app/                           # Expo Router (screens)
-│   ├── _layout.tsx               # Root layout
-│   ├── modal.tsx
-│   └── (tabs)/                   # Tab navigation
-│       ├── _layout.tsx
-│       ├── index.tsx             # Home screen
-│       └── explore.tsx
+├── app/ # Expo Router (screens)
+│ ├── \_layout.tsx # Root layout
+│ ├── modal.tsx
+│ └── (tabs)/ # Tab navigation
+│ ├── \_layout.tsx
+│ ├── index.tsx # Home screen
+│ └── explore.tsx
 │
-├── assets/                        # Imágenes, íconos
-│   └── images/
+├── assets/ # Imágenes, íconos
+│ └── images/
 │
-├── components/                    # Componentes reutilizables
-│   ├── survey/                   # 🆕 Componentes de encuestas
-│   │   ├── question-renderer.tsx      # Renderer maestro
-│   │   ├── text-question.tsx          # ✅ Implementado
-│   │   ├── number-question.tsx        # ✅ Implementado
-│   │   ├── boolean-question.tsx       # ✅ Implementado
-│   │   ├── date-question.tsx          # ⏳ Placeholder
-│   │   ├── select-question.tsx        # ⏳ Placeholder
-│   │   ├── multi-select-question.tsx  # ⏳ Placeholder
-│   │   ├── photo-question.tsx         # ⏳ Fase 2
-│   │   ├── signature-question.tsx     # ⏳ Fase 2
-│   │   └── ine-question.tsx           # ⏳ Fase 2
-│   │
-│   ├── ui/                       # Componentes UI base
-│   ├── themed-text.tsx
-│   └── themed-view.tsx
+├── components/ # Componentes reutilizables
+│ ├── survey/ # 🆕 Componentes de encuestas
+│ │ ├── question-renderer.tsx # Renderer maestro
+│ │ ├── text-question.tsx # ✅ Implementado
+│ │ ├── number-question.tsx # ✅ Implementado
+│ │ ├── boolean-question.tsx # ✅ Implementado
+│ │ ├── date-question.tsx # ⏳ Placeholder
+│ │ ├── select-question.tsx # ⏳ Placeholder
+│ │ ├── multi-select-question.tsx # ⏳ Placeholder
+│ │ ├── photo-question.tsx # ⏳ Fase 2
+│ │ ├── signature-question.tsx # ⏳ Fase 2
+│ │ └── ine-question.tsx # ⏳ Fase 2
+│ │
+│ ├── ui/ # Componentes UI base
+│ ├── themed-text.tsx
+│ └── themed-view.tsx
 │
-├── constants/                     # Constantes y tema
-│   └── theme.ts
+├── constants/ # Constantes y tema
+│ └── theme.ts
 │
-├── docs/                          # 📚 Documentación completa
-│   ├── README.md                 # Índice de documentación
-│   ├── EXECUTIVE_SUMMARY.md      # Resumen ejecutivo
-│   ├── ARCHITECTURE.md           # Arquitectura del sistema
-│   ├── SCHEMAS_EXAMPLES.md       # Ejemplos de schemas JSON
-│   ├── METADATA_GUIDE.md         # Guía de metadata adicional
-│   ├── MIGRATIONS_GUIDE.md       # Sistema de migraciones
-│   ├── MIGRATIONS_VISUAL.md      # Diagramas visuales
-│   ├── NEXT_STEPS.md             # Pasos de implementación
-│   ├── README_IMPLEMENTATION.md  # Estado actual
-│   ├── CHEATSHEET.md             # Referencia rápida
-│   └── CHANGELOG_v2.md           # Changelog v2
+├── docs/ # 📚 Documentación completa
+│ ├── README.md # Índice de documentación
+│ ├── EXECUTIVE_SUMMARY.md # Resumen ejecutivo
+│ ├── ARCHITECTURE.md # Arquitectura del sistema
+│ ├── SCHEMAS_EXAMPLES.md # Ejemplos de schemas JSON
+│ ├── METADATA_GUIDE.md # Guía de metadata adicional
+│ ├── MIGRATIONS_GUIDE.md # Sistema de migraciones
+│ ├── MIGRATIONS_VISUAL.md # Diagramas visuales
+│ ├── NEXT_STEPS.md # Pasos de implementación
+│ ├── README_IMPLEMENTATION.md # Estado actual
+│ ├── CHEATSHEET.md # Referencia rápida
+│ └── CHANGELOG_v2.md # Changelog v2
 │
-├── hooks/                         # React hooks
-│   ├── use-color-scheme.ts
-│   └── use-theme-color.ts
+├── hooks/ # React hooks
+│ ├── use-color-scheme.ts
+│ └── use-theme-color.ts
 │
-├── lib/                           # 🆕 Core business logic
-│   ├── db/                       # Base de datos
-│   │   ├── index.ts              # Cliente SQLite (singleton)
-│   │   ├── schema.ts             # Schema completo (8 tablas)
-│   │   └── migrations.ts         # Sistema de migraciones
-│   │
-│   ├── repositories/             # Capa de datos
-│   │   └── survey-repository.ts  # CRUD de encuestas
-│   │
-│   └── utils.ts                  # Utilidades generales
+├── lib/ # 🆕 Core business logic
+│ ├── db/ # Base de datos
+│ │ ├── index.ts # Cliente SQLite (singleton)
+│ │ ├── schema.ts # Schema completo (8 tablas)
+│ │ └── migrations.ts # Sistema de migraciones
+│ │
+│ ├── repositories/ # Capa de datos
+│ │ └── survey-repository.ts # CRUD de encuestas
+│ │
+│ └── utils.ts # Utilidades generales
 │
-├── scripts/                       # Scripts de desarrollo
-│   ├── reset-project.js
-│   └── validate-phase1.ts        # Validación (placeholder)
+├── scripts/ # Scripts de desarrollo
+│ ├── reset-project.js
+│ └── validate-phase1.ts # Validación (placeholder)
 │
 ├── .gitignore
-├── app.json                       # Configuración de Expo
+├── app.json # Configuración de Expo
 ├── eslint.config.js
 ├── package.json
-├── README.md                      # Este archivo
+├── README.md # Este archivo
 └── tsconfig.json
+
 ```
 
 ### 📊 Estadísticas del Proyecto
@@ -183,10 +272,12 @@ brigadaFrontEnd/
 ### Estructura
 
 ```
+
 lib/db/
-├── index.ts           # Cliente SQLite (singleton)
-├── schema.ts          # Schema completo (8 tablas)
-└── migrations.ts      # Sistema de migraciones versionado
+├── index.ts # Cliente SQLite (singleton)
+├── schema.ts # Schema completo (8 tablas)
+└── migrations.ts # Sistema de migraciones versionado
+
 ```
 
 **Tablas principales**:
@@ -202,8 +293,10 @@ lib/db/
 ### Repositorios (Business Logic)
 
 ```
+
 lib/repositories/
-└── survey-repository.ts   # Lógica completa de encuestas
+└── survey-repository.ts # Lógica completa de encuestas
+
 ```
 
 **Métodos principales**:
@@ -219,9 +312,11 @@ lib/repositories/
 ### Utilidades
 
 ```
+
 lib/
-└── utils.ts          # UUIDs, validaciones, retry, SHA256
-```
+└── utils.ts # UUIDs, validaciones, retry, SHA256
+
+````
 
 ---
 
@@ -231,7 +326,7 @@ lib/
 
 ```bash
 npm install
-```
+````
 
 ### 2. Verificar Setup
 

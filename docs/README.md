@@ -55,6 +55,24 @@
   - Seguridad y encriptación
   - **Tiempo de lectura: 30 minutos**
 
+- **[ARCHITECTURE_NEW.md](./ARCHITECTURE_NEW.md)** ⭐⭐⭐ **NUEVO**
+  - Nueva estructura de carpetas feature-based
+  - Sistema de preguntas dinámicas
+  - Motor de encuestas (SurveyEngine)
+  - Estado global con Zustand
+  - Componentes UI reutilizables
+  - Flujo de datos completo
+  - **Tiempo de lectura: 25 minutos**
+
+- **[FORMS_SYSTEM.md](./FORMS_SYSTEM.md)** ⭐⭐ **NUEVO** 📝
+  - **Dos sistemas de formularios diferentes**
+  - Sistema Custom para encuestas dinámicas (QuestionRenderer)
+  - React Hook Form SOLO para login/registro
+  - Tabla comparativa y cuándo usar cada uno
+  - Anti-patrones y mejores prácticas
+  - **Tiempo de lectura: 15 minutos**
+  - **⚠️ LEER ANTES de implementar formularios**
+
 ---
 
 ### 💾 Base de Datos
@@ -207,6 +225,8 @@
 | ------------------------- | ----------------- | -------------- | ----------- |
 | EXECUTIVE_SUMMARY.md      | ~300              | 10 min         | Feb 2026    |
 | ARCHITECTURE.md           | ~600              | 30 min         | Feb 2026    |
+| ARCHITECTURE_NEW.md       | ~270              | 25 min         | Feb 2026 🆕 |
+| FORMS_SYSTEM.md           | ~450              | 15 min         | Feb 2026 🆕 |
 | SCHEMAS_EXAMPLES.md       | ~400              | 20 min         | Feb 2026    |
 | METADATA_GUIDE.md         | ~400              | 20 min         | Feb 2026 ✨ |
 | MIGRATIONS_GUIDE.md       | ~500              | 30 min         | Feb 2026 ✨ |
@@ -217,9 +237,10 @@
 | CHEATSHEET.md             | ~200              | 20 min         | Feb 2026    |
 | CHANGELOG_v2.md           | ~350              | 10 min         | Feb 2026 ✨ |
 | REORGANIZATION_SUMMARY.md | ~250              | 10 min         | Feb 2026 ✨ |
-| **TOTAL**                 | **~4,500 líneas** | **3.5 horas**  |             |
+| **TOTAL**                 | **~5,200 líneas** | **4 horas**    |             |
 
-✨ = Nuevo en v2
+✨ = Nuevo en v2  
+🆕 = Nueva arquitectura (Feb 2026)
 
 ---
 
@@ -228,6 +249,10 @@
 ### Quiero aprender sobre...
 
 - **Offline-first**: → [ARCHITECTURE.md](./ARCHITECTURE.md) - Sección "Principios"
+- **Nueva arquitectura**: → [ARCHITECTURE_NEW.md](./ARCHITECTURE_NEW.md) ⭐ **NUEVO**
+- **Sistema de formularios**: → [FORMS_SYSTEM.md](./FORMS_SYSTEM.md) ⭐ **IMPORTANTE**
+- **React Hook Form vs Custom**: → [FORMS_SYSTEM.md](./FORMS_SYSTEM.md) ⭐⭐
+- **Preguntas dinámicas**: → [ARCHITECTURE_NEW.md](./ARCHITECTURE_NEW.md) - QuestionRenderer
 - **SQLite y Drizzle**: → [MIGRATIONS_GUIDE.md](./MIGRATIONS_GUIDE.md)
 - **Cómo funcionan las migraciones**: → [MIGRATIONS_LIFECYCLE.md](./MIGRATIONS_LIFECYCLE.md) ⭐
 - **De dónde vienen las migraciones**: → [MIGRATIONS_LIFECYCLE.md](./MIGRATIONS_LIFECYCLE.md) ⭐
@@ -243,6 +268,9 @@
 
 ### Necesito implementar...
 
+- **Un tipo de pregunta**: → [FORMS_SYSTEM.md](./FORMS_SYSTEM.md) - Sistema Custom
+- **Login/Registro**: → [FORMS_SYSTEM.md](./FORMS_SYSTEM.md) - React Hook Form
+- **Formulario dinámico**: → [ARCHITECTURE_NEW.md](./ARCHITECTURE_NEW.md) - QuestionRenderer
 - **Inicialización de BD**: → [NEXT_STEPS.md](./NEXT_STEPS.md) - Paso 1
 - **Seed data**: → [NEXT_STEPS.md](./NEXT_STEPS.md) - Paso 2
 - **Hook de usuario**: → [NEXT_STEPS.md](./NEXT_STEPS.md) - Paso 3
