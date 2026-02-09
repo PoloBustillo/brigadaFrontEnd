@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "brigadaFrontEnd",
-    "slug": "brigadaFrontEnd",
+    "slug": "brigada2026",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -38,11 +38,19 @@
             "backgroundColor": "#000000"
           }
         }
-      ]
+      ],
+      "expo-sqlite"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "890c536e-b2c7-458b-b2fe-82e76ae87bff"
+      }
+    },
+    "owner": "polobustillo88"
   }
 }
