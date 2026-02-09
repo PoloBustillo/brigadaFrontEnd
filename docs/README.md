@@ -48,12 +48,44 @@
 - **[ARCHITECTURE.md](./ARCHITECTURE.md)** ⭐⭐⭐
   - Arquitectura completa del sistema
   - Principios offline-first
-  - Modelo de datos (8 tablas)
-  - Sistema de guardado inmediato
-  - Estrategia de sincronización
-  - Manejo de archivos e imágenes
-  - Seguridad y encriptación
+  - Modelo de datos detallado (8 tablas)
+  - Flujos de guardado inmediato
+  - Sistema de sincronización
+  - Roadmap de 6 fases
   - **Tiempo de lectura: 30 minutos**
+
+- **[ARCHITECTURE_NEW.md](./ARCHITECTURE_NEW.md)** ⭐⭐ 🆕
+  - Nueva arquitectura feature-based
+  - Organización por features (questions/, surveys/, sync/)
+  - Principios de diseño
+  - Componentes clave
+  - Flujo de datos
+  - **Tiempo de lectura: 20 minutos**
+
+- **[SURVEY_SCHEMA.md](./SURVEY_SCHEMA.md)** ⭐⭐⭐ 🔥 **NUEVO**
+  - ⚠️ **DOCUMENTO CLAVE**: Especificación completa del schema JSON
+  - 18+ tipos de preguntas soportados
+  - Validaciones declarativas
+  - Lógica condicional (AND/OR)
+  - Campo especial INE + OCR
+  - Metadata automática
+  - 3 ejemplos completos y realistas:
+    - Censo poblacional básico
+    - Registro con captura de INE + OCR automático
+    - Encuesta de salud con lógica condicional compleja
+  - Mejores prácticas de diseño
+  - Versionado semántico explicado
+  - **Tiempo de lectura: 30 minutos**
+  - **📌 LECTURA OBLIGATORIA antes de diseñar encuestas**
+
+---
+
+- Modelo de datos (8 tablas)
+- Sistema de guardado inmediato
+- Estrategia de sincronización
+- Manejo de archivos e imágenes
+- Seguridad y encriptación
+- **Tiempo de lectura: 30 minutos**
 
 - **[ARCHITECTURE_NEW.md](./ARCHITECTURE_NEW.md)** ⭐⭐⭐ **NUEVO**
   - Nueva estructura de carpetas feature-based
@@ -221,26 +253,28 @@
 
 ## 📊 Estadísticas de Documentación
 
-| Documento                 | Líneas            | Tiempo Lectura | Actualizado |
-| ------------------------- | ----------------- | -------------- | ----------- |
-| EXECUTIVE_SUMMARY.md      | ~300              | 10 min         | Feb 2026    |
-| ARCHITECTURE.md           | ~600              | 30 min         | Feb 2026    |
-| ARCHITECTURE_NEW.md       | ~270              | 25 min         | Feb 2026 🆕 |
-| FORMS_SYSTEM.md           | ~450              | 15 min         | Feb 2026 🆕 |
-| SCHEMAS_EXAMPLES.md       | ~400              | 20 min         | Feb 2026    |
-| METADATA_GUIDE.md         | ~400              | 20 min         | Feb 2026 ✨ |
-| MIGRATIONS_GUIDE.md       | ~500              | 30 min         | Feb 2026 ✨ |
-| MIGRATIONS_VISUAL.md      | ~350              | 15 min         | Feb 2026 ✨ |
-| MIGRATIONS_LIFECYCLE.md   | ~550              | 25 min         | Feb 2026 ✨ |
-| NEXT_STEPS.md             | ~300              | 20 min         | Feb 2026    |
-| README_IMPLEMENTATION.md  | ~300              | 15 min         | Feb 2026    |
-| CHEATSHEET.md             | ~200              | 20 min         | Feb 2026    |
-| CHANGELOG_v2.md           | ~350              | 10 min         | Feb 2026 ✨ |
-| REORGANIZATION_SUMMARY.md | ~250              | 10 min         | Feb 2026 ✨ |
-| **TOTAL**                 | **~5,200 líneas** | **4 horas**    |             |
+| Documento                 | Líneas            | Tiempo Lectura | Actualizado     |
+| ------------------------- | ----------------- | -------------- | --------------- |
+| EXECUTIVE_SUMMARY.md      | ~300              | 10 min         | Feb 2026        |
+| ARCHITECTURE.md           | ~600              | 30 min         | Feb 2026        |
+| ARCHITECTURE_NEW.md       | ~270              | 25 min         | Feb 2026 🆕     |
+| FORMS_SYSTEM.md           | ~450              | 15 min         | Feb 2026 🆕     |
+| **SURVEY_SCHEMA.md**      | **~1,200**        | **30 min**     | **Feb 2026 🔥** |
+| SCHEMAS_EXAMPLES.md       | ~400              | 20 min         | Feb 2026        |
+| METADATA_GUIDE.md         | ~400              | 20 min         | Feb 2026 ✨     |
+| MIGRATIONS_GUIDE.md       | ~500              | 30 min         | Feb 2026 ✨     |
+| MIGRATIONS_VISUAL.md      | ~350              | 15 min         | Feb 2026 ✨     |
+| MIGRATIONS_LIFECYCLE.md   | ~550              | 25 min         | Feb 2026 ✨     |
+| NEXT_STEPS.md             | ~300              | 20 min         | Feb 2026        |
+| README_IMPLEMENTATION.md  | ~300              | 15 min         | Feb 2026        |
+| CHEATSHEET.md             | ~200              | 20 min         | Feb 2026        |
+| CHANGELOG_v2.md           | ~350              | 10 min         | Feb 2026 ✨     |
+| REORGANIZATION_SUMMARY.md | ~250              | 10 min         | Feb 2026 ✨     |
+| **TOTAL**                 | **~6,400 líneas** | **4.5 horas**  |                 |
 
 ✨ = Nuevo en v2  
-🆕 = Nueva arquitectura (Feb 2026)
+🆕 = Nueva arquitectura (Feb 2026)  
+🔥 = Recién agregado (Feb 9, 2026)
 
 ---
 
@@ -253,6 +287,12 @@
 - **Sistema de formularios**: → [FORMS_SYSTEM.md](./FORMS_SYSTEM.md) ⭐ **IMPORTANTE**
 - **React Hook Form vs Custom**: → [FORMS_SYSTEM.md](./FORMS_SYSTEM.md) ⭐⭐
 - **Preguntas dinámicas**: → [ARCHITECTURE_NEW.md](./ARCHITECTURE_NEW.md) - QuestionRenderer
+- **Schema JSON de encuestas**: → [SURVEY_SCHEMA.md](./SURVEY_SCHEMA.md) ⭐⭐⭐ 🔥 **NUEVO**
+- **Tipos de preguntas (18+)**: → [SURVEY_SCHEMA.md](./SURVEY_SCHEMA.md) - QuestionType enum
+- **Validaciones declarativas**: → [SURVEY_SCHEMA.md](./SURVEY_SCHEMA.md) - Sección "Validaciones"
+- **Lógica condicional**: → [SURVEY_SCHEMA.md](./SURVEY_SCHEMA.md) - ConditionalRule + ejemplos
+- **Captura de INE + OCR**: → [SURVEY_SCHEMA.md](./SURVEY_SCHEMA.md) - Ejemplo 2
+- **Versionado de encuestas**: → [SURVEY_SCHEMA.md](./SURVEY_SCHEMA.md) - Sección "Versionado"
 - **SQLite y Drizzle**: → [MIGRATIONS_GUIDE.md](./MIGRATIONS_GUIDE.md)
 - **Cómo funcionan las migraciones**: → [MIGRATIONS_LIFECYCLE.md](./MIGRATIONS_LIFECYCLE.md) ⭐
 - **De dónde vienen las migraciones**: → [MIGRATIONS_LIFECYCLE.md](./MIGRATIONS_LIFECYCLE.md) ⭐
@@ -262,7 +302,6 @@
 - **Migraciones**: → [MIGRATIONS_LIFECYCLE.md](./MIGRATIONS_LIFECYCLE.md) + [MIGRATIONS_GUIDE.md](./MIGRATIONS_GUIDE.md) + [MIGRATIONS_VISUAL.md](./MIGRATIONS_VISUAL.md)
 - **Metadata adicional**: → [METADATA_GUIDE.md](./METADATA_GUIDE.md)
 - **Validación de encuestas**: → [METADATA_GUIDE.md](./METADATA_GUIDE.md) - Sección "Validación"
-- **Captura de INE**: → [SCHEMAS_EXAMPLES.md](./SCHEMAS_EXAMPLES.md) - Ejemplo 3
 - **Testing**: → [NEXT_STEPS.md](./NEXT_STEPS.md) - Paso 5
 - **Snippets de código**: → [CHEATSHEET.md](./CHEATSHEET.md)
 
@@ -271,6 +310,10 @@
 - **Un tipo de pregunta**: → [FORMS_SYSTEM.md](./FORMS_SYSTEM.md) - Sistema Custom
 - **Login/Registro**: → [FORMS_SYSTEM.md](./FORMS_SYSTEM.md) - React Hook Form
 - **Formulario dinámico**: → [ARCHITECTURE_NEW.md](./ARCHITECTURE_NEW.md) - QuestionRenderer
+- **Nueva encuesta (schema)**: → [SURVEY_SCHEMA.md](./SURVEY_SCHEMA.md) 🔥 **NUEVO**
+- **Campo especial (firma, INE)**: → [SURVEY_SCHEMA.md](./SURVEY_SCHEMA.md) - IneOcrConfig
+- **Pregunta condicional**: → [SURVEY_SCHEMA.md](./SURVEY_SCHEMA.md) - ConditionalRule
+- **Validación custom**: → [SURVEY_SCHEMA.md](./SURVEY_SCHEMA.md) - ValidationRules
 - **Inicialización de BD**: → [NEXT_STEPS.md](./NEXT_STEPS.md) - Paso 1
 - **Seed data**: → [NEXT_STEPS.md](./NEXT_STEPS.md) - Paso 2
 - **Hook de usuario**: → [NEXT_STEPS.md](./NEXT_STEPS.md) - Paso 3
@@ -287,6 +330,7 @@
 - **BD desincronizada**: → [MIGRATIONS_GUIDE.md](./MIGRATIONS_GUIDE.md) - Problema 4
 - **Tests de migraciones**: → [MIGRATIONS_GUIDE.md](./MIGRATIONS_GUIDE.md) - "Testing"
 - **Validación de datos**: → [NEXT_STEPS.md](./NEXT_STEPS.md) - Paso 5
+- **Schema JSON no válido**: → [SURVEY_SCHEMA.md](./SURVEY_SCHEMA.md) - Mejores prácticas 🔥
 
 ---
 
