@@ -78,6 +78,19 @@
   - **Tiempo de lectura: 30 minutos**
   - **📌 LECTURA OBLIGATORIA antes de diseñar encuestas**
 
+- **[DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md)** ⭐⭐⭐ 🔥 **NUEVO**
+  - ⚠️ **DOCUMENTO ESENCIAL**: Schema completo de SQLite
+  - 7 tablas principales + 3 vistas útiles
+  - Sincronización offline-first con cola de reintentos
+  - Gestión de archivos locales (INE, fotos, firmas)
+  - Triggers automáticos de auditoría
+  - Índices optimizados para queries frecuentes
+  - Estrategia de versionado y migración
+  - 10+ queries comunes documentadas
+  - Relaciones y foreign keys explicadas
+  - **Tiempo de lectura: 35 minutos**
+  - **📌 LECTURA OBLIGATORIA antes de implementar persistencia**
+
 ---
 
 - Modelo de datos (8 tablas)
@@ -108,6 +121,61 @@
 ---
 
 ### 💾 Base de Datos
+
+- **[DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md)** ⭐⭐⭐ 🔥 **ESENCIAL**
+  - Schema completo de SQLite (7 tablas + 3 vistas)
+  - Sincronización offline-first
+  - Gestión de archivos locales
+  - Triggers y auditoría
+  - 10+ queries comunes
+  - **Tiempo de lectura: 35 minutos**
+  - **📌 LECTURA OBLIGATORIA antes de implementar persistencia**
+
+- **[DATA_ACCESS_LAYER.md](./DATA_ACCESS_LAYER.md)** ⭐⭐⭐ 🔥 **NUEVO**
+  - **Guía completa de la capa de acceso a datos**
+  - **4 Repositorios implementados** (44+ métodos)
+  - DatabaseManager (conexión + transacciones)
+  - SurveyRepository (8 métodos)
+  - ResponseRepository (17 métodos) - CORE
+  - SyncRepository (8 métodos)
+  - FileRepository (15 métodos) - Actualizado para Cloudinary
+  - Ejemplos completos de uso
+  - Mejores prácticas
+  - Troubleshooting
+  - **Tiempo de lectura: 40 minutos**
+  - **📌 GUÍA DEFINITIVA para usar repositorios**
+
+- **[CLOUDINARY_INTEGRATION.md](./CLOUDINARY_INTEGRATION.md)** ⭐⭐⭐ 🔥 **NUEVO**
+  - **Arquitectura completa de upload con Cloudinary**
+  - Flujo de signed uploads (seguro)
+  - Implementación Backend (FastAPI)
+  - Implementación Mobile (React Native)
+  - Seguridad y autorización
+  - Metadata en PostgreSQL vs SQLite
+  - 3 casos de uso completos
+  - Troubleshooting
+  - **Tiempo de lectura: 45 minutos**
+  - **📌 LECTURA OBLIGATORIA antes de implementar uploads**
+
+- **Capa de Acceso a Datos (Repositories)** ⭐⭐⭐ 🔥 **ACTUALIZADO**
+  - **Ubicación**: `lib/db/repositories/`
+  - **4 Repositorios implementados**:
+    - **SurveyRepository**: CRUD de encuestas (8 métodos)
+    - **ResponseRepository**: Lifecycle de respuestas (17 métodos) - CORE
+    - **SyncRepository**: Cola de sincronización (8 métodos)
+    - **FileRepository**: Gestión de archivos locales (11 métodos)
+  - **Total: 44+ métodos** disponibles
+  - **Características clave**:
+    - ✅ Guardado inmediato (createResponse)
+    - ✅ Auto-save en cada pregunta (updateAnswers)
+    - ✅ Progress tracking (getResponseProgress)
+    - ✅ Sync queue con prioridades
+    - ✅ Manejo de archivos (fotos, INE, firmas)
+    - ✅ OCR data storage
+    - ✅ Transaction support
+  - **Ver ejemplos de uso**: `lib/db/index.ts` (80 líneas de docs)
+  - **Tiempo de revisión: 30 minutos** (código + ejemplos)
+  - **📌 Usar estos repositorios para TODA interacción con BD**
 
 - **[MIGRATIONS_GUIDE.md](./MIGRATIONS_GUIDE.md)** ⭐⭐ 🔄
   - Sistema de migraciones explicado paso a paso
@@ -253,28 +321,43 @@
 
 ## 📊 Estadísticas de Documentación
 
-| Documento                 | Líneas            | Tiempo Lectura | Actualizado     |
-| ------------------------- | ----------------- | -------------- | --------------- |
-| EXECUTIVE_SUMMARY.md      | ~300              | 10 min         | Feb 2026        |
-| ARCHITECTURE.md           | ~600              | 30 min         | Feb 2026        |
-| ARCHITECTURE_NEW.md       | ~270              | 25 min         | Feb 2026 🆕     |
-| FORMS_SYSTEM.md           | ~450              | 15 min         | Feb 2026 🆕     |
-| **SURVEY_SCHEMA.md**      | **~1,200**        | **30 min**     | **Feb 2026 🔥** |
-| SCHEMAS_EXAMPLES.md       | ~400              | 20 min         | Feb 2026        |
-| METADATA_GUIDE.md         | ~400              | 20 min         | Feb 2026 ✨     |
-| MIGRATIONS_GUIDE.md       | ~500              | 30 min         | Feb 2026 ✨     |
-| MIGRATIONS_VISUAL.md      | ~350              | 15 min         | Feb 2026 ✨     |
-| MIGRATIONS_LIFECYCLE.md   | ~550              | 25 min         | Feb 2026 ✨     |
-| NEXT_STEPS.md             | ~300              | 20 min         | Feb 2026        |
-| README_IMPLEMENTATION.md  | ~300              | 15 min         | Feb 2026        |
-| CHEATSHEET.md             | ~200              | 20 min         | Feb 2026        |
-| CHANGELOG_v2.md           | ~350              | 10 min         | Feb 2026 ✨     |
-| REORGANIZATION_SUMMARY.md | ~250              | 10 min         | Feb 2026 ✨     |
-| **TOTAL**                 | **~6,400 líneas** | **4.5 horas**  |                 |
+| Documento                     | Líneas            | Tiempo Lectura | Actualizado       |
+| ----------------------------- | ----------------- | -------------- | ----------------- |
+| EXECUTIVE_SUMMARY.md          | ~300              | 10 min         | Feb 2026          |
+| ARCHITECTURE.md               | ~600              | 30 min         | Feb 2026          |
+| ARCHITECTURE_NEW.md           | ~270              | 25 min         | Feb 2026 🆕       |
+| FORMS_SYSTEM.md               | ~450              | 15 min         | Feb 2026 🆕       |
+| **SURVEY_SCHEMA.md**          | **~1,200**        | **30 min**     | **Feb 2026 🔥**   |
+| **DATABASE_SCHEMA.md**        | **~950**          | **35 min**     | **Feb 2026 🔥**   |
+| **DATA_ACCESS_LAYER.md**      | **~800**          | **40 min**     | **Feb 2026 🔥**   |
+| **CLOUDINARY_INTEGRATION.md** | **~1,100**        | **45 min**     | **Feb 9 2026 🔥** |
+| SCHEMAS_EXAMPLES.md           | ~400              | 20 min         | Feb 2026          |
+| METADATA_GUIDE.md             | ~400              | 20 min         | Feb 2026 ✨       |
+| MIGRATIONS_GUIDE.md           | ~500              | 30 min         | Feb 2026 ✨       |
+| MIGRATIONS_VISUAL.md          | ~350              | 15 min         | Feb 2026 ✨       |
+| MIGRATIONS_LIFECYCLE.md       | ~550              | 25 min         | Feb 2026 ✨       |
+| NEXT_STEPS.md                 | ~300              | 20 min         | Feb 2026          |
+| README_IMPLEMENTATION.md      | ~300              | 15 min         | Feb 2026          |
+| CHEATSHEET.md                 | ~200              | 20 min         | Feb 2026          |
+| CHANGELOG_v2.md               | ~350              | 10 min         | Feb 2026 ✨       |
+| REORGANIZATION_SUMMARY.md     | ~250              | 10 min         | Feb 2026 ✨       |
+| **TOTAL Documentos**          | **~9,270 líneas** | **6.4 horas**  |                   |
+
+**+ Código de Repositorios (TypeScript)**:
+
+- **DatabaseManager**: ~100 líneas (database.ts)
+- **SurveyRepository**: ~200 líneas (8 métodos)
+- **ResponseRepository**: ~450 líneas (17 métodos) - CORE
+- **SyncRepository**: ~200 líneas (8 métodos)
+- **FileRepository**: ~430 líneas (15 métodos) - **Actualizado para Cloudinary**
+- **Index + Exports**: ~150 líneas (ejemplos de uso)
+- **TOTAL Código**: **~1,530 líneas** (48+ métodos)
+
+**TOTAL PROYECTO**: **~10,800 líneas** (documentación + código)
 
 ✨ = Nuevo en v2  
 🆕 = Nueva arquitectura (Feb 2026)  
-🔥 = Recién agregado (Feb 9, 2026)
+🔥 = Recién agregado/actualizado (Feb 9, 2026)
 
 ---
 
@@ -293,6 +376,12 @@
 - **Lógica condicional**: → [SURVEY_SCHEMA.md](./SURVEY_SCHEMA.md) - ConditionalRule + ejemplos
 - **Captura de INE + OCR**: → [SURVEY_SCHEMA.md](./SURVEY_SCHEMA.md) - Ejemplo 2
 - **Versionado de encuestas**: → [SURVEY_SCHEMA.md](./SURVEY_SCHEMA.md) - Sección "Versionado"
+- **Base de datos SQLite**: → [DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md) ⭐⭐⭐ 🔥 **NUEVO**
+- **Tablas y relaciones**: → [DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md) - Sección "Tablas Principales"
+- **Sincronización offline**: → [DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md) - sync_queue
+- **Gestión de archivos locales**: → [DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md) - local_files
+- **Auditoría y triggers**: → [DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md) - Sección "Triggers"
+- **Queries útiles**: → [DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md) - Sección "Queries Comunes"
 - **SQLite y Drizzle**: → [MIGRATIONS_GUIDE.md](./MIGRATIONS_GUIDE.md)
 - **Cómo funcionan las migraciones**: → [MIGRATIONS_LIFECYCLE.md](./MIGRATIONS_LIFECYCLE.md) ⭐
 - **De dónde vienen las migraciones**: → [MIGRATIONS_LIFECYCLE.md](./MIGRATIONS_LIFECYCLE.md) ⭐
@@ -314,6 +403,11 @@
 - **Campo especial (firma, INE)**: → [SURVEY_SCHEMA.md](./SURVEY_SCHEMA.md) - IneOcrConfig
 - **Pregunta condicional**: → [SURVEY_SCHEMA.md](./SURVEY_SCHEMA.md) - ConditionalRule
 - **Validación custom**: → [SURVEY_SCHEMA.md](./SURVEY_SCHEMA.md) - ValidationRules
+- **Persistencia en SQLite**: → [DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md) 🔥 **NUEVO**
+- **Tabla nueva en BD**: → [DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md) + [MIGRATIONS_GUIDE.md](./MIGRATIONS_GUIDE.md)
+- **Query compleja**: → [DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md) - Queries Comunes
+- **Vista SQL**: → [DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md) - Sección "Vistas"
+- **Trigger automático**: → [DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md) - Sección "Triggers"
 - **Inicialización de BD**: → [NEXT_STEPS.md](./NEXT_STEPS.md) - Paso 1
 - **Seed data**: → [NEXT_STEPS.md](./NEXT_STEPS.md) - Paso 2
 - **Hook de usuario**: → [NEXT_STEPS.md](./NEXT_STEPS.md) - Paso 3
@@ -331,6 +425,10 @@
 - **Tests de migraciones**: → [MIGRATIONS_GUIDE.md](./MIGRATIONS_GUIDE.md) - "Testing"
 - **Validación de datos**: → [NEXT_STEPS.md](./NEXT_STEPS.md) - Paso 5
 - **Schema JSON no válido**: → [SURVEY_SCHEMA.md](./SURVEY_SCHEMA.md) - Mejores prácticas 🔥
+- **Query lenta en SQLite**: → [DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md) - Índices 🔥
+- **Sincronización fallida**: → [DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md) - sync_queue 🔥
+- **Archivo no sube**: → [DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md) - local_files 🔥
+- **Respuestas huérfanas**: → [DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md) - Foreign Keys 🔥
 
 ---
 

@@ -595,16 +595,19 @@ eas build:download [BUILD_ID]
 
 El proyecto incluye documentación exhaustiva en la carpeta `docs/`:
 
-| Documento                                                  | Descripción                     | Tiempo Lectura |
-| ---------------------------------------------------------- | ------------------------------- | -------------- |
-| [`docs/README.md`](./docs/README.md)                       | Índice de toda la documentación | 5 min          |
-| [`docs/EXECUTIVE_SUMMARY.md`](./docs/EXECUTIVE_SUMMARY.md) | Resumen ejecutivo del proyecto  | 10 min         |
-| [`docs/ARCHITECTURE_NEW.md`](./docs/ARCHITECTURE_NEW.md)   | ⭐ Arquitectura feature-based   | 20 min         |
-| [`docs/FORMS_SYSTEM.md`](./docs/FORMS_SYSTEM.md)           | ⭐ Dos sistemas de formularios  | 15 min         |
-| [`docs/SURVEY_SCHEMA.md`](./docs/SURVEY_SCHEMA.md)         | 🔥 **Schema JSON de encuestas** | 30 min         |
-| [`docs/NEXT_STEPS.md`](./docs/NEXT_STEPS.md)               | Roadmap de implementación       | 10 min         |
-| [`DEPENDENCIES.md`](./DEPENDENCIES.md)                     | Lista completa de dependencias  | 5 min          |
-| [`STRUCTURE_SUMMARY.md`](./STRUCTURE_SUMMARY.md)           | Resumen de estructura creada    | 10 min         |
+| Documento                                                            | Descripción                     | Tiempo Lectura |
+| -------------------------------------------------------------------- | ------------------------------- | -------------- |
+| [`docs/README.md`](./docs/README.md)                                 | Índice de toda la documentación | 5 min          |
+| [`docs/EXECUTIVE_SUMMARY.md`](./docs/EXECUTIVE_SUMMARY.md)           | Resumen ejecutivo del proyecto  | 10 min         |
+| [`docs/ARCHITECTURE_NEW.md`](./docs/ARCHITECTURE_NEW.md)             | ⭐ Arquitectura feature-based   | 20 min         |
+| [`docs/FORMS_SYSTEM.md`](./docs/FORMS_SYSTEM.md)                     | ⭐ Dos sistemas de formularios  | 15 min         |
+| [`docs/SURVEY_SCHEMA.md`](./docs/SURVEY_SCHEMA.md)                   | 🔥 **Schema JSON de encuestas** | 30 min         |
+| [`docs/DATABASE_SCHEMA.md`](./docs/DATABASE_SCHEMA.md)               | 🔥 **Schema SQLite completo**   | 35 min         |
+| [`docs/DATA_ACCESS_LAYER.md`](./docs/DATA_ACCESS_LAYER.md)           | 🔥 **Guía de Repositorios**     | 40 min         |
+| [`docs/CLOUDINARY_INTEGRATION.md`](./docs/CLOUDINARY_INTEGRATION.md) | 🔥 **Upload con Cloudinary**    | 45 min         |
+| [`docs/NEXT_STEPS.md`](./docs/NEXT_STEPS.md)                         | Roadmap de implementación       | 10 min         |
+| [`DEPENDENCIES.md`](./DEPENDENCIES.md)                               | Lista completa de dependencias  | 5 min          |
+| [`STRUCTURE_SUMMARY.md`](./STRUCTURE_SUMMARY.md)                     | Resumen de estructura creada    | 10 min         |
 
 ### 🔥 Documento Destacado: Survey Schema
 
@@ -621,6 +624,67 @@ El proyecto incluye documentación exhaustiva en la carpeta `docs/`:
   - Encuesta de salud con lógica compleja (13 preguntas condicionales)
 
 **📌 Lectura obligatoria antes de diseñar encuestas**
+
+### 🔥 Documento Destacado: Database Schema
+
+**[`docs/DATABASE_SCHEMA.md`](./docs/DATABASE_SCHEMA.md)** es el schema completo de SQLite para la app móvil:
+
+- ✅ **7 tablas principales**: surveys, responses, local_files, sync_queue, audit_log, etc.
+- ✅ **3 vistas útiles**: v_responses_with_surveys, v_sync_status, v_brigadista_stats
+- ✅ **Sincronización offline-first**: Cola de reintentos con prioridades
+- ✅ **Gestión de archivos**: Local storage para INE, fotos, firmas con OCR data
+- ✅ **Triggers automáticos**: Auditoría, timestamps, foreign keys
+- ✅ **Índices optimizados**: Para queries frecuentes y performance
+- ✅ **10+ queries comunes**: Documentadas con ejemplos
+- ✅ **Estrategia de migración**: Versionado semántico del schema
+
+**📌 Lectura obligatoria antes de implementar persistencia**
+
+### 🔥 Documento Destacado: Data Access Layer
+
+**[`docs/DATA_ACCESS_LAYER.md`](./docs/DATA_ACCESS_LAYER.md)** es la guía completa de la capa de acceso a datos (Repositories):
+
+- ✅ **4 Repositorios implementados**: 44+ métodos disponibles
+- ✅ **SurveyRepository**: CRUD de encuestas (8 métodos)
+- ✅ **ResponseRepository**: Lifecycle de respuestas (17 métodos) - CORE
+  - `createResponse()` - Guardado inmediato
+  - `updateAnswers()` - Auto-save en cada pregunta
+  - `getResponseProgress()` - Progress tracking en tiempo real
+  - `markAsSynced()` - Gestión de sincronización
+- ✅ **SyncRepository**: Cola de sincronización con prioridades (8 métodos)
+- ✅ **FileRepository**: Gestión de archivos locales (11 métodos)
+  - Fotos, INE (front/back), firmas
+  - OCR data storage
+  - Cleanup automático
+- ✅ **DatabaseManager**: Singleton con soporte de transacciones
+- ✅ **Ejemplos completos de uso**: Código listo para copiar y pegar
+- ✅ **Mejores prácticas**: Do's y Don'ts documentados
+- ✅ **Troubleshooting**: Soluciones a problemas comunes
+
+**📌 Guía definitiva para usar repositorios - NO acceder directamente a SQLite**
+
+### 🔥 Documento Destacado: Cloudinary Integration
+
+**[`docs/CLOUDINARY_INTEGRATION.md`](./docs/CLOUDINARY_INTEGRATION.md)** es la arquitectura completa de upload con Cloudinary:
+
+- ✅ **Signed Uploads**: Seguridad con firmas del backend
+- ✅ **Flujo offline-first**: Captura offline → Upload cuando hay conexión
+- ✅ **Backend FastAPI**: Endpoints completos con autenticación
+- ✅ **Mobile React Native**: Servicio de upload con progress tracking
+- ✅ **Metadata dual**: PostgreSQL (backend) + SQLite (mobile)
+- ✅ **3 casos de uso completos**:
+  - Upload de INE con OCR
+  - Captura de firma digital
+  - Múltiples fotos
+- ✅ **Seguridad**:
+  - Autenticación con JWT
+  - Autorización por usuario
+  - Rate limiting
+  - Validación de metadata
+  - Expiración de firmas (1 hora)
+- ✅ **Troubleshooting**: Soluciones a errores comunes
+
+**📌 Lectura obligatoria antes de implementar uploads de archivos**
 
 ### Inicio Rápido para Desarrolladores
 

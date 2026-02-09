@@ -526,6 +526,246 @@ export interface IneOcrConfig {
 }
 
 // ============================================================================
+// RESPUESTAS DE ENCUESTAS
+// ============================================================================
+
+/**
+ * Respuesta completa de una encuesta
+ *
+ * Formato JSON inmutable para guardar respuestas de encuestas.
+ * Una vez guardada, no se puede modificar (solo crear nueva versión).
+ *
+ * @example
+ * ```json
+ * {
+ *   "id": "resp-uuid-1234",
+ *   "surveyId": "censo-2026-v1",
+ *   "surveyVersion": "1.0.0",
+ *   "status": "completed",
+ *   "answers": {
+ *     "q1-nombre": { "questionId": "q1-nombre", "value": "Juan Pérez", "answeredAt": "2026-02-09T10:30:00Z" },
+ *     "q2-edad": { "questionId": "q2-edad", "value": 35, "answeredAt": "2026-02-09T10:30:15Z" }
+ *   },
+ *   "metadata": { ... },
+ *   "createdAt": "2026-02-09T10:30:00Z",
+ *   "completedAt": "2026-02-09T10:35:00Z",
+ *   "immutable": true
+ * }
+ * ```
+ */
+export interface SurveyResponse {
+  /** UUID único de la respuesta (inmutable) */
+  id: string;
+
+  /** ID de la encuesta respondida */
+  surveyId: string;
+
+  /** Versión exacta del schema usado (major.minor.patch) */
+  surveyVersion: string;
+
+  /** Estado de la respuesta */
+  status: "draft" | "completed" | "validated" | "rejected";
+
+  /** Mapa de respuestas por questionId */
+  answers: Record<string, Answer>;
+
+  /** Metadata automática de la respuesta */
+  metadata: ResponseMetadata;
+
+  /** Fecha/hora de creación (ISO 8601) - inmutable */
+  createdAt: string;
+
+  /** Fecha/hora de última modificación (ISO 8601) */
+  updatedAt: string;
+
+  /** Fecha/hora de completado (ISO 8601) */
+  completedAt: string | null;
+
+  /** Fecha/hora de validación (ISO 8601) */
+  validatedAt: string | null;
+
+  /** Marca de inmutabilidad (true = no se puede editar) */
+  immutable: boolean;
+
+  /** Hash de integridad (SHA-256 de todo el objeto) */
+  integrityHash?: string;
+}
+
+/**
+ * Respuesta individual a una pregunta
+ *
+ * @example
+ * ```json
+ * {
+ *   "questionId": "q1-nombre",
+ *   "questionType": "text",
+ *   "value": "Juan Pérez",
+ *   "answeredAt": "2026-02-09T10:30:00Z",
+ *   "metadata": {
+ *     "editCount": 2,
+ *     "timeSpentSeconds": 15
+ *   }
+ * }
+ * ```
+ */
+export interface Answer {
+  /** ID de la pregunta respondida */
+  questionId: string;
+
+  /** Tipo de pregunta (para validación) */
+  questionType: QuestionType;
+
+  /** Valor de la respuesta (tipo depende de questionType) */
+  value: AnswerValue;
+
+  /** Fecha/hora en que se respondió (ISO 8601) */
+  answeredAt: string;
+
+  /** Metadata adicional de la respuesta */
+  metadata?: AnswerMetadata;
+}
+
+/**
+ * Valor de respuesta (union type según el tipo de pregunta)
+ */
+export type AnswerValue =
+  | string // TEXT, TEXTAREA, EMAIL, PHONE, DATE, TIME, DATETIME
+  | number // NUMBER, RATING, SLIDER
+  | boolean // YES_NO, CHECKBOX (individual)
+  | string[] // MULTI_SELECT, CHECKBOX (multiple)
+  | FileAnswer // PHOTO, SIGNATURE, FILE, INE_OCR
+  | LocationAnswer // LOCATION
+  | null; // Sin respuesta
+
+/**
+ * Respuesta para preguntas de tipo archivo/foto/firma
+ */
+export interface FileAnswer {
+  /** URI local del archivo */
+  uri: string;
+
+  /** Tipo MIME */
+  mimeType: string;
+
+  /** Tamaño en bytes */
+  size: number;
+
+  /** Nombre del archivo */
+  filename: string;
+
+  /** URL remota (después de sincronizar) */
+  remoteUrl?: string;
+
+  /** Caption/descripción opcional */
+  caption?: string;
+
+  /** Thumbnail/preview (base64 o URI) */
+  thumbnail?: string;
+
+  /** Datos OCR extraídos (solo para INE_OCR) */
+  ocrData?: IneOcrData;
+}
+
+/**
+ * Datos extraídos del INE mediante OCR
+ */
+export interface IneOcrData {
+  /** Nombre completo */
+  name?: string;
+
+  /** CURP */
+  curp?: string;
+
+  /** Dirección */
+  address?: string;
+
+  /** Fecha de nacimiento (ISO 8601) */
+  birthdate?: string;
+
+  /** Clave de elector */
+  claveElector?: string;
+
+  /** Sección electoral */
+  seccion?: string;
+
+  /** Distrito electoral */
+  distrito?: string;
+
+  /** Estado */
+  estado?: string;
+
+  /** Año de registro */
+  registro?: string;
+
+  /** Sexo (H/M) */
+  sex?: string;
+
+  /** Municipio */
+  municipio?: string;
+
+  /** Localidad */
+  localidad?: string;
+
+  /** Año de emisión */
+  emision?: string;
+
+  /** Año de vigencia */
+  vigencia?: string;
+
+  /** Nivel de confianza del OCR (0-1) */
+  confidence: number;
+
+  /** Timestamp de procesamiento OCR */
+  processedAt: string;
+}
+
+/**
+ * Respuesta para preguntas de tipo LOCATION
+ */
+export interface LocationAnswer {
+  /** Latitud */
+  latitude: number;
+
+  /** Longitud */
+  longitude: number;
+
+  /** Precisión en metros */
+  accuracy: number;
+
+  /** Altitud (opcional) */
+  altitude?: number;
+
+  /** Dirección formateada (geocoding inverso) */
+  address?: string;
+
+  /** Timestamp de captura */
+  capturedAt: string;
+}
+
+/**
+ * Metadata adicional de una respuesta individual
+ */
+export interface AnswerMetadata {
+  /** Número de veces que se editó */
+  editCount: number;
+
+  /** Tiempo invertido en responder (segundos) */
+  timeSpentSeconds: number;
+
+  /** Fue auto-poblado por OCR */
+  autoPopulated?: boolean;
+
+  /** ID de la pregunta que auto-pobló este valor */
+  autoPopulatedFrom?: string;
+
+  /** La respuesta fue validada manualmente */
+  manuallyValidated?: boolean;
+
+  /** Notas del brigadista */
+  notes?: string;
+}
+
+// ============================================================================
 // METADATA DE RESPUESTAS
 // ============================================================================
 
