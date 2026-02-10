@@ -4,6 +4,7 @@
  * Rules 5: Whitelist required, 22: Offline token, 1-4: User states
  */
 
+import { useAuth } from "@/contexts/auth-context";
 import { ConnectionStatus } from "@/components/shared/connection-status";
 import Alert from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -45,6 +46,7 @@ interface AuthResult {
 
 export default function LoginScreen() {
   const router = useRouter();
+  const { setPendingEmail } = useAuth();
 
   // Form state
   const [email, setEmail] = useState("");
@@ -97,6 +99,10 @@ export default function LoginScreen() {
 
   const checkWhitelist = async (email: string): Promise<boolean> => {
     // TODO: Query whitelist table
+    // Mock data para pruebas - Primera vez: llevar a activación
+    // Usuario de prueba: test@brigada.com
+    const mockWhitelist = ["test@brigada.com", "admin@brigada.com"];
+    
     // const whitelisted = await db
     //   .select()
     //   .from(whitelist)
@@ -107,7 +113,7 @@ export default function LoginScreen() {
 
     // Mock: Allow any email for now
     console.log("Checking whitelist for:", email);
-    return true;
+    return mockWhitelist.includes(email); // Solo emails en la whitelist de prueba
   };
 
   const authenticateUser = async (
@@ -121,6 +127,35 @@ export default function LoginScreen() {
 
     // Mock authentication
     await new Promise((resolve) => setTimeout(resolve, 1500));
+
+    // ⚠️ DATOS DE PRUEBA - Primera vez: Estado INVITED
+    // Email: test@brigada.com | Password: cualquiera
+    // Esto llevará a la pantalla de activación
+    
+    if (email === "test@brigada.com") {
+      return {
+        success: true,
+        user: {
+          id: 1,
+          email,
+          role: "BRIGADISTA",
+          state: "INVITED", // ← Primera vez: necesita activación
+        },
+      };
+    }
+    
+    // Usuario admin de prueba (ya activado)
+    if (email === "admin@brigada.com" && password === "admin123") {
+      return {
+        success: true,
+        user: {
+          id: 2,
+          email,
+          role: "ADMIN",
+          state: "ACTIVE",
+        },
+      };
+    }
 
     // Simulate different scenarios for testing
     const mockUser = {
@@ -174,6 +209,8 @@ export default function LoginScreen() {
     switch (state) {
       case "INVITED":
         // User hasn't activated yet, redirect to activation
+        // GUARDAR email para el flujo de activación
+        setPendingEmail(email);
         setErrorMessage(
           "Tu cuenta aún no ha sido activada. Usa el código de activación.",
         );
@@ -298,8 +335,8 @@ export default function LoginScreen() {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
     >
       <LinearGradient
         colors={["#F5F7FA", "#FFFFFF", "#FFFFFF"]}
@@ -331,10 +368,12 @@ export default function LoginScreen() {
             <Text
               style={styles.logo}
               numberOfLines={1}
+              adjustsFontSizeToFit={true}
+              minimumFontScale={0.7}
               allowFontScaling={false}
               maxFontSizeMultiplier={1}
             >
-              brigadaDigital{" "}
+              brigada Digital
             </Text>
           </View>
 
@@ -471,16 +510,19 @@ const styles = StyleSheet.create({
   header: {
     alignItems: "center",
     marginBottom: 40,
-    paddingHorizontal: 50, // Aumentado aún más
+    paddingHorizontal: 20,
+    width: "100%",
   },
   logo: {
     fontFamily: "Pacifico",
-    fontSize: 46, // Reducido un poco más
+    fontSize: 42,
     color: "#FF1B8D",
-    letterSpacing: -0.5, // LetterSpacing NEGATIVO para comprimir
+    letterSpacing: 0.5,
     textShadowColor: "rgba(255, 27, 141, 0.3)",
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 8,
+    width: "100%",
+    textAlign: "center",
   },
   titleContainer: {
     marginBottom: 24,

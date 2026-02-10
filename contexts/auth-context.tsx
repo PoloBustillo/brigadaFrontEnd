@@ -13,6 +13,8 @@ interface AuthContextType {
   token: string | null;
   loading: boolean;
   isAuthenticated: boolean;
+  pendingEmail: string | null; // Email en proceso de activación
+  setPendingEmail: (email: string | null) => void;
   login: (user: User, token: string) => Promise<void>;
   logout: () => Promise<void>;
   updateUser: (user: User) => Promise<void>;
@@ -25,30 +27,40 @@ const STORAGE_KEYS = {
   USER: "@brigada:user",
   TOKEN: "@brigada:token",
   TOKEN_EXPIRY: "@brigada:token_expiry",
+  PENDING_EMAIL: "@brigada:pending_email", // Email temporal
 };
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [pendingEmail, setPendingEmailState] = useState<string | null>(null);
 
   const clearSession = async () => {
     await Promise.all([
       AsyncStorage.removeItem(STORAGE_KEYS.USER),
       AsyncStorage.removeItem(STORAGE_KEYS.TOKEN),
       AsyncStorage.removeItem(STORAGE_KEYS.TOKEN_EXPIRY),
+      AsyncStorage.removeItem(STORAGE_KEYS.PENDING_EMAIL),
     ]);
     setUser(null);
     setToken(null);
+    setPendingEmailState(null);
   };
 
   const loadSession = async () => {
     try {
-      const [storedUser, storedToken, storedExpiry] = await Promise.all([
+      const [storedUser, storedToken, storedExpiry, storedPendingEmail] = await Promise.all([
         AsyncStorage.getItem(STORAGE_KEYS.USER),
         AsyncStorage.getItem(STORAGE_KEYS.TOKEN),
         AsyncStorage.getItem(STORAGE_KEYS.TOKEN_EXPIRY),
+        AsyncStorage.getItem(STORAGE_KEYS.PENDING_EMAIL),
       ]);
+
+      // Restore pending email if exists
+      if (storedPendingEmail) {
+        setPendingEmailState(storedPendingEmail);
+      }
 
       // Check if token exists and is valid
       if (storedUser && storedToken && storedExpiry) {
@@ -128,11 +140,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const setPendingEmail = async (email: string | null) => {
+    try {
+      if (email) {
+        await AsyncStorage.setItem(STORAGE_KEYS.PENDING_EMAIL, email);
+      } else {
+        await AsyncStorage.removeItem(STORAGE_KEYS.PENDING_EMAIL);
+      }
+      setPendingEmailState(email);
+    } catch (error) {
+      console.error("Error setting pending email:", error);
+    }
+  };
+
   const value: AuthContextType = {
     user,
     token,
     loading,
     isAuthenticated: !!user && !!token,
+    pendingEmail,
+    setPendingEmail,
     login,
     logout,
     updateUser,

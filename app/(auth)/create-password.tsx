@@ -5,6 +5,7 @@
  * Regla 22: Genera token offline de 7 días
  */
 
+import { useAuth } from "@/contexts/auth-context";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
@@ -236,7 +237,8 @@ function checkPasswordStrength(password: string): PasswordStrength {
 
 export default function CreatePasswordScreen() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
+  const { pendingEmail, setPendingEmail } = useAuth();
+  const [email, setEmail] = useState(pendingEmail || "");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -322,6 +324,9 @@ export default function CreatePasswordScreen() {
         "Cuenta Creada",
         "Tu contraseña ha sido configurada exitosamente",
       );
+      
+      // Limpiar email pendiente
+      setPendingEmail(null);
 
       setTimeout(() => {
         // TODO: Navigate based on role from whitelist
@@ -400,18 +405,27 @@ export default function CreatePasswordScreen() {
                 Define una contraseña segura para proteger tu cuenta
               </Text>
 
-              {/* Email Input */}
+              {/* Email Input - BLOQUEADO si viene de activación */}
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Correo Electrónico</Text>
-                <View style={styles.inputWrapper}>
+                <View
+                  style={[
+                    styles.inputWrapper,
+                    pendingEmail && styles.inputWrapperDisabled,
+                  ]}
+                >
                   <Ionicons
                     name="mail-outline"
                     size={20}
-                    color="rgba(255, 255, 255, 0.7)"
+                    color={
+                      pendingEmail
+                        ? "rgba(255, 255, 255, 0.4)"
+                        : "rgba(255, 255, 255, 0.7)"
+                    }
                     style={styles.inputIcon}
                   />
                   <TextInput
-                    style={styles.input}
+                    style={[styles.input, pendingEmail && styles.inputDisabled]}
                     placeholder="tu@email.com"
                     placeholderTextColor="rgba(255, 255, 255, 0.5)"
                     value={email}
@@ -420,8 +434,22 @@ export default function CreatePasswordScreen() {
                     autoCapitalize="none"
                     autoComplete="email"
                     autoCorrect={false}
+                    editable={!pendingEmail}
                   />
+                  {pendingEmail && (
+                    <Ionicons
+                      name="lock-closed"
+                      size={18}
+                      color="rgba(255, 255, 255, 0.5)"
+                      style={styles.lockIcon}
+                    />
+                  )}
                 </View>
+                {pendingEmail && (
+                  <Text style={styles.helperText}>
+                    Email vinculado a tu código de activación
+                  </Text>
+                )}
               </View>
 
               {/* Password Input */}
@@ -706,6 +734,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     height: 56,
   },
+  inputWrapperDisabled: {
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    borderColor: "rgba(255, 255, 255, 0.15)",
+  },
   inputIcon: {
     marginRight: 12,
   },
@@ -714,6 +746,18 @@ const styles = StyleSheet.create({
     ...typography.input,
     color: "#FFFFFF",
     height: "100%",
+  },
+  inputDisabled: {
+    color: "rgba(255, 255, 255, 0.6)",
+  },
+  lockIcon: {
+    marginLeft: 8,
+  },
+  helperText: {
+    ...typography.bodySmall,
+    color: "rgba(255, 255, 255, 0.7)",
+    marginTop: 6,
+    fontStyle: "italic",
   },
   eyeButton: {
     padding: 4,

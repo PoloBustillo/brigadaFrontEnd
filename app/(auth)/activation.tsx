@@ -4,6 +4,7 @@
  * Regla 5: Validación contra whitelist
  */
 
+import { useAuth } from "@/contexts/auth-context";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -276,6 +277,7 @@ function CodeInput({
 
 export default function ActivationScreen() {
   const router = useRouter();
+  const { pendingEmail } = useAuth();
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
@@ -400,7 +402,7 @@ export default function ActivationScreen() {
         </TouchableOpacity>
 
         <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
           style={styles.keyboardAvoid}
         >
           <Animated.View
@@ -413,6 +415,9 @@ export default function ActivationScreen() {
 
             {/* Title */}
             <Text style={styles.title}>Activa tu cuenta</Text>
+            {pendingEmail && (
+              <Text style={styles.emailDisplay}>{pendingEmail}</Text>
+            )}
             <Text style={styles.subtitle}>
               Ingresa tu código de invitación de 6 dígitos
             </Text>
@@ -522,6 +527,17 @@ const styles = StyleSheet.create({
     textShadowColor: "rgba(0, 0, 0, 0.2)",
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 4,
+  },
+  emailDisplay: {
+    ...typography.body,
+    color: "#FFFFFF",
+    textAlign: "center",
+    marginBottom: 8,
+    fontWeight: "600",
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 8,
   },
   subtitle: {
     ...typography.body,
