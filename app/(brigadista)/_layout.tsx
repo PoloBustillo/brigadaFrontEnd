@@ -37,7 +37,7 @@ export default function BrigadistaLayout() {
           }}
         />
         <Tabs.Screen
-          name="surveys"
+          name="surveys/index"
           options={{
             title: "Mis Encuestas",
             tabBarIcon: ({ color }) => (
@@ -46,7 +46,7 @@ export default function BrigadistaLayout() {
           }}
         />
         <Tabs.Screen
-          name="responses"
+          name="responses/index"
           options={{
             title: "Mis Respuestas",
             tabBarIcon: ({ color }) => (

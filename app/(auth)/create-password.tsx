@@ -324,7 +324,7 @@ export default function CreatePasswordScreen() {
         "Cuenta Creada",
         "Tu contraseña ha sido configurada exitosamente",
       );
-      
+
       // Limpiar email pendiente
       setPendingEmail(null);
 

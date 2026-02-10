@@ -37,7 +37,7 @@ export default function EncargadoLayout() {
           }}
         />
         <Tabs.Screen
-          name="surveys"
+          name="surveys/index"
           options={{
             title: "Encuestas",
             tabBarIcon: ({ color }) => (
@@ -55,7 +55,7 @@ export default function EncargadoLayout() {
           }}
         />
         <Tabs.Screen
-          name="responses"
+          name="responses/index"
           options={{
             title: "Respuestas",
             tabBarIcon: ({ color }) => (

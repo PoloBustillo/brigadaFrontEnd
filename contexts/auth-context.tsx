@@ -50,12 +50,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const loadSession = async () => {
     try {
-      const [storedUser, storedToken, storedExpiry, storedPendingEmail] = await Promise.all([
-        AsyncStorage.getItem(STORAGE_KEYS.USER),
-        AsyncStorage.getItem(STORAGE_KEYS.TOKEN),
-        AsyncStorage.getItem(STORAGE_KEYS.TOKEN_EXPIRY),
-        AsyncStorage.getItem(STORAGE_KEYS.PENDING_EMAIL),
-      ]);
+      const [storedUser, storedToken, storedExpiry, storedPendingEmail] =
+        await Promise.all([
+          AsyncStorage.getItem(STORAGE_KEYS.USER),
+          AsyncStorage.getItem(STORAGE_KEYS.TOKEN),
+          AsyncStorage.getItem(STORAGE_KEYS.TOKEN_EXPIRY),
+          AsyncStorage.getItem(STORAGE_KEYS.PENDING_EMAIL),
+        ]);
 
       // Restore pending email if exists
       if (storedPendingEmail) {

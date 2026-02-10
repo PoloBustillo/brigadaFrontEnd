@@ -4,11 +4,11 @@
  * Rules 5: Whitelist required, 22: Offline token, 1-4: User states
  */
 
-import { useAuth } from "@/contexts/auth-context";
 import { ConnectionStatus } from "@/components/shared/connection-status";
 import Alert from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useAuth } from "@/contexts/auth-context";
 import type { UserRole, UserState } from "@/types/user";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -102,7 +102,7 @@ export default function LoginScreen() {
     // Mock data para pruebas - Primera vez: llevar a activación
     // Usuario de prueba: test@brigada.com
     const mockWhitelist = ["test@brigada.com", "admin@brigada.com"];
-    
+
     // const whitelisted = await db
     //   .select()
     //   .from(whitelist)
@@ -131,7 +131,7 @@ export default function LoginScreen() {
     // ⚠️ DATOS DE PRUEBA - Primera vez: Estado INVITED
     // Email: test@brigada.com | Password: cualquiera
     // Esto llevará a la pantalla de activación
-    
+
     if (email === "test@brigada.com") {
       return {
         success: true,
@@ -143,7 +143,7 @@ export default function LoginScreen() {
         },
       };
     }
-    
+
     // Usuario admin de prueba (ya activado)
     if (email === "admin@brigada.com" && password === "admin123") {
       return {

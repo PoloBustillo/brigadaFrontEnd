@@ -3,6 +3,7 @@
 ## 📋 Usuarios Mock
 
 ### 1. Usuario Primera Vez (Estado: INVITED)
+
 ```
 Email: test@brigada.com
 Password: cualquier contraseña
@@ -11,6 +12,7 @@ Estado: INVITED
 ```
 
 **Flujo esperado:**
+
 1. Ingresar en pantalla de login
 2. Al iniciar sesión → Te lleva a pantalla de **Activación**
 3. Usar código de activación: `123456`
@@ -19,6 +21,7 @@ Estado: INVITED
 ---
 
 ### 2. Usuario Admin (Estado: ACTIVE)
+
 ```
 Email: admin@brigada.com
 Password: admin123
@@ -27,6 +30,7 @@ Estado: ACTIVE
 ```
 
 **Flujo esperado:**
+
 1. Ingresar en pantalla de login
 2. Al iniciar sesión → Te lleva directamente al **Dashboard Admin**
 
@@ -35,6 +39,7 @@ Estado: ACTIVE
 ## 🔐 Códigos de Activación
 
 ### Código válido:
+
 ```
 123456
 ```
@@ -46,14 +51,18 @@ Estado: ACTIVE
 ## 📝 Notas Importantes
 
 ### Whitelist Mock
+
 Solo los siguientes emails están en la whitelist de prueba:
+
 - `test@brigada.com`
 - `admin@brigada.com`
 
 **Cualquier otro email será rechazado con mensaje:**
+
 > "Email no autorizado. Debes estar en la whitelist para acceder."
 
 ### Estados de Usuario
+
 - **INVITED**: Usuario invitado, necesita activación
 - **ACTIVE**: Usuario activo, puede acceder normalmente
 - **PENDING**: Cuenta creada pero perfil incompleto (no implementado aún)
@@ -100,16 +109,20 @@ Solo los siguientes emails están en la whitelist de prueba:
 ## 🐛 Para Testing
 
 ### Probar validación de whitelist:
+
 ```
 Email: noautorizado@test.com
 Password: cualquiera
 ```
+
 **Resultado esperado:** Error "Email no autorizado"
 
 ### Probar código de activación inválido:
+
 ```
 Código: 999999
 ```
+
 **Resultado esperado:** Error "Código inválido"
 
 ---
@@ -117,21 +130,30 @@ Código: 999999
 ## 📍 Archivos Modificados
 
 ### ✅ Sistema de Email Pendiente
+
 - `contexts/auth-context.tsx` - Nuevo campo `pendingEmail` y `setPendingEmail`
 - `app/(auth)/login-enhanced.tsx` - Guarda email cuando detecta estado INVITED
 - `app/(auth)/activation.tsx` - Muestra email guardado
 - `app/(auth)/create-password.tsx` - **Email bloqueado** si viene de activación
 
 ### ✅ Flujo de Activación
+
 El email se guarda automáticamente cuando:
+
 1. Inicias sesión con un usuario en estado INVITED
 2. Se pasa a la pantalla de activación
 3. Se pasa a crear contraseña **con el email bloqueado**
 
 ### ⚠️ Importante
+
 - Si vas directo a activación desde welcome (botón "Usa tu código"), **NO** se guarda email
 - Solo se guarda si pasas por login primero
 - El email guardado se limpia al crear la contraseña exitosamente
+
+### ✅ Fixes Recientes
+
+- **Glitch de teclado**: Solucionado en login, activation y create-password
+- **Rutas de tabs**: Corregidas referencias a `surveys/index` y `responses/index` en todos los layouts
 
 ---
 
