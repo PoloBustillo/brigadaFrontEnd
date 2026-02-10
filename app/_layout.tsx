@@ -11,6 +11,7 @@ import "react-native-reanimated";
 
 import { SplashScreen } from "@/components/layout";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { initializeDatabase } from "@/lib/db";
 
 // Prevenir que el splash nativo se oculte automáticamente
 ExpoSplashScreen.preventAutoHideAsync();
@@ -33,6 +34,15 @@ export default function RootLayout() {
 
   const handleLoadComplete = async (state: any) => {
     console.log("[App] Splash completed:", state);
+
+    try {
+      // Inicializar base de datos
+      console.log("🚀 Inicializando base de datos...");
+      await initializeDatabase();
+      console.log("✅ Base de datos inicializada correctamente");
+    } catch (error) {
+      console.error("❌ Error inicializando base de datos:", error);
+    }
 
     // TODO: Check for active session
     // const userToken = await AsyncStorage.getItem('userToken');
