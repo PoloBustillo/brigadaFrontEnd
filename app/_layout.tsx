@@ -22,6 +22,7 @@ export const unstable_settings = {
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   const [appReady, setAppReady] = useState(false);
+  const [hasSession, setHasSession] = useState(false);
 
   useEffect(() => {
     if (appReady) {
@@ -30,8 +31,15 @@ export default function RootLayout() {
     }
   }, [appReady]);
 
-  const handleLoadComplete = (state: any) => {
+  const handleLoadComplete = async (state: any) => {
     console.log("[App] Splash completed:", state);
+
+    // TODO: Check for active session
+    // const userToken = await AsyncStorage.getItem('userToken');
+    // setHasSession(!!userToken);
+
+    // For now, simulate no session (show welcome screen)
+    setHasSession(false);
     setAppReady(true);
   };
 
@@ -42,12 +50,23 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen
-          name="modal"
-          options={{ presentation: "modal", title: "Modal" }}
-        />
+      <Stack
+        screenOptions={{
+          headerShown: false,
+        }}
+      >
+        {!hasSession ? (
+          // No session: Show auth flow (includes welcome + login)
+          <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+        ) : (
+          // Has session: Show main app
+          <>
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="profile" options={{ headerShown: false }} />
+          </>
+        )}
+        {/* Demo screen - remove in production */}
+        <Stack.Screen name="components-demo" options={{ headerShown: false }} />
       </Stack>
       <StatusBar style="auto" />
     </ThemeProvider>

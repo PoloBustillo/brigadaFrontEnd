@@ -7,6 +7,7 @@
     "icon": "./assets/images/icon.png",
     "scheme": "brigadafrontend",
     "userInterfaceStyle": "automatic",
+    "backgroundColor": "#FF1B8D",
     "newArchEnabled": true,
     "ios": {
       "bundleIdentifier": "com.brigadadigital.app",

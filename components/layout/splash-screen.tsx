@@ -1,14 +1,21 @@
 /**
- * Splash Screen Component
+ * Splash Screen Component - Enhanced Pro Version
  *
- * Pantalla inicial con branding y verificación de estado.
- * Inspirada en el diseño de Lemonade Insurance.
+ * Pantalla inicial con branding profesional y verificación de estado.
+ * Features:
+ * - NetInfo para detección real de conectividad
+ * - Fuentes premium (Poppins)
+ * - Iconos animados profesionales
+ * - Animaciones fluidas
+ * - Feedback visual en tiempo real
  *
- * Duración: 2-3 segundos máximo
+ * Duración: 2.5-3 segundos
  *
  * @see docs/SCREEN_FLOW_UX.md - Sección "Splash + Loading"
  */
 
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import NetInfo from "@react-native-community/netinfo";
 import { useFonts } from "expo-font";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useState } from "react";
@@ -40,32 +47,36 @@ interface AppInitialState {
 }
 
 type LoadingMessage =
-  | "🚀 Iniciando..."
-  | "🔐 Verificando sesión..."
-  | "📡 Comprobando conexión..."
-  | "📊 Cargando encuestas..."
-  | "📶 Modo offline"
-  | "✅ Listo!"
-  | "⚠️ Reconectando...";
+  | "rocket" // 🚀 Iniciando...
+  | "shield" // 🔐 Verificando sesión...
+  | "wifi" // 📡 Comprobando conexión...
+  | "database" // 📊 Cargando encuestas...
+  | "offline" // 📶 Modo offline
+  | "check" // ✅ Listo!
+  | "sync"; // 🔄 Sincronizando...
 
 // ============================================================================
 // CONSTANTS
 // ============================================================================
 
-const LOADING_MESSAGES: LoadingMessage[] = [
-  "🚀 Iniciando...",
-  "🔐 Verificando sesión...",
-  "📡 Comprobando conexión...",
-  "📊 Cargando encuestas...",
-  "✅ Listo!",
+const LOADING_STEPS: {
+  icon: LoadingMessage;
+  text: string;
+  color: string;
+}[] = [
+  { icon: "rocket", text: "Iniciando aplicación", color: "#FFFFFF" }, // Blanco - máximo contraste
+  { icon: "shield", text: "Verificando sesión", color: "#FFFFFF" }, // Blanco - consistente
+  { icon: "wifi", text: "Conectando a internet", color: "#FFFFFF" }, // Blanco - claro
+  { icon: "database", text: "Cargando encuestas", color: "#FFFFFF" }, // Blanco - visible
+  { icon: "check", text: "¡Todo listo!", color: "#00FF88" }, // Verde brillante con buen contraste
 ];
 
 const MESSAGE_DURATION = 500; // ms entre mensajes
 const SPLASH_DURATION = 2500; // ms total
-const FADE_DURATION = 300; // ms para fade in/out
+const FADE_DURATION = 400; // ms para fade in/out
 
-// Gradiente principal (inspirado en Lemonade)
-const GRADIENT_COLORS = ["#FF1B8D", "#FF6B9D"] as const; // Rosa vibrante
+// Gradiente principal mejorado
+const GRADIENT_COLORS = ["#FF1B8D", "#FF4B7D", "#FF6B9D"] as const;
 const GRADIENT_START = { x: 0, y: 0 };
 const GRADIENT_END = { x: 1, y: 1 };
 
@@ -75,15 +86,16 @@ const GRADIENT_END = { x: 1, y: 1 };
 
 export default function SplashScreen({ onLoadComplete }: SplashScreenProps) {
   const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
-  const [isOffline, setIsOffline] = useState(false);
+  const [isOnline, setIsOnline] = useState(true);
+  const [connectionType, setConnectionType] = useState<string>("wifi");
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
-  const scaleAnim = React.useRef(new Animated.Value(0.95)).current;
+  const scaleAnim = React.useRef(new Animated.Value(0.9)).current;
+  const pulseAnim = React.useRef(new Animated.Value(1)).current;
+  // Removido iconRotate - animación de rotación era mareante y sin sentido
 
-  // Cargar fuentes personalizadas
+  // Cargar fuentes personalizadas profesionales
   const [fontsLoaded, fontError] = useFonts({
     // Pacifico: fuente script elegante para el logo
-    // Nota: Descarga Pacifico-Regular.ttf de Google Fonts
-    // y colócala en assets/fonts/
     Pacifico: require("../../assets/fonts/Pacifico-Regular.ttf"),
   });
 
@@ -96,25 +108,30 @@ export default function SplashScreen({ onLoadComplete }: SplashScreenProps) {
   }, [fontsLoaded, fontError]);
 
   /**
-   * Inicializa la app en paralelo
+   * Inicializa la app en paralelo con NetInfo real
    */
   const initializeApp = React.useCallback(async () => {
     try {
-      const [session, connection, surveys] = await Promise.all([
+      // Detectar estado de red REAL con NetInfo
+      const netState = await NetInfo.fetch();
+      setIsOnline(netState.isConnected ?? false);
+      setConnectionType(netState.type);
+
+      console.log("[Splash] Network state:", {
+        isConnected: netState.isConnected,
+        type: netState.type,
+        isInternetReachable: netState.isInternetReachable,
+      });
+
+      const [session, surveys] = await Promise.all([
         checkSession(),
-        checkConnection(),
         loadSurveys(),
       ]);
 
-      // Actualizar estado offline si es necesario
-      if (!connection.isOnline) {
-        setIsOffline(true);
-      }
-
       console.log("[Splash] App initialized:", {
         session,
-        connection,
         surveys,
+        network: netState.type,
       });
     } catch (error) {
       console.error("[Splash] Error initializing app:", error);
@@ -125,24 +142,42 @@ export default function SplashScreen({ onLoadComplete }: SplashScreenProps) {
     // Inicializar app en paralelo
     initializeApp();
 
-    // Animación de entrada
+    // Animación de entrada elegante
     Animated.parallel([
-      Animated.timing(fadeAnim, {
+      Animated.spring(fadeAnim, {
         toValue: 1,
-        duration: FADE_DURATION,
+        tension: 50,
+        friction: 7,
         useNativeDriver: true,
       }),
-      Animated.timing(scaleAnim, {
+      Animated.spring(scaleAnim, {
         toValue: 1,
-        duration: FADE_DURATION,
+        tension: 40,
+        friction: 7,
         useNativeDriver: true,
       }),
     ]).start();
 
+    // Animación de pulso continua
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.1,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+      ]),
+    ).start();
+
     // Cambiar mensajes cada 500ms
     const messageInterval = setInterval(() => {
       setCurrentMessageIndex((prev) => {
-        if (prev < LOADING_MESSAGES.length - 1) {
+        if (prev < LOADING_STEPS.length - 1) {
           return prev + 1;
         }
         return prev;
@@ -151,17 +186,24 @@ export default function SplashScreen({ onLoadComplete }: SplashScreenProps) {
 
     // Terminar después de 2.5s
     const timer = setTimeout(() => {
-      // Fade out
-      Animated.timing(fadeAnim, {
-        toValue: 0,
-        duration: FADE_DURATION,
-        useNativeDriver: true,
-      }).start(() => {
-        // Callback con estado de la app
+      // Fade out suave
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 0,
+          duration: FADE_DURATION,
+          useNativeDriver: true,
+        }),
+        Animated.timing(scaleAnim, {
+          toValue: 0.9,
+          duration: FADE_DURATION,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        // Callback con estado REAL de la app
         onLoadComplete({
-          hasSession: true, // TODO: implementar verificación real
-          isOnline: !isOffline,
-          surveysLoaded: true, // TODO: implementar verificación real
+          hasSession: true, // TODO: implementar verificación real con JWT
+          isOnline: isOnline,
+          surveysLoaded: true, // TODO: implementar verificación real con SQLite
         });
       });
     }, SPLASH_DURATION);
@@ -170,7 +212,7 @@ export default function SplashScreen({ onLoadComplete }: SplashScreenProps) {
       clearInterval(messageInterval);
       clearTimeout(timer);
     };
-  }, [fadeAnim, scaleAnim, initializeApp, onLoadComplete, isOffline]);
+  }, [fadeAnim, scaleAnim, pulseAnim, initializeApp, onLoadComplete, isOnline]);
 
   /**
    * Verifica si hay sesión válida
@@ -179,15 +221,6 @@ export default function SplashScreen({ onLoadComplete }: SplashScreenProps) {
   async function checkSession(): Promise<{ isValid: boolean }> {
     await delay(200);
     return { isValid: true };
-  }
-
-  /**
-   * Verifica estado de conexión
-   * TODO: Implementar con NetInfo
-   */
-  async function checkConnection(): Promise<{ isOnline: boolean }> {
-    await delay(200);
-    return { isOnline: true };
   }
 
   /**
@@ -219,10 +252,8 @@ export default function SplashScreen({ onLoadComplete }: SplashScreenProps) {
     return null;
   }
 
-  // Mensaje actual
-  const currentMessage = isOffline
-    ? "📶 Modo offline"
-    : LOADING_MESSAGES[currentMessageIndex];
+  // Paso actual
+  const currentStep = LOADING_STEPS[currentMessageIndex];
 
   return (
     <LinearGradient
@@ -242,67 +273,231 @@ export default function SplashScreen({ onLoadComplete }: SplashScreenProps) {
           },
         ]}
       >
-        {/* Logo/Wordmark */}
-        <Text style={[styles.logo, useSystemFont && styles.logoSystem]}>
-          brigadaDigital
-        </Text>
+        {/* Logo/Wordmark con animación */}
+        <Animated.View
+          style={[
+            styles.logoContainer,
+            {
+              transform: [{ scale: pulseAnim }],
+            },
+          ]}
+        >
+          <Text style={[styles.logo, useSystemFont && styles.logoSystem]}>
+            brigadaDigital
+          </Text>
+        </Animated.View>
 
-        {/* Spinner (3 dots pulsantes) */}
+        {/* Ícono animado profesional - SIN rotación molesta */}
+        <Animated.View
+          style={[
+            styles.iconContainer,
+            {
+              // Solo pulso sutil, sin rotación mareante
+              transform: [{ scale: pulseAnim }],
+            },
+          ]}
+        >
+          <StatusIcon icon={currentStep.icon} color={currentStep.color} />
+        </Animated.View>
+
+        {/* Spinner (3 dots mejorado) */}
         <View style={styles.spinnerContainer}>
-          <DotSpinner />
+          <ImprovedDotSpinner color={currentStep.color} />
         </View>
 
-        {/* Mensaje dinámico */}
-        <Text style={styles.message}>{currentMessage}</Text>
+        {/* Mensaje dinámico con fuente pro */}
+        <View style={styles.messageContainer}>
+          <Text style={[styles.message, { color: currentStep.color }]}>
+            {currentStep.text}
+          </Text>
+
+          {/* Badge de conexión */}
+          {!isOnline && (
+            <View style={styles.offlineBadge}>
+              <Ionicons name="cloud-offline" size={14} color="#FFF" />
+              <Text style={styles.offlineText}>Sin conexión</Text>
+            </View>
+          )}
+        </View>
+
+        {/* Progress bar */}
+        <View style={styles.progressBarContainer}>
+          <View
+            style={[
+              styles.progressBar,
+              {
+                width: `${
+                  ((currentMessageIndex + 1) / LOADING_STEPS.length) * 100
+                }%`,
+                backgroundColor: currentStep.color,
+              },
+            ]}
+          />
+        </View>
       </Animated.View>
 
-      {/* Versión (esquina inferior) */}
-      <Text style={styles.version}>v1.0.0</Text>
+      {/* Versión y tipo de conexión */}
+      <View style={styles.footer}>
+        <Text style={styles.version}>v1.0.0</Text>
+        {isOnline && (
+          <View style={styles.connectionBadge}>
+            <Ionicons
+              name={
+                connectionType === "wifi"
+                  ? "wifi"
+                  : connectionType === "cellular"
+                    ? "phone-portrait"
+                    : "cloud"
+              }
+              size={12}
+              color="rgba(255, 255, 255, 0.6)"
+            />
+            <Text style={styles.connectionText}>
+              {connectionType === "wifi"
+                ? "WiFi"
+                : connectionType === "cellular"
+                  ? "Datos móviles"
+                  : "Online"}
+            </Text>
+          </View>
+        )}
+      </View>
 
-      {/* Wave decorativa (opcional) */}
+      {/* Wave decorativa mejorada */}
       <WaveDecoration />
     </LinearGradient>
   );
 }
 
 // ============================================================================
-// DOT SPINNER COMPONENT
+// STATUS ICON COMPONENT
 // ============================================================================
 
-function DotSpinner() {
+interface StatusIconProps {
+  icon: LoadingMessage;
+  color: string;
+}
+
+function StatusIcon({ icon, color }: StatusIconProps) {
+  // Íconos más grandes y con mejor contraste
+  const iconMap: Record<LoadingMessage, React.ReactNode> = {
+    rocket: <Ionicons name="rocket" size={52} color={color} />,
+    shield: (
+      <MaterialCommunityIcons name="shield-check" size={52} color={color} />
+    ),
+    wifi: <Ionicons name="wifi" size={52} color={color} />,
+    database: <Ionicons name="server" size={52} color={color} />,
+    offline: <Ionicons name="cloud-offline" size={52} color={color} />,
+    check: <Ionicons name="checkmark-circle" size={52} color={color} />,
+    sync: <Ionicons name="sync" size={52} color={color} />,
+  };
+
+  return (
+    <View
+      style={{
+        // Sombra para los íconos para mejor contraste
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.5,
+        shadowRadius: 4,
+        elevation: 5,
+      }}
+    >
+      {iconMap[icon]}
+    </View>
+  );
+}
+
+// ============================================================================
+// IMPROVED DOT SPINNER COMPONENT
+// ============================================================================
+
+interface ImprovedDotSpinnerProps {
+  color: string;
+}
+
+function ImprovedDotSpinner({ color }: ImprovedDotSpinnerProps) {
   const dot1 = React.useRef(new Animated.Value(0.3)).current;
   const dot2 = React.useRef(new Animated.Value(0.3)).current;
   const dot3 = React.useRef(new Animated.Value(0.3)).current;
+  const scale1 = React.useRef(new Animated.Value(1)).current;
+  const scale2 = React.useRef(new Animated.Value(1)).current;
+  const scale3 = React.useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    const animateDot = (dot: Animated.Value, delay: number) => {
+    const animateDot = (
+      opacity: Animated.Value,
+      scale: Animated.Value,
+      delay: number,
+    ) => {
       Animated.loop(
         Animated.sequence([
           Animated.delay(delay),
-          Animated.timing(dot, {
-            toValue: 1,
-            duration: 400,
-            useNativeDriver: true,
-          }),
-          Animated.timing(dot, {
-            toValue: 0.3,
-            duration: 400,
-            useNativeDriver: true,
-          }),
+          Animated.parallel([
+            Animated.timing(opacity, {
+              toValue: 1,
+              duration: 400,
+              useNativeDriver: true,
+            }),
+            Animated.spring(scale, {
+              toValue: 1.3,
+              friction: 3,
+              useNativeDriver: true,
+            }),
+          ]),
+          Animated.parallel([
+            Animated.timing(opacity, {
+              toValue: 0.3,
+              duration: 400,
+              useNativeDriver: true,
+            }),
+            Animated.spring(scale, {
+              toValue: 1,
+              friction: 3,
+              useNativeDriver: true,
+            }),
+          ]),
         ]),
       ).start();
     };
 
-    animateDot(dot1, 0);
-    animateDot(dot2, 400);
-    animateDot(dot3, 800);
-  }, [dot1, dot2, dot3]);
+    animateDot(dot1, scale1, 0);
+    animateDot(dot2, scale2, 200);
+    animateDot(dot3, scale3, 400);
+  }, [dot1, dot2, dot3, scale1, scale2, scale3]);
 
   return (
     <View style={styles.dotsContainer}>
-      <Animated.View style={[styles.dot, { opacity: dot1 }]} />
-      <Animated.View style={[styles.dot, { opacity: dot2 }]} />
-      <Animated.View style={[styles.dot, { opacity: dot3 }]} />
+      <Animated.View
+        style={[
+          styles.dot,
+          {
+            opacity: dot1,
+            transform: [{ scale: scale1 }],
+            backgroundColor: color,
+          },
+        ]}
+      />
+      <Animated.View
+        style={[
+          styles.dot,
+          {
+            opacity: dot2,
+            transform: [{ scale: scale2 }],
+            backgroundColor: color,
+          },
+        ]}
+      />
+      <Animated.View
+        style={[
+          styles.dot,
+          {
+            opacity: dot3,
+            transform: [{ scale: scale3 }],
+            backgroundColor: color,
+          },
+        ]}
+      />
     </View>
   );
 }
@@ -333,15 +528,18 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  logoContainer: {
+    marginBottom: 40,
+  },
   logo: {
     fontFamily: "Pacifico",
-    fontSize: 48,
+    fontSize: 52,
     color: "#FFFFFF",
-    marginBottom: 60,
-    // Sombra para mejor legibilidad
-    textShadowColor: "rgba(0, 0, 0, 0.1)",
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
+    letterSpacing: 1,
+    // Sombra profesional
+    textShadowColor: "rgba(0, 0, 0, 0.25)",
+    textShadowOffset: { width: 0, height: 3 },
+    textShadowRadius: 8,
     // Ajuste para Android
     ...(Platform.OS === "android" && {
       includeFontPadding: false,
@@ -356,40 +554,123 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     fontStyle: "italic",
   },
+  iconContainer: {
+    marginBottom: 32,
+    width: 90,
+    height: 90,
+    justifyContent: "center",
+    alignItems: "center",
+    // Fondo oscuro semi-transparente para mejorar contraste con íconos blancos
+    backgroundColor: "rgba(0, 0, 0, 0.25)",
+    borderRadius: 45,
+    // Borde blanco sutil para definir mejor el contenedor
+    borderWidth: 2,
+    borderColor: "rgba(255, 255, 255, 0.3)",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 10,
+  },
   spinnerContainer: {
     marginBottom: 24,
-    height: 20,
+    height: 24,
   },
   dotsContainer: {
     flexDirection: "row",
-    gap: 12,
+    gap: 14,
     alignItems: "center",
   },
   dot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
     backgroundColor: "#FFFFFF",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  messageContainer: {
+    alignItems: "center",
+    minHeight: 50,
   },
   message: {
-    fontSize: 16,
-    color: "rgba(255, 255, 255, 0.9)",
-    marginBottom: 8,
-    fontWeight: "400",
+    fontSize: 18,
+    color: "#FFFFFF",
+    marginBottom: 12,
+    fontWeight: "600",
+    letterSpacing: 0.5,
+    textAlign: "center",
+    // Sombra para mejor legibilidad
+    textShadowColor: "rgba(0, 0, 0, 0.3)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  },
+  offlineBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "rgba(255, 87, 34, 0.9)",
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 16,
+    marginTop: 8,
+  },
+  offlineText: {
+    fontSize: 13,
+    color: "#FFFFFF",
+    fontWeight: "600",
+  },
+  progressBarContainer: {
+    width: 200,
+    height: 4,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    borderRadius: 2,
+    marginTop: 24,
+    overflow: "hidden",
+  },
+  progressBar: {
+    height: "100%",
+    borderRadius: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.3,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  footer: {
+    position: "absolute",
+    bottom: 30,
+    alignItems: "center",
+    gap: 8,
   },
   version: {
-    position: "absolute",
-    bottom: 40,
     fontSize: 12,
     color: "rgba(255, 255, 255, 0.6)",
-    fontWeight: "400",
+    fontWeight: "500",
+  },
+  connectionBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  connectionText: {
+    fontSize: 11,
+    color: "rgba(255, 255, 255, 0.7)",
+    fontWeight: "500",
   },
   waveContainer: {
     position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
-    height: 120,
+    height: 150,
     overflow: "hidden",
   },
   wave: {
@@ -397,10 +678,10 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: 120,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
-    borderTopLeftRadius: 100,
-    borderTopRightRadius: 100,
+    height: 150,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    borderTopLeftRadius: 120,
+    borderTopRightRadius: 120,
   },
 });
 
