@@ -10,8 +10,11 @@ import React, { useEffect, useState } from "react";
 import "react-native-reanimated";
 
 import { SplashScreen } from "@/components/layout";
+import { toastConfig } from "@/components/ui/toast";
+import { AuthProvider, useAuth } from "@/contexts/auth-context";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { initializeDatabase } from "@/lib/db";
+import Toast from "react-native-toast-message";
 
 // Prevenir que el splash nativo se oculte automáticamente
 ExpoSplashScreen.preventAutoHideAsync();
@@ -21,9 +24,17 @@ export const unstable_settings = {
 };
 
 export default function RootLayout() {
+  return (
+    <AuthProvider>
+      <RootNavigator />
+    </AuthProvider>
+  );
+}
+
+function RootNavigator() {
   const colorScheme = useColorScheme();
   const [appReady, setAppReady] = useState(false);
-  const [hasSession, setHasSession] = useState(false);
+  const { user, loading: authLoading } = useAuth();
 
   useEffect(() => {
     if (appReady) {
@@ -44,19 +55,16 @@ export default function RootLayout() {
       console.error("❌ Error inicializando base de datos:", error);
     }
 
-    // TODO: Check for active session
-    // const userToken = await AsyncStorage.getItem('userToken');
-    // setHasSession(!!userToken);
-
-    // For now, simulate no session (show welcome screen)
-    setHasSession(false);
+    // AuthContext will automatically load session
     setAppReady(true);
   };
 
-  // Mostrar custom splash mientras no esté lista la app
-  if (!appReady) {
+  // Mostrar custom splash mientras no esté lista la app o cargando auth
+  if (!appReady || authLoading) {
     return <SplashScreen onLoadComplete={handleLoadComplete} />;
   }
+
+  const hasSession = !!user;
 
   return (
     <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
@@ -79,6 +87,7 @@ export default function RootLayout() {
         <Stack.Screen name="components-demo" options={{ headerShown: false }} />
       </Stack>
       <StatusBar style="auto" />
+      <Toast config={toastConfig} />
     </ThemeProvider>
   );
 }

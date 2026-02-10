@@ -282,8 +282,13 @@ export default function SplashScreen({ onLoadComplete }: SplashScreenProps) {
             },
           ]}
         >
-          <Text style={[styles.logo, useSystemFont && styles.logoSystem]}>
-            brigadaDigital
+          <Text
+            style={[styles.logo, useSystemFont && styles.logoSystem]}
+            numberOfLines={1}
+            allowFontScaling={false}
+            maxFontSizeMultiplier={1}
+          >
+            brigadaDigital{" "}
           </Text>
         </Animated.View>
 
@@ -530,12 +535,15 @@ const styles = StyleSheet.create({
   },
   logoContainer: {
     marginBottom: 40,
+    paddingHorizontal: 50, // Aumentado aún más
+    width: "100%",
+    alignItems: "center",
   },
   logo: {
     fontFamily: "Pacifico",
-    fontSize: 52,
+    fontSize: 46, // Reducido un poco más
     color: "#FFFFFF",
-    letterSpacing: 1,
+    letterSpacing: -0.5, // LetterSpacing NEGATIVO para comprimir
     // Sombra profesional
     textShadowColor: "rgba(0, 0, 0, 0.25)",
     textShadowOffset: { width: 0, height: 3 },

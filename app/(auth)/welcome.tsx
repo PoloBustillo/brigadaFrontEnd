@@ -277,8 +277,12 @@ export default function WelcomeScreen() {
 
     // Navigate to login after animation
     setTimeout(() => {
-      router.push("/(auth)/login" as any);
+      router.push("/(auth)/login-enhanced" as any);
     }, 300);
+  };
+
+  const handleActivation = () => {
+    router.push("/(auth)/activation" as any);
   };
 
   return (
@@ -319,7 +323,7 @@ export default function WelcomeScreen() {
 
             {/* Tagline */}
             <Animated.Text style={[styles.tagline, taglineAnimatedStyle]}>
-              Tu aliada en el brigadeo
+              Tu aliado en el brigadeo
             </Animated.Text>
           </View>
 
@@ -359,13 +363,26 @@ export default function WelcomeScreen() {
                 end={{ x: 0, y: 1 }}
                 style={styles.ctaButton}
               >
-                <Text style={styles.ctaButtonText}>Comenzar</Text>
+                <Text style={styles.ctaButtonText}>Iniciar Sesión</Text>
                 <Ionicons name="arrow-forward" size={22} color="#FF1B8D" />
               </LinearGradient>
             </TouchableOpacity>
 
-            {/* Footer Indicator */}
-            <View style={styles.footerIndicator} />
+            {/* Activation Button */}
+            <TouchableOpacity
+              style={styles.activationButton}
+              onPress={handleActivation}
+              activeOpacity={0.8}
+            >
+              <Ionicons
+                name="key-outline"
+                size={20}
+                color="rgba(255, 255, 255, 0.95)"
+              />
+              <Text style={styles.activationButtonText}>
+                Tengo un código de activación
+              </Text>
+            </TouchableOpacity>
           </Animated.View>
         </View>
       </LinearGradient>
@@ -391,8 +408,8 @@ const styles = StyleSheet.create({
   contentContainer: {
     flex: 1,
     justifyContent: "space-between",
-    paddingVertical: 60,
-    paddingHorizontal: 32,
+    paddingVertical: 40,
+    paddingHorizontal: 28,
     zIndex: 10,
   },
 
@@ -401,20 +418,22 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    paddingTop: 40,
+    paddingTop: 20,
   },
   logoWrapper: {
     alignItems: "center",
     marginBottom: 24,
+    width: "100%",
+    paddingHorizontal: 20,
   },
   logoBadge: {
-    width: 140,
-    height: 140,
-    borderRadius: 70,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
     backgroundColor: "rgba(255, 255, 255, 0.98)",
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 24,
+    marginBottom: 20,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.3,
@@ -424,23 +443,23 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255, 255, 255, 0.6)",
   },
   brandName: {
-    fontSize: 48,
-    fontWeight: "900",
+    fontFamily: "Pacifico",
+    fontSize: 42,
     color: "#FFFFFF",
-    letterSpacing: 1.5,
+    letterSpacing: 1,
     textShadowColor: "rgba(0, 0, 0, 0.25)",
     textShadowOffset: { width: 0, height: 3 },
     textShadowRadius: 6,
   },
   brandSubtitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "300",
     color: "rgba(255, 255, 255, 0.95)",
     letterSpacing: 4,
     marginTop: 4,
   },
   tagline: {
-    fontSize: 22,
+    fontSize: 19,
     fontWeight: "600",
     color: "rgba(255, 255, 255, 0.95)",
     textAlign: "center",
@@ -452,19 +471,19 @@ const styles = StyleSheet.create({
 
   // Features Section
   featuresSection: {
-    paddingBottom: 20,
+    paddingBottom: 12,
   },
   featuresGrid: {
-    gap: 12,
-    marginBottom: 32,
+    gap: 10,
+    marginBottom: 24,
   },
   featureItem: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "rgba(255, 255, 255, 0.16)",
-    paddingVertical: 14,
-    paddingHorizontal: 18,
-    borderRadius: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 14,
     borderWidth: 1.5,
     borderColor: "rgba(255, 255, 255, 0.28)",
   },
@@ -492,19 +511,19 @@ const styles = StyleSheet.create({
   // CTA Button
   ctaButtonContainer: {
     width: "100%",
-    height: 58,
-    borderRadius: 29,
+    height: 56,
+    borderRadius: 28,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
-    elevation: 12,
-    marginBottom: 24,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 10,
+    marginBottom: 16,
   },
   ctaButton: {
     width: "100%",
     height: "100%",
-    borderRadius: 29,
+    borderRadius: 28,
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
@@ -523,12 +542,20 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 
-  // Footer
-  footerIndicator: {
-    alignSelf: "center",
-    width: 100,
-    height: 4,
-    backgroundColor: "rgba(255, 255, 255, 0.28)",
-    borderRadius: 2,
+  // Activation Button
+  activationButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    gap: 8,
+    marginBottom: 8,
+  },
+  activationButtonText: {
+    ...typography.bodySmall,
+    color: "rgba(255, 255, 255, 0.95)",
+    fontWeight: "600",
+    fontSize: 14,
   },
 });
