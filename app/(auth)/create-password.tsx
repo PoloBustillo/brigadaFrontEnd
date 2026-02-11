@@ -29,7 +29,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 
-import { showToast } from "@/components/ui/toast";
+import { toastManager } from "@/components/ui/toast-enhanced";
 import { colors } from "@/constants/colors";
 import { typography } from "@/constants/typography";
 
@@ -218,7 +218,7 @@ function checkPasswordStrength(password: string): PasswordStrength {
   }
 
   const strengthMap = {
-    0: { color: "#FF3333", label: "Muy débil" },
+    0: { color: "#CC0000", label: "Muy débil" }, // Rojo más oscuro para mejor contraste
     1: { color: "#FF6B6B", label: "Débil" },
     2: { color: "#FFA726", label: "Regular" },
     3: { color: "#66BB6A", label: "Buena" },
@@ -276,33 +276,49 @@ export default function CreatePasswordScreen() {
   const handleCreatePassword = async () => {
     // Validations
     if (!email.trim()) {
-      showToast.error("Error", "Por favor ingresa tu correo electrónico");
+      toastManager.error("Por favor ingresa tu correo electrónico");
       return;
     }
 
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      showToast.error("Error", "Formato de correo inválido");
+      toastManager.error("Formato de correo inválido");
       return;
     }
 
     if (password.length < 8) {
-      showToast.error(
-        "Error",
-        "La contraseña debe tener al menos 8 caracteres",
+      toastManager.error("La contraseña debe tener al menos 8 caracteres");
+      return;
+    }
+
+    // Validar todos los requisitos de contraseña
+    if (!/[A-Z]/.test(password)) {
+      toastManager.error(
+        "La contraseña debe contener al menos una letra mayúscula",
       );
       return;
     }
 
+    if (!/[a-z]/.test(password)) {
+      toastManager.error(
+        "La contraseña debe contener al menos una letra minúscula",
+      );
+      return;
+    }
+
+    if (!/[0-9]/.test(password)) {
+      toastManager.error("La contraseña debe contener al menos un número");
+      return;
+    }
+
     if (passwordStrength.score < 2) {
-      showToast.warning(
-        "Contraseña débil",
+      toastManager.warning(
         "Incluye mayúsculas, minúsculas y números para mayor seguridad",
       );
       return;
     }
 
     if (password !== confirmPassword) {
-      showToast.error("Error", "Las contraseñas no coinciden");
+      toastManager.error("Las contraseñas no coinciden");
       return;
     }
 
@@ -320,10 +336,7 @@ export default function CreatePasswordScreen() {
       await new Promise((resolve) => setTimeout(resolve, 2000));
 
       // Mock success
-      showToast.success(
-        "Cuenta Creada",
-        "Tu contraseña ha sido configurada exitosamente",
-      );
+      toastManager.success("Tu contraseña ha sido configurada exitosamente");
 
       // Limpiar email pendiente
       setPendingEmail(null);
@@ -336,9 +349,8 @@ export default function CreatePasswordScreen() {
         router.replace("/(auth)/login-enhanced" as any);
       }, 1500);
     } catch {
-      showToast.error(
-        "Error",
-        "Ocurrió un error al crear tu contraseña. Intenta nuevamente.",
+      toastManager.error(
+        "Ocurrió un error al crear tu contraseña. Intenta nuevamente",
       );
     } finally {
       setLoading(false);
@@ -586,10 +598,19 @@ export default function CreatePasswordScreen() {
                       <View style={styles.matchRow}>
                         <Ionicons
                           name="close-circle"
-                          size={16}
-                          color="#FF6B6B"
+                          size={18}
+                          color="#CC0000"
                         />
-                        <Text style={[styles.matchText, { color: "#FF6B6B" }]}>
+                        <Text
+                          style={[
+                            styles.matchText,
+                            {
+                              color: "#CC0000",
+                              fontWeight: "700",
+                              textShadowColor: "rgba(0, 0, 0, 0.5)",
+                            },
+                          ]}
+                        >
                           Las contraseñas no coinciden
                         </Text>
                       </View>
@@ -602,10 +623,25 @@ export default function CreatePasswordScreen() {
               <TouchableOpacity
                 style={[
                   styles.createButton,
-                  loading && styles.createButtonDisabled,
+                  (loading ||
+                    password.length < 8 ||
+                    !/[A-Z]/.test(password) ||
+                    !/[a-z]/.test(password) ||
+                    !/[0-9]/.test(password) ||
+                    password !== confirmPassword ||
+                    confirmPassword.length === 0) &&
+                    styles.createButtonDisabled,
                 ]}
                 onPress={handleCreatePassword}
-                disabled={loading}
+                disabled={
+                  loading ||
+                  password.length < 8 ||
+                  !/[A-Z]/.test(password) ||
+                  !/[a-z]/.test(password) ||
+                  !/[0-9]/.test(password) ||
+                  password !== confirmPassword ||
+                  confirmPassword.length === 0
+                }
                 activeOpacity={0.8}
               >
                 {loading ? (
@@ -807,7 +843,8 @@ const styles = StyleSheet.create({
   },
   requirementText: {
     ...typography.bodySmall,
-    color: "rgba(255, 255, 255, 0.8)",
+    color: "rgba(255, 255, 255, 0.95)", // Más contraste (antes era 0.8)
+    fontWeight: "500", // Más peso
   },
 
   // Password Match
@@ -822,7 +859,10 @@ const styles = StyleSheet.create({
   matchText: {
     ...typography.bodySmall,
     color: "#00FF88",
-    fontWeight: "600",
+    fontWeight: "700", // Más bold (antes era 600)
+    textShadowColor: "rgba(0, 0, 0, 0.3)", // Añadir sombra para contraste
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
 
   // Create Button
@@ -845,7 +885,8 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255, 255, 255, 0.5)",
   },
   createButtonDisabled: {
-    opacity: 0.6,
+    opacity: 0.4, // Más obvio que está deshabilitado (antes era 0.6)
+    backgroundColor: "rgba(200, 200, 200, 0.5)", // Gris cuando está deshabilitado
   },
   createButtonText: {
     ...typography.button,

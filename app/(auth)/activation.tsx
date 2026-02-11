@@ -11,6 +11,7 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AppState,
+  InteractionManager,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
@@ -28,7 +29,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 
-import { showToast } from "@/components/ui/toast";
+import { toastManager } from "@/components/ui/toast-enhanced";
 import { colors } from "@/constants/colors";
 import { typography } from "@/constants/typography";
 
@@ -179,13 +180,26 @@ function CodeInput({
   // CRÍTICO: Re-focus cuando la pantalla recibe foco (navegación hacia atrás)
   useFocusEffect(
     useCallback(() => {
-      // Focus cuando entramos a la pantalla
-      const timer = setTimeout(() => {
+      // Focus inmediato
+      inputRef.current?.focus();
+
+      // Focus con InteractionManager (después de animaciones)
+      const interactionHandle = InteractionManager.runAfterInteractions(() => {
         inputRef.current?.focus();
-      }, 150);
+      });
+
+      // Focus adicionales para asegurar
+      const timer1 = setTimeout(() => inputRef.current?.focus(), 50);
+      const timer2 = setTimeout(() => inputRef.current?.focus(), 150);
+      const timer3 = setTimeout(() => inputRef.current?.focus(), 300);
+      const timer4 = setTimeout(() => inputRef.current?.focus(), 500);
 
       return () => {
-        clearTimeout(timer);
+        interactionHandle.cancel();
+        clearTimeout(timer1);
+        clearTimeout(timer2);
+        clearTimeout(timer3);
+        clearTimeout(timer4);
       };
     }, []),
   );
@@ -270,6 +284,8 @@ function CodeInput({
         editable={true}
         selectTextOnFocus={false}
         caretHidden={true}
+        blurOnSubmit={true}
+        returnKeyType="done"
       />
     </View>
   );
@@ -277,7 +293,7 @@ function CodeInput({
 
 export default function ActivationScreen() {
   const router = useRouter();
-  const { pendingEmail } = useAuth();
+  const { pendingEmail, setPendingEmail } = useAuth();
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
@@ -334,9 +350,8 @@ export default function ActivationScreen() {
 
       if (isValid) {
         // Navigate to create password screen
-        showToast.success(
-          "Código Válido",
-          "Tu cuenta ha sido activada correctamente",
+        toastManager.success(
+          "Código válido. Tu cuenta ha sido activada correctamente",
         );
         setTimeout(() => {
           router.replace("/(auth)/create-password" as any);
@@ -344,17 +359,15 @@ export default function ActivationScreen() {
       } else {
         setError(true);
         setCode("");
-        showToast.error(
-          "Código Inválido",
-          "El código ingresado no es válido. Verifica e intenta nuevamente.",
+        toastManager.error(
+          "El código ingresado no es válido. Verifica e intenta nuevamente",
         );
       }
     } catch {
       setError(true);
       setCode("");
-      showToast.error(
-        "Error",
-        "Ocurrió un error al validar el código. Intenta nuevamente.",
+      toastManager.error(
+        "Ocurrió un error al validar el código. Intenta nuevamente",
       );
     } finally {
       setLoading(false);
@@ -362,6 +375,7 @@ export default function ActivationScreen() {
   };
 
   const handleBack = () => {
+    // No cerrar el teclado, solo navegar
     router.back();
   };
 
@@ -402,8 +416,9 @@ export default function ActivationScreen() {
         </TouchableOpacity>
 
         <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
           style={styles.keyboardAvoid}
+          keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
         >
           <Animated.View
             style={[styles.contentContainer, contentAnimatedStyle]}
@@ -416,13 +431,27 @@ export default function ActivationScreen() {
             {/* Title */}
             <Text style={styles.title}>Activa tu cuenta</Text>
             {pendingEmail && (
-              <Text style={styles.emailDisplay}>{pendingEmail}</Text>
+              <View style={styles.emailContainer}>
+                <Text style={styles.emailDisplay}>{pendingEmail}</Text>
+                <TouchableOpacity
+                  style={styles.changeEmailButton}
+                  onPress={async () => {
+                    await setPendingEmail(null);
+                    router.back();
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons
+                    name="pencil"
+                    size={12}
+                    color="rgba(255, 255, 255, 0.85)"
+                  />
+                  <Text style={styles.changeEmailText}>Cambiar</Text>
+                </TouchableOpacity>
+              </View>
             )}
             <Text style={styles.subtitle}>
               Ingresa tu código de invitación de 6 dígitos
-            </Text>
-            <Text style={styles.subtitleSmall}>
-              El código fue enviado por el administrador al crear tu cuenta
             </Text>
 
             {/* Code Input */}
@@ -443,7 +472,7 @@ export default function ActivationScreen() {
                 color="rgba(255,255,255,0.8)"
               />
               <Text style={styles.helpText}>
-                El código es enviado al correo registrado en la whitelist
+                El código fue enviado por el administrador para crear tu cuenta
               </Text>
             </View>
 
@@ -452,9 +481,8 @@ export default function ActivationScreen() {
               style={styles.resendButton}
               onPress={() => {
                 // TODO: Implement resend logic
-                showToast.info(
-                  "Código Reenviado",
-                  "Revisa tu correo electrónico en unos momentos",
+                toastManager.info(
+                  "Si no recibiste el código, contacta al administrador",
                 );
               }}
             >
@@ -529,15 +557,42 @@ const styles = StyleSheet.create({
     textShadowRadius: 4,
   },
   emailDisplay: {
-    ...typography.body,
+    fontSize: 18,
     color: "#FFFFFF",
     textAlign: "center",
     marginBottom: 8,
-    fontWeight: "600",
-    backgroundColor: "rgba(255, 255, 255, 0.15)",
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 8,
+    fontWeight: "700",
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 10,
+    letterSpacing: 0.5,
+    textShadowColor: "rgba(0, 0, 0, 0.15)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  },
+  emailContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    marginBottom: 16,
+  },
+  changeEmailButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.25)",
+  },
+  changeEmailText: {
+    fontSize: 11,
+    color: "rgba(255, 255, 255, 0.85)",
+    fontWeight: "500",
   },
   subtitle: {
     ...typography.body,
@@ -589,15 +644,17 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   digitTextError: {
-    color: "#FF3333",
+    color: "#CC0000",
   },
   hiddenInput: {
     position: "absolute",
-    top: -1000, // Fuera de la pantalla pero aún enfocable
+    top: 0, // En la parte superior pero invisible
     left: 0,
-    width: 100,
-    height: 40,
-    opacity: 0.01, // Casi invisible pero focusable
+    width: "100%",
+    height: 60, // Misma altura que los boxes
+    opacity: 0, // Completamente transparente
+    color: "transparent", // Texto transparente
+    backgroundColor: "transparent", // Fondo transparente
   },
 
   // Loading

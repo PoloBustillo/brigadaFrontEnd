@@ -5,9 +5,9 @@
  */
 
 import { ConnectionStatus } from "@/components/shared/connection-status";
-import Alert from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { AlertEnhanced } from "@/components/ui/alert-enhanced";
+import { ButtonEnhanced } from "@/components/ui/button-enhanced";
+import { InputEnhanced } from "@/components/ui/input-enhanced";
 import { useAuth } from "@/contexts/auth-context";
 import type { UserRole, UserState } from "@/types/user";
 import { Ionicons } from "@expo/vector-icons";
@@ -386,10 +386,11 @@ export default function LoginScreen() {
           {/* Error Alert */}
           {showError && (
             <View style={styles.alertContainer}>
-              <Alert
+              <AlertEnhanced
                 variant="error"
                 title="Error de autenticación"
                 message={errorMessage}
+                onClose={() => setShowError(false)}
               />
             </View>
           )}
@@ -409,7 +410,7 @@ export default function LoginScreen() {
           {/* Form */}
           <Animated.View style={[styles.form, shakeAnimatedStyle]}>
             {/* Email Input */}
-            <Input
+            <InputEnhanced
               label="Correo electrónico"
               value={email}
               onChangeText={handleEmailChange}
@@ -419,11 +420,13 @@ export default function LoginScreen() {
               autoCapitalize="none"
               autoComplete="email"
               error={emailError}
+              leftIcon="mail-outline"
               required
+              size="lg"
             />
 
             {/* Password Input */}
-            <Input
+            <InputEnhanced
               label="Contraseña"
               value={password}
               onChangeText={handlePasswordChange}
@@ -432,29 +435,33 @@ export default function LoginScreen() {
               autoComplete="password"
               error={passwordError}
               helperText={!passwordError ? "Mínimo 6 caracteres" : undefined}
+              leftIcon="lock-closed-outline"
               required
+              size="lg"
             />
 
             {/* Login Button */}
             <View style={styles.buttonContainer}>
-              <Button
+              <ButtonEnhanced
                 title="INICIAR SESIÓN"
                 onPress={handleLogin}
-                variant="primary"
-                size="large"
+                variant="gradient"
+                size="lg"
+                icon="log-in-outline"
+                iconPosition="right"
                 loading={loading}
                 disabled={!isFormValid || loading}
                 fullWidth
+                rounded
               />
             </View>
 
             {/* Forgot Password Link */}
-            <Button
+            <ButtonEnhanced
               title="¿Olvidaste tu contraseña?"
               onPress={handleForgotPassword}
-              variant="outline"
-              size="medium"
-              fullWidth={false}
+              variant="ghost"
+              size="md"
               style={styles.linkButton}
             />
           </Animated.View>
@@ -559,7 +566,8 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   alertContainer: {
-    marginBottom: 16,
+    marginBottom: 20,
+    marginHorizontal: -8, // Extiende más allá del padding del contenedor
   },
   form: {
     marginBottom: 24,

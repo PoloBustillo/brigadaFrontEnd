@@ -10,11 +10,11 @@ import React, { useEffect, useState } from "react";
 import "react-native-reanimated";
 
 import { SplashScreen } from "@/components/layout";
-import { toastConfig } from "@/components/ui/toast";
+import { ToastContainer } from "@/components/ui/toast-enhanced";
 import { AuthProvider, useAuth } from "@/contexts/auth-context";
+import { ThemeProvider as CustomThemeProvider } from "@/contexts/theme-context";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { initializeDatabase } from "@/lib/db";
-import Toast from "react-native-toast-message";
 
 // Prevenir que el splash nativo se oculte automáticamente
 ExpoSplashScreen.preventAutoHideAsync();
@@ -25,9 +25,11 @@ export const unstable_settings = {
 
 export default function RootLayout() {
   return (
-    <AuthProvider>
-      <RootNavigator />
-    </AuthProvider>
+    <CustomThemeProvider>
+      <AuthProvider>
+        <RootNavigator />
+      </AuthProvider>
+    </CustomThemeProvider>
   );
 }
 
@@ -87,7 +89,7 @@ function RootNavigator() {
         <Stack.Screen name="components-demo" options={{ headerShown: false }} />
       </Stack>
       <StatusBar style="auto" />
-      <Toast config={toastConfig} />
+      <ToastContainer />
     </ThemeProvider>
   );
 }

@@ -221,8 +221,6 @@ export default function WelcomeScreen() {
   const buttonScale = useSharedValue(1);
   const logoScale = useSharedValue(0);
   const logoOpacity = useSharedValue(0);
-  const taglineOpacity = useSharedValue(0);
-  const taglineTranslateY = useSharedValue(20);
   const contentOpacity = useSharedValue(0);
   const contentTranslateY = useSharedValue(40);
 
@@ -233,34 +231,16 @@ export default function WelcomeScreen() {
       logoOpacity.value = withTiming(1, { duration: 800 });
     }, 300);
 
-    // Tagline entrance
-    setTimeout(() => {
-      taglineOpacity.value = withTiming(1, { duration: 600 });
-      taglineTranslateY.value = withSpring(0, { damping: 12 });
-    }, 800);
-
     // Content entrance animation
     setTimeout(() => {
       contentOpacity.value = withTiming(1, { duration: 700 });
       contentTranslateY.value = withSpring(0, { damping: 15 });
     }, 1200);
-  }, [
-    logoScale,
-    logoOpacity,
-    taglineOpacity,
-    taglineTranslateY,
-    contentOpacity,
-    contentTranslateY,
-  ]);
+  }, [logoScale, logoOpacity, contentOpacity, contentTranslateY]);
 
   const logoAnimatedStyle = useAnimatedStyle(() => ({
     opacity: logoOpacity.value,
     transform: [{ scale: logoScale.value }],
-  }));
-
-  const taglineAnimatedStyle = useAnimatedStyle(() => ({
-    opacity: taglineOpacity.value,
-    transform: [{ translateY: taglineTranslateY.value }],
   }));
 
   const contentAnimatedStyle = useAnimatedStyle(() => ({
@@ -320,11 +300,6 @@ export default function WelcomeScreen() {
               <Text style={styles.brandName}>Brigada</Text>
               <Text style={styles.brandSubtitle}>Digital</Text>
             </Animated.View>
-
-            {/* Tagline */}
-            <Animated.Text style={[styles.tagline, taglineAnimatedStyle]}>
-              Tu aliado en el brigadeo
-            </Animated.Text>
           </View>
 
           {/* Features Section */}
@@ -457,16 +432,6 @@ const styles = StyleSheet.create({
     color: "rgba(255, 255, 255, 0.95)",
     letterSpacing: 4,
     marginTop: 4,
-  },
-  tagline: {
-    fontSize: 19,
-    fontWeight: "600",
-    color: "rgba(255, 255, 255, 0.95)",
-    textAlign: "center",
-    letterSpacing: 0.5,
-    textShadowColor: "rgba(0, 0, 0, 0.15)",
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
   },
 
   // Features Section
