@@ -14,15 +14,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import {
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -51,6 +44,7 @@ export default function LoginScreen() {
   // Form state
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [emailError, setEmailError] = useState("");
   const [passwordError, setPasswordError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -333,11 +327,7 @@ export default function LoginScreen() {
     email.length > 0 && password.length >= 6 && !emailError && !passwordError;
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-      keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
-    >
+    <View style={styles.container}>
       <LinearGradient
         colors={["#F5F7FA", "#FFFFFF", "#FFFFFF"]}
         start={{ x: 0, y: 0 }}
@@ -358,123 +348,142 @@ export default function LoginScreen() {
           <ConnectionStatus variant="compact" />
         </View>
 
-        <ScrollView
+        <KeyboardAwareScrollView
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          enableOnAndroid={true}
+          enableAutomaticScroll={true}
+          extraScrollHeight={20}
+          keyboardOpeningTime={0}
         >
-          {/* Logo/Brand */}
-          <View style={styles.header}>
-            <Text
-              style={styles.logo}
-              numberOfLines={1}
-              adjustsFontSizeToFit={true}
-              minimumFontScale={0.7}
-              allowFontScaling={false}
-              maxFontSizeMultiplier={1}
-            >
-              brigada Digital
-            </Text>
-          </View>
-
-          {/* Title */}
-          <View style={styles.titleContainer}>
-            <Text style={styles.title}>Inicia sesión</Text>
-            <Text style={styles.subtitle}>Accede con tu cuenta autorizada</Text>
-          </View>
-
-          {/* Error Alert */}
-          {showError && (
-            <View style={styles.alertContainer}>
-              <AlertEnhanced
-                variant="error"
-                title="Error de autenticación"
-                message={errorMessage}
-                onClose={() => setShowError(false)}
-              />
+          {/* Main Content */}
+          <View>
+            {/* Logo/Brand */}
+            <View style={styles.header}>
+              <Text
+                style={styles.logo}
+                numberOfLines={1}
+                adjustsFontSizeToFit={true}
+                minimumFontScale={0.7}
+                allowFontScaling={false}
+                maxFontSizeMultiplier={1}
+              >
+                brigada Digital
+              </Text>
             </View>
-          )}
 
-          {/* Info Box - Whitelist */}
-          <View style={styles.infoBox}>
-            <Ionicons
-              name="information-circle-outline"
-              size={20}
-              color="#0066CC"
-            />
-            <Text style={styles.infoText}>
-              Solo usuarios autorizados en la whitelist pueden acceder
-            </Text>
-          </View>
+            {/* Title */}
+            <View style={styles.titleContainer}>
+              <Text style={styles.title}>Inicia sesión</Text>
+              <Text style={styles.subtitle}>
+                Accede con tu cuenta autorizada
+              </Text>
+            </View>
 
-          {/* Form */}
-          <Animated.View style={[styles.form, shakeAnimatedStyle]}>
-            {/* Email Input */}
-            <InputEnhanced
-              label="Correo electrónico"
-              value={email}
-              onChangeText={handleEmailChange}
-              onBlur={handleEmailBlur}
-              placeholder="tu@email.com"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoComplete="email"
-              error={emailError}
-              leftIcon="mail-outline"
-              required
-              size="lg"
-            />
+            {/* Error Alert */}
+            {showError && (
+              <View style={styles.alertContainer}>
+                <AlertEnhanced
+                  variant="error"
+                  title="Error de autenticación"
+                  message={errorMessage}
+                  onClose={() => setShowError(false)}
+                />
+              </View>
+            )}
 
-            {/* Password Input */}
-            <InputEnhanced
-              label="Contraseña"
-              value={password}
-              onChangeText={handlePasswordChange}
-              placeholder="••••••••"
-              secureTextEntry
-              autoComplete="password"
-              error={passwordError}
-              helperText={!passwordError ? "Mínimo 6 caracteres" : undefined}
-              leftIcon="lock-closed-outline"
-              required
-              size="lg"
-            />
+            {/* Info Box - Whitelist */}
+            <View style={styles.infoBox}>
+              <Ionicons
+                name="information-circle-outline"
+                size={20}
+                color="#0066CC"
+              />
+              <Text style={styles.infoText}>
+                Solo usuarios autorizados con código activado pueden acceder
+              </Text>
+            </View>
 
-            {/* Login Button */}
-            <View style={styles.buttonContainer}>
-              <ButtonEnhanced
-                title="INICIAR SESIÓN"
-                onPress={handleLogin}
-                variant="gradient"
+            {/* Form */}
+            <Animated.View style={[styles.form, shakeAnimatedStyle]}>
+              {/* Email Input */}
+              <InputEnhanced
+                label="Correo electrónico"
+                value={email}
+                onChangeText={handleEmailChange}
+                onBlur={handleEmailBlur}
+                placeholder="tu@email.com"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoComplete="email"
+                error={emailError}
+                leftIcon="mail-outline"
+                required
                 size="lg"
-                icon="log-in-outline"
-                iconPosition="right"
-                loading={loading}
-                disabled={!isFormValid || loading}
-                fullWidth
-                rounded
               />
-            </View>
 
-            {/* Forgot Password Link */}
-            <ButtonEnhanced
-              title="¿Olvidaste tu contraseña?"
-              onPress={handleForgotPassword}
-              variant="ghost"
-              size="md"
-              style={styles.linkButton}
-            />
-          </Animated.View>
+              {/* Password Input */}
+              <InputEnhanced
+                label="Contraseña"
+                value={password}
+                onChangeText={handlePasswordChange}
+                placeholder="••••••••"
+                secureTextEntry={!showPassword}
+                autoComplete="password"
+                error={passwordError}
+                helperText={!passwordError ? "Mínimo 6 caracteres" : undefined}
+                leftIcon="lock-closed-outline"
+                rightIcon={showPassword ? "eye-off-outline" : "eye-outline"}
+                onRightIconPress={() => setShowPassword(!showPassword)}
+                required
+                size="lg"
+              />
+
+              {/* Login Button */}
+              <View style={styles.buttonContainer}>
+                <ButtonEnhanced
+                  title="INICIAR SESIÓN"
+                  onPress={handleLogin}
+                  variant="gradient"
+                  size="lg"
+                  icon="log-in-outline"
+                  iconPosition="right"
+                  loading={loading}
+                  disabled={!isFormValid || loading}
+                  fullWidth
+                  rounded
+                />
+              </View>
+
+              {/* Forgot Password Link */}
+              <ButtonEnhanced
+                title="¿Olvidaste tu contraseña?"
+                onPress={handleForgotPassword}
+                variant="ghost"
+                size="md"
+                style={styles.linkButton}
+              />
+            </Animated.View>
+          </View>
 
           {/* Footer */}
           <View style={styles.footer}>
-            <Text style={styles.footerText}>
-              ¿Primera vez? Usa tu código de activación
-            </Text>
+            <TouchableOpacity
+              onPress={() => {
+                router.push("/(auth)/activation" as any);
+              }}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.footerText}>
+                ¿Primera vez?{" "}
+                <Text style={styles.footerLink}>Activa tu cuenta aquí</Text>
+              </Text>
+            </TouchableOpacity>
           </View>
-        </ScrollView>
+        </KeyboardAwareScrollView>
       </LinearGradient>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 
@@ -509,14 +518,13 @@ const styles = StyleSheet.create({
     zIndex: 100,
   },
   scrollContent: {
-    flexGrow: 1,
     paddingHorizontal: 24,
     paddingTop: 110,
-    paddingBottom: 40,
+    paddingBottom: 20, // Reducido para eliminar espacio extra
   },
   header: {
     alignItems: "center",
-    marginBottom: 40,
+    marginBottom: 24, // Reducido de 40 a 24
     paddingHorizontal: 20,
     width: "100%",
   },
@@ -532,7 +540,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   titleContainer: {
-    marginBottom: 24,
+    marginBottom: 16, // Reducido de 24 a 16
   },
   title: {
     fontSize: 24,
@@ -555,7 +563,7 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 8,
     gap: 8,
-    marginBottom: 24,
+    marginBottom: 16, // Reducido de 24 a 16
     borderLeftWidth: 3,
     borderLeftColor: "#0066CC",
   },
@@ -570,24 +578,31 @@ const styles = StyleSheet.create({
     marginHorizontal: -8, // Extiende más allá del padding del contenedor
   },
   form: {
-    marginBottom: 24,
+    marginBottom: 16, // Reducido de 24 a 16
   },
   buttonContainer: {
     marginTop: 24,
-    marginBottom: 16,
+    marginBottom: 8, // Reducido de 16 a 8
   },
   linkButton: {
     alignSelf: "center",
-    paddingVertical: 12,
+    paddingVertical: 8, // Reducido de 12 a 8
   },
   footer: {
-    marginTop: "auto",
-    paddingTop: 24,
+    marginTop: 8,
+    paddingTop: 12,
+    paddingBottom: 8, // Reducido para eliminar espacio extra abajo
     alignItems: "center",
   },
   footerText: {
-    fontSize: 13,
+    fontSize: 14, // Un poco más grande
     color: "#6C7A89",
     textAlign: "center",
+  },
+  footerLink: {
+    fontSize: 14,
+    color: "#FF1B8D", // Color del tema
+    fontWeight: "600",
+    textDecorationLine: "underline",
   },
 });

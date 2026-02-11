@@ -11,15 +11,14 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
-  KeyboardAvoidingView,
   Platform,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -238,6 +237,7 @@ function checkPasswordStrength(password: string): PasswordStrength {
 export default function CreatePasswordScreen() {
   const router = useRouter();
   const { pendingEmail, setPendingEmail } = useAuth();
+
   const [email, setEmail] = useState(pendingEmail || "");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -393,281 +393,277 @@ export default function CreatePasswordScreen() {
           />
         </TouchableOpacity>
 
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-          style={styles.keyboardAvoid}
-          keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
+        <KeyboardAwareScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          enableOnAndroid={true}
+          enableAutomaticScroll={true}
+          extraScrollHeight={20}
+          keyboardOpeningTime={0}
         >
-          <ScrollView
-            contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
+          <Animated.View
+            style={[styles.contentContainer, contentAnimatedStyle]}
           >
-            <Animated.View
-              style={[styles.contentContainer, contentAnimatedStyle]}
-            >
-              {/* Icon Badge */}
-              <View style={styles.iconBadge}>
-                <Ionicons name="lock-closed" size={48} color="#FF1B8D" />
+            {/* Icon Badge */}
+            <View style={styles.iconBadge}>
+              <Ionicons name="lock-closed" size={48} color="#FF1B8D" />
+            </View>
+
+            {/* Title */}
+            <Text style={styles.title}>Crea tu contraseña</Text>
+            <Text style={styles.subtitle}>
+              Define una contraseña segura para proteger tu cuenta
+            </Text>
+
+            {/* Email Input - BLOQUEADO si viene de activación */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Correo Electrónico</Text>
+              <View
+                style={[
+                  styles.inputWrapper,
+                  pendingEmail && styles.inputWrapperDisabled,
+                ]}
+              >
+                <Ionicons
+                  name="mail-outline"
+                  size={20}
+                  color={
+                    pendingEmail
+                      ? "rgba(255, 255, 255, 0.4)"
+                      : "rgba(255, 255, 255, 0.7)"
+                  }
+                  style={styles.inputIcon}
+                />
+                <TextInput
+                  style={[styles.input, pendingEmail && styles.inputDisabled]}
+                  placeholder="tu@email.com"
+                  placeholderTextColor="rgba(255, 255, 255, 0.5)"
+                  value={email}
+                  onChangeText={setEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoComplete="email"
+                  autoCorrect={false}
+                  editable={!pendingEmail}
+                />
+                {pendingEmail && (
+                  <Ionicons
+                    name="lock-closed"
+                    size={18}
+                    color="rgba(255, 255, 255, 0.5)"
+                    style={styles.lockIcon}
+                  />
+                )}
               </View>
+              {pendingEmail && (
+                <Text style={styles.helperText}>
+                  Email vinculado a tu código de activación
+                </Text>
+              )}
+            </View>
 
-              {/* Title */}
-              <Text style={styles.title}>Crea tu contraseña</Text>
-              <Text style={styles.subtitle}>
-                Define una contraseña segura para proteger tu cuenta
-              </Text>
-
-              {/* Email Input - BLOQUEADO si viene de activación */}
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Correo Electrónico</Text>
-                <View
-                  style={[
-                    styles.inputWrapper,
-                    pendingEmail && styles.inputWrapperDisabled,
-                  ]}
+            {/* Password Input */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Contraseña</Text>
+              <View style={styles.inputWrapper}>
+                <Ionicons
+                  name="lock-closed-outline"
+                  size={20}
+                  color="rgba(255, 255, 255, 0.7)"
+                  style={styles.inputIcon}
+                />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Mínimo 8 caracteres"
+                  placeholderTextColor="rgba(255, 255, 255, 0.5)"
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!showPassword}
+                  autoCapitalize="none"
+                  autoComplete="password-new"
+                  autoCorrect={false}
+                />
+                <TouchableOpacity
+                  onPress={() => setShowPassword(!showPassword)}
+                  style={styles.eyeButton}
                 >
                   <Ionicons
-                    name="mail-outline"
-                    size={20}
-                    color={
-                      pendingEmail
-                        ? "rgba(255, 255, 255, 0.4)"
-                        : "rgba(255, 255, 255, 0.7)"
-                    }
-                    style={styles.inputIcon}
+                    name={showPassword ? "eye-off-outline" : "eye-outline"}
+                    size={22}
+                    color="rgba(255, 255, 255, 0.7)"
                   />
-                  <TextInput
-                    style={[styles.input, pendingEmail && styles.inputDisabled]}
-                    placeholder="tu@email.com"
-                    placeholderTextColor="rgba(255, 255, 255, 0.5)"
-                    value={email}
-                    onChangeText={setEmail}
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    autoComplete="email"
-                    autoCorrect={false}
-                    editable={!pendingEmail}
-                  />
-                  {pendingEmail && (
-                    <Ionicons
-                      name="lock-closed"
-                      size={18}
-                      color="rgba(255, 255, 255, 0.5)"
-                      style={styles.lockIcon}
-                    />
-                  )}
-                </View>
-                {pendingEmail && (
-                  <Text style={styles.helperText}>
-                    Email vinculado a tu código de activación
-                  </Text>
-                )}
+                </TouchableOpacity>
               </View>
 
-              {/* Password Input */}
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Contraseña</Text>
-                <View style={styles.inputWrapper}>
-                  <Ionicons
-                    name="lock-closed-outline"
-                    size={20}
-                    color="rgba(255, 255, 255, 0.7)"
-                    style={styles.inputIcon}
-                  />
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Mínimo 8 caracteres"
-                    placeholderTextColor="rgba(255, 255, 255, 0.5)"
-                    value={password}
-                    onChangeText={setPassword}
-                    secureTextEntry={!showPassword}
-                    autoCapitalize="none"
-                    autoComplete="password-new"
-                    autoCorrect={false}
-                  />
-                  <TouchableOpacity
-                    onPress={() => setShowPassword(!showPassword)}
-                    style={styles.eyeButton}
-                  >
-                    <Ionicons
-                      name={showPassword ? "eye-off-outline" : "eye-outline"}
-                      size={22}
-                      color="rgba(255, 255, 255, 0.7)"
-                    />
-                  </TouchableOpacity>
-                </View>
-
-                {/* Password Strength Indicator */}
-                {password.length > 0 && (
-                  <View style={styles.strengthContainer}>
-                    <View style={styles.strengthBarContainer}>
-                      {[0, 1, 2, 3, 4].map((index) => (
-                        <View
-                          key={index}
-                          style={[
-                            styles.strengthBar,
-                            {
-                              backgroundColor:
-                                index < passwordStrength.score
-                                  ? passwordStrength.color
-                                  : "rgba(255, 255, 255, 0.2)",
-                            },
-                          ]}
-                        />
-                      ))}
-                    </View>
-                    <Text
-                      style={[
-                        styles.strengthLabel,
-                        { color: passwordStrength.color },
-                      ]}
-                    >
-                      {passwordStrength.label}
-                    </Text>
-                  </View>
-                )}
-
-                {/* Password Requirements */}
-                {passwordStrength.feedback.length > 0 && (
-                  <View style={styles.requirementsContainer}>
-                    <Text style={styles.requirementsTitle}>Se requiere:</Text>
-                    {passwordStrength.feedback.map((req, index) => (
-                      <View key={index} style={styles.requirementRow}>
-                        <Ionicons
-                          name="alert-circle-outline"
-                          size={14}
-                          color="rgba(255, 255, 255, 0.7)"
-                        />
-                        <Text style={styles.requirementText}>{req}</Text>
-                      </View>
+              {/* Password Strength Indicator */}
+              {password.length > 0 && (
+                <View style={styles.strengthContainer}>
+                  <View style={styles.strengthBarContainer}>
+                    {[0, 1, 2, 3, 4].map((index) => (
+                      <View
+                        key={index}
+                        style={[
+                          styles.strengthBar,
+                          {
+                            backgroundColor:
+                              index < passwordStrength.score
+                                ? passwordStrength.color
+                                : "rgba(255, 255, 255, 0.2)",
+                          },
+                        ]}
+                      />
                     ))}
                   </View>
-                )}
-              </View>
-
-              {/* Confirm Password Input */}
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Confirmar Contraseña</Text>
-                <View style={styles.inputWrapper}>
-                  <Ionicons
-                    name="lock-closed-outline"
-                    size={20}
-                    color="rgba(255, 255, 255, 0.7)"
-                    style={styles.inputIcon}
-                  />
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Repite tu contraseña"
-                    placeholderTextColor="rgba(255, 255, 255, 0.5)"
-                    value={confirmPassword}
-                    onChangeText={setConfirmPassword}
-                    secureTextEntry={!showConfirmPassword}
-                    autoCapitalize="none"
-                    autoComplete="password-new"
-                    autoCorrect={false}
-                  />
-                  <TouchableOpacity
-                    onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-                    style={styles.eyeButton}
+                  <Text
+                    style={[
+                      styles.strengthLabel,
+                      { color: passwordStrength.color },
+                    ]}
                   >
-                    <Ionicons
-                      name={
-                        showConfirmPassword ? "eye-off-outline" : "eye-outline"
-                      }
-                      size={22}
-                      color="rgba(255, 255, 255, 0.7)"
-                    />
-                  </TouchableOpacity>
+                    {passwordStrength.label}
+                  </Text>
                 </View>
+              )}
 
-                {/* Password Match Indicator */}
-                {confirmPassword.length > 0 && (
-                  <View style={styles.matchContainer}>
-                    {password === confirmPassword ? (
-                      <View style={styles.matchRow}>
-                        <Ionicons
-                          name="checkmark-circle"
-                          size={16}
-                          color="#00FF88"
-                        />
-                        <Text style={styles.matchText}>
-                          Las contraseñas coinciden
-                        </Text>
-                      </View>
-                    ) : (
-                      <View style={styles.matchRow}>
-                        <Ionicons
-                          name="close-circle"
-                          size={18}
-                          color="#CC0000"
-                        />
-                        <Text
-                          style={[
-                            styles.matchText,
-                            {
-                              color: "#CC0000",
-                              fontWeight: "700",
-                              textShadowColor: "rgba(0, 0, 0, 0.5)",
-                            },
-                          ]}
-                        >
-                          Las contraseñas no coinciden
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-                )}
+              {/* Password Requirements */}
+              {passwordStrength.feedback.length > 0 && (
+                <View style={styles.requirementsContainer}>
+                  <Text style={styles.requirementsTitle}>Se requiere:</Text>
+                  {passwordStrength.feedback.map((req, index) => (
+                    <View key={index} style={styles.requirementRow}>
+                      <Ionicons
+                        name="alert-circle-outline"
+                        size={14}
+                        color="rgba(255, 255, 255, 0.7)"
+                      />
+                      <Text style={styles.requirementText}>{req}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </View>
+
+            {/* Confirm Password Input */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Confirmar Contraseña</Text>
+              <View style={styles.inputWrapper}>
+                <Ionicons
+                  name="lock-closed-outline"
+                  size={20}
+                  color="rgba(255, 255, 255, 0.7)"
+                  style={styles.inputIcon}
+                />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Repite tu contraseña"
+                  placeholderTextColor="rgba(255, 255, 255, 0.5)"
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  secureTextEntry={!showConfirmPassword}
+                  autoCapitalize="none"
+                  autoComplete="password-new"
+                  autoCorrect={false}
+                />
+                <TouchableOpacity
+                  onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                  style={styles.eyeButton}
+                >
+                  <Ionicons
+                    name={
+                      showConfirmPassword ? "eye-off-outline" : "eye-outline"
+                    }
+                    size={22}
+                    color="rgba(255, 255, 255, 0.7)"
+                  />
+                </TouchableOpacity>
               </View>
 
-              {/* Create Button */}
-              <TouchableOpacity
-                style={[
-                  styles.createButton,
-                  (loading ||
-                    password.length < 8 ||
-                    !/[A-Z]/.test(password) ||
-                    !/[a-z]/.test(password) ||
-                    !/[0-9]/.test(password) ||
-                    password !== confirmPassword ||
-                    confirmPassword.length === 0) &&
-                    styles.createButtonDisabled,
-                ]}
-                onPress={handleCreatePassword}
-                disabled={
-                  loading ||
+              {/* Password Match Indicator */}
+              {confirmPassword.length > 0 && (
+                <View style={styles.matchContainer}>
+                  {password === confirmPassword ? (
+                    <View style={styles.matchRow}>
+                      <Ionicons
+                        name="checkmark-circle"
+                        size={16}
+                        color="#00FF88"
+                      />
+                      <Text style={styles.matchText}>
+                        Las contraseñas coinciden
+                      </Text>
+                    </View>
+                  ) : (
+                    <View style={styles.matchRow}>
+                      <Ionicons name="close-circle" size={18} color="#CC0000" />
+                      <Text
+                        style={[
+                          styles.matchText,
+                          {
+                            color: "#CC0000",
+                            fontWeight: "500", // Reducido de 700 a 500 para menos bold
+                            textShadowColor: "rgba(0, 0, 0, 0.4)", // Sombra más suave
+                            textShadowOffset: { width: 0, height: 1 },
+                            textShadowRadius: 2,
+                          },
+                        ]}
+                      >
+                        Las contraseñas no coinciden
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              )}
+            </View>
+
+            {/* Create Button */}
+            <TouchableOpacity
+              style={[
+                styles.createButton,
+                (loading ||
                   password.length < 8 ||
                   !/[A-Z]/.test(password) ||
                   !/[a-z]/.test(password) ||
                   !/[0-9]/.test(password) ||
                   password !== confirmPassword ||
-                  confirmPassword.length === 0
-                }
-                activeOpacity={0.8}
-              >
-                {loading ? (
-                  <Text style={styles.createButtonText}>Creando cuenta...</Text>
-                ) : (
-                  <>
-                    <Text style={styles.createButtonText}>Crear mi cuenta</Text>
-                    <Ionicons name="arrow-forward" size={20} color="#FF1B8D" />
-                  </>
-                )}
-              </TouchableOpacity>
+                  confirmPassword.length === 0) &&
+                  styles.createButtonDisabled,
+              ]}
+              onPress={handleCreatePassword}
+              disabled={
+                loading ||
+                password.length < 8 ||
+                !/[A-Z]/.test(password) ||
+                !/[a-z]/.test(password) ||
+                !/[0-9]/.test(password) ||
+                password !== confirmPassword ||
+                confirmPassword.length === 0
+              }
+              activeOpacity={0.8}
+            >
+              {loading ? (
+                <Text style={styles.createButtonText}>Creando cuenta...</Text>
+              ) : (
+                <>
+                  <Text style={styles.createButtonText}>Crear mi cuenta</Text>
+                  <Ionicons name="arrow-forward" size={20} color="#FF1B8D" />
+                </>
+              )}
+            </TouchableOpacity>
 
-              {/* Security Note */}
-              <View style={styles.securityNote}>
-                <Ionicons
-                  name="shield-checkmark"
-                  size={18}
-                  color="rgba(255,255,255,0.8)"
-                />
-                <Text style={styles.securityText}>
-                  Tu contraseña será encriptada y almacenada de forma segura
-                </Text>
-              </View>
-            </Animated.View>
-          </ScrollView>
-        </KeyboardAvoidingView>
+            {/* Security Note */}
+            <View style={styles.securityNote}>
+              <Ionicons
+                name="shield-checkmark"
+                size={18}
+                color="rgba(255,255,255,0.8)"
+              />
+              <Text style={styles.securityText}>
+                Tu contraseña será encriptada y almacenada de forma segura
+              </Text>
+            </View>
+          </Animated.View>
+        </KeyboardAwareScrollView>
       </LinearGradient>
     </View>
   );
@@ -706,10 +702,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    flexGrow: 1,
-    justifyContent: "center",
     paddingHorizontal: 24,
-    paddingVertical: 40,
+    paddingTop: 40,
+    paddingBottom: 20, // Reducido para eliminar espacio extra
   },
   contentContainer: {
     alignItems: "center",
@@ -885,8 +880,9 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255, 255, 255, 0.5)",
   },
   createButtonDisabled: {
-    opacity: 0.4, // Más obvio que está deshabilitado (antes era 0.6)
-    backgroundColor: "rgba(200, 200, 200, 0.5)", // Gris cuando está deshabilitado
+    backgroundColor: "rgba(180, 180, 180, 0.5)", // Gris más oscuro cuando está deshabilitado
+    borderColor: "rgba(180, 180, 180, 0.6)",
+    opacity: 0.85, // Menos opacidad para mejor contraste del texto
   },
   createButtonText: {
     ...typography.button,
