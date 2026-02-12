@@ -64,11 +64,7 @@ export function ThemeToggle({ style, showLabel = true }: ThemeToggleProps) {
         <Ionicons
           name={isDark ? "moon" : "sunny"}
           size={24}
-          color={
-            isDark
-              ? DesignTokens.colors.primary[400]
-              : DesignTokens.colors.primary[600]
-          }
+          color={isDark ? "#FFFFFF" : "#FF1B8D"} // Blanco en dark, rosa en light
         />
       </View>
 
@@ -110,15 +106,18 @@ export function ThemeToggleIcon({ style }: { style?: ViewStyle }) {
       onPress={handlePress}
       style={[styles.iconOnly, animatedStyle, style]}
       activeOpacity={0.7}
+      accessible={true}
+      accessibilityRole="button"
+      accessibilityLabel={
+        isDark ? "Cambiar a modo claro" : "Cambiar a modo oscuro"
+      }
+      accessibilityHint="Presiona para cambiar el tema de la aplicación"
+      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
     >
       <Ionicons
         name={isDark ? "moon" : "sunny"}
         size={24}
-        color={
-          isDark
-            ? DesignTokens.colors.primary[400]
-            : DesignTokens.colors.primary[600]
-        }
+        color={isDark ? "#FFFFFF" : "#FF1B8D"} // Blanco en dark, rosa en light
       />
     </AnimatedTouchable>
   );

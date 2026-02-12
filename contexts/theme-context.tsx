@@ -52,55 +52,55 @@ interface ThemeContextType {
 }
 
 const lightColors: ThemeColors = {
-  background: DesignTokens.colors.neutral[0],
-  backgroundSecondary: DesignTokens.colors.neutral[50],
-  surface: DesignTokens.colors.neutral[0],
-  surfaceVariant: DesignTokens.colors.neutral[100],
+  background: "#FFFFFF", // Blanco puro
+  backgroundSecondary: "#FFF5F8", // Rosa pastel muy claro
+  surface: "#FAFAFA", // Gris muy claro
+  surfaceVariant: "#FFE8F0", // Rosa pastel claro
 
-  text: DesignTokens.colors.neutral[900],
-  textSecondary: DesignTokens.colors.neutral[700],
-  textTertiary: DesignTokens.colors.neutral[500],
+  text: "#FF1B8D", // Rosa vibrante para texto principal
+  textSecondary: "#FF4DA6", // Rosa medio para texto secundario
+  textTertiary: "#FF6BB8", // Rosa claro para texto terciario
 
-  border: DesignTokens.colors.neutral[300],
-  borderLight: DesignTokens.colors.neutral[200],
+  border: "#FFD6E8", // Rosa pastel para bordes
+  borderLight: "#FFE8F0", // Rosa muy claro
 
-  primary: DesignTokens.colors.primary[600],
-  primaryLight: DesignTokens.colors.primary[100],
-  primaryDark: DesignTokens.colors.primary[800],
+  primary: "#FF1B8D", // Rosa vibrante (tu rosa característico)
+  primaryLight: "#FFE8F0", // Rosa pastel
+  primaryDark: "#CC1670", // Rosa oscuro
 
-  success: DesignTokens.colors.success.main,
-  warning: DesignTokens.colors.warning.main,
-  error: DesignTokens.colors.error.main,
-  info: DesignTokens.colors.info.main,
+  success: "#10B981", // Verde
+  warning: "#F59E0B", // Naranja
+  error: "#EF4444", // Rojo
+  info: "#3B82F6", // Azul
 
-  overlay: `rgba(0, 0, 0, ${DesignTokens.opacity.overlay})`,
-  backdrop: "rgba(0, 0, 0, 0.5)",
+  overlay: `rgba(255, 27, 141, ${DesignTokens.opacity.overlay})`, // Overlay con rosa
+  backdrop: "rgba(255, 27, 141, 0.1)", // Backdrop rosa suave
 };
 
 const darkColors: ThemeColors = {
-  background: DesignTokens.colors.neutral[950],
-  backgroundSecondary: DesignTokens.colors.neutral[900],
-  surface: DesignTokens.colors.neutral[900],
-  surfaceVariant: DesignTokens.colors.neutral[800],
+  background: "#FF1B8D", // Rosa vibrante de fondo
+  backgroundSecondary: "#FF4DA6", // Rosa claro secundario
+  surface: "#CC1670", // Rosa oscuro para superficies
+  surfaceVariant: "#E01780", // Rosa medio para variantes
 
-  text: DesignTokens.colors.neutral[50],
-  textSecondary: DesignTokens.colors.neutral[300],
-  textTertiary: DesignTokens.colors.neutral[500],
+  text: "#FFFFFF", // Blanco puro para texto
+  textSecondary: "#FFE8F0", // Rosa pastel muy claro
+  textTertiary: "#FFD6E8", // Rosa pastel claro
 
-  border: DesignTokens.colors.neutral[700],
-  borderLight: DesignTokens.colors.neutral[800],
+  border: "#FFFFFF", // Blanco para bordes
+  borderLight: "rgba(255, 255, 255, 0.3)", // Blanco semi-transparente
 
-  primary: DesignTokens.colors.primary[400],
-  primaryLight: DesignTokens.colors.primary[900],
-  primaryDark: DesignTokens.colors.primary[200],
+  primary: "#FFFFFF", // Blanco como primario (invierte el esquema)
+  primaryLight: "#FFE8F0", // Rosa pastel
+  primaryDark: "#F0F0F0", // Gris muy claro
 
-  success: DesignTokens.colors.success.light,
-  warning: DesignTokens.colors.warning.light,
-  error: DesignTokens.colors.error.light,
-  info: DesignTokens.colors.info.light,
+  success: "#34D399", // Verde claro
+  warning: "#FBBF24", // Naranja claro
+  error: "#FCA5A5", // Rojo claro
+  info: "#93C5FD", // Azul claro
 
-  overlay: `rgba(0, 0, 0, ${DesignTokens.opacity.overlay + 0.2})`,
-  backdrop: "rgba(0, 0, 0, 0.7)",
+  overlay: `rgba(255, 27, 141, ${DesignTokens.opacity.overlay + 0.3})`, // Overlay rosa
+  backdrop: "rgba(26, 26, 46, 0.9)", // Backdrop oscuro con tinte
 };
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);

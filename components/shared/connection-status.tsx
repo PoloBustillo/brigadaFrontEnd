@@ -77,9 +77,7 @@ export function ConnectionStatus({
             ]}
           />
         </Animated.View>
-        <Text style={styles.compactText}>
-          {isOnline ? "En línea" : "Sin conexión"}
-        </Text>
+        {/* Texto removido en compact para evitar superposición */}
       </View>
     );
   }
@@ -111,24 +109,24 @@ export function ConnectionStatus({
 }
 
 const styles = StyleSheet.create({
-  // Compact variant
+  // Compact variant - Solo dot, sin texto
   compactContainer: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
     backgroundColor: "rgba(255, 255, 255, 0.9)",
-    borderRadius: 16,
-    gap: 6,
+    borderRadius: 20,
+    gap: 0,
   },
   statusDot: {
-    width: 8,
-    height: 8,
+    width: 10,
+    height: 10,
   },
   dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
   },
   compactText: {
     ...typography.bodySmall,

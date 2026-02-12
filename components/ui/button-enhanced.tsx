@@ -4,6 +4,7 @@
  */
 
 import { DesignTokens } from "@/constants/design-tokens";
+import { useTheme, useThemeColors } from "@/contexts/theme-context";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import React from "react";
@@ -59,6 +60,8 @@ export function ButtonEnhanced({
   style,
   textStyle: customTextStyle,
 }: ButtonEnhancedProps) {
+  const colors = useThemeColors();
+  const { theme } = useTheme();
   const scale = useSharedValue(1);
 
   // Animación de escala al presionar
@@ -98,19 +101,29 @@ export function ButtonEnhanced({
     xl: { iconSize: 24, fontSize: DesignTokens.typography.fontSize.xl },
   };
 
-  // Colores de iconos y loading
+  // Colores de iconos y loading (adaptados al tema)
   const getIconColor = (): string => {
-    if (variant === "outline" || variant === "ghost") {
-      return DesignTokens.colors.primary[600];
+    // Para gradient, siempre blanco para máximo contraste
+    if (variant === "gradient") {
+      return "#FFFFFF";
     }
-    return DesignTokens.colors.neutral[0];
+
+    if (variant === "outline" || variant === "ghost") {
+      return colors.primary;
+    }
+    return "#FFFFFF"; // Blanco para botones con fondo
   };
 
   const getLoadingColor = (): string => {
-    if (variant === "outline" || variant === "ghost") {
-      return DesignTokens.colors.primary[600];
+    // Para gradient, siempre blanco para máximo contraste
+    if (variant === "gradient") {
+      return "#FFFFFF";
     }
-    return DesignTokens.colors.neutral[0];
+
+    if (variant === "outline" || variant === "ghost") {
+      return colors.primary;
+    }
+    return "#FFFFFF"; // Blanco para botones con fondo
   };
 
   // Contenido del botón
@@ -131,7 +144,7 @@ export function ButtonEnhanced({
         <Text
           style={[
             styles.text,
-            textStyles[variant],
+            { color: getTextColor() },
             { fontSize: sizeConfig[size].fontSize },
             customTextStyle,
           ]}
@@ -151,29 +164,95 @@ export function ButtonEnhanced({
     </View>
   );
 
+  // Obtener estilos de variante dinámicamente
+  const getVariantStyle = (): ViewStyle => {
+    switch (variant) {
+      case "primary":
+        return {
+          backgroundColor: colors.primary,
+          ...DesignTokens.shadows.sm,
+        };
+      case "secondary":
+        return {
+          backgroundColor: colors.surface,
+          borderWidth: 1,
+          borderColor: colors.border,
+        };
+      case "outline":
+        return {
+          backgroundColor: "transparent",
+          borderWidth: DesignTokens.borderWidth.base,
+          borderColor: colors.primary,
+        };
+      case "ghost":
+        return {
+          backgroundColor: "transparent",
+        };
+      case "danger":
+        return {
+          backgroundColor: colors.error,
+          ...DesignTokens.shadows.sm,
+        };
+      default:
+        return {};
+    }
+  };
+
+  // Obtener color de texto dinámicamente
+  const getTextColor = (): string => {
+    // Para variant gradient: siempre blanco para máximo contraste
+    if (variant === "gradient") {
+      return "#FFFFFF";
+    }
+
+    if (
+      variant === "outline" ||
+      variant === "ghost" ||
+      variant === "secondary"
+    ) {
+      return colors.text;
+    }
+    return "#FFFFFF";
+  };
+
   // Renderizado con gradiente
-  if (isGradient && !isDisabled) {
+  if (isGradient) {
+    // ✅ Quitamos la condición !isDisabled
+    // Gradiente MUY contrastante y visible en ambos temas
+    const gradientColors = (
+      theme === "dark"
+        ? ["#8B0A3D", "#5C0727"] // Rosa MUY OSCURO en dark (casi borgoña)
+        : ["#FF0080", "#E6006F"]
+    ) as [string, string]; // Rosa MUY vibrante en light
+
     return (
       <AnimatedTouchable
         onPress={handlePress}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
         disabled={isDisabled}
-        activeOpacity={0.9}
+        activeOpacity={0.7}
         style={[animatedStyle, fullWidth && styles.fullWidth]}
         accessibilityRole="button"
         accessibilityState={{ disabled: isDisabled }}
         accessibilityLabel={title}
       >
         <LinearGradient
-          colors={DesignTokens.colors.gradients.primary}
+          colors={gradientColors}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={[
             styles.base,
             sizeStyles[size],
             rounded && styles.rounded,
-            isDisabled && styles.disabled,
+            isDisabled && styles.disabled, // ✅ Aplica opacity cuando disabled
+            {
+              shadowColor: theme === "dark" ? "#000" : "#FF0080",
+              shadowOffset: { width: 0, height: 6 },
+              shadowOpacity: isDisabled ? 0.2 : 0.4, // ✅ Menos sombra cuando disabled
+              shadowRadius: 10,
+              elevation: isDisabled ? 3 : 8, // ✅ Menos elevation cuando disabled
+            },
             style,
           ]}
         >
@@ -190,11 +269,11 @@ export function ButtonEnhanced({
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       disabled={isDisabled}
-      activeOpacity={0.8}
+      activeOpacity={0.6}
       style={[
         animatedStyle,
         styles.base,
-        variantStyles[variant],
+        getVariantStyle(),
         sizeStyles[size],
         fullWidth && styles.fullWidth,
         rounded && styles.rounded,
@@ -244,34 +323,6 @@ const styles = StyleSheet.create({
   },
 });
 
-// Variantes de color
-const variantStyles = StyleSheet.create({
-  primary: {
-    backgroundColor: DesignTokens.colors.primary[600],
-    ...DesignTokens.shadows.sm,
-  },
-  secondary: {
-    backgroundColor: DesignTokens.colors.secondary[600],
-    ...DesignTokens.shadows.sm,
-  },
-  outline: {
-    backgroundColor: "transparent",
-    borderWidth: DesignTokens.borderWidth.base,
-    borderColor: DesignTokens.colors.primary[600],
-  },
-  ghost: {
-    backgroundColor: "transparent",
-  },
-  gradient: {
-    // Estilo aplicado vía LinearGradient
-    backgroundColor: "transparent",
-  },
-  danger: {
-    backgroundColor: DesignTokens.colors.error.main,
-    ...DesignTokens.shadows.sm,
-  },
-});
-
 // Tamaños
 const sizeStyles = StyleSheet.create({
   xs: {
@@ -298,28 +349,6 @@ const sizeStyles = StyleSheet.create({
     paddingHorizontal: DesignTokens.spacing[8],
     paddingVertical: DesignTokens.spacing[5],
     minHeight: 60,
-  },
-});
-
-// Estilos de texto por variante
-const textStyles = StyleSheet.create({
-  primary: {
-    color: DesignTokens.colors.neutral[0],
-  },
-  secondary: {
-    color: DesignTokens.colors.neutral[0],
-  },
-  outline: {
-    color: DesignTokens.colors.primary[600],
-  },
-  ghost: {
-    color: DesignTokens.colors.primary[600],
-  },
-  gradient: {
-    color: DesignTokens.colors.neutral[0],
-  },
-  danger: {
-    color: DesignTokens.colors.neutral[0],
   },
 });
 

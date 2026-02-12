@@ -68,27 +68,55 @@ function RootNavigator() {
 
   const hasSession = !!user;
 
+  // Determine initial route based on user role
+  const getInitialRoute = () => {
+    if (!hasSession) return "(auth)";
+
+    switch (user?.role) {
+      case "ADMIN":
+        return "(admin)";
+      case "ENCARGADO":
+        return "(encargado)";
+      case "BRIGADISTA":
+        return "(brigadista)";
+      default:
+        return "(tabs)";
+    }
+  };
+
   return (
     <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
+      <StatusBar style="auto" />
       <Stack
         screenOptions={{
           headerShown: false,
         }}
+        initialRouteName={getInitialRoute()}
       >
         {!hasSession ? (
           // No session: Show auth flow (includes welcome + login)
-          <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-        ) : (
-          // Has session: Show main app
           <>
+            <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+            {/* Demo screen - remove in production */}
+            <Stack.Screen
+              name="components-demo"
+              options={{ headerShown: false }}
+            />
+          </>
+        ) : (
+          // Has session: Show main app (all role-based routes)
+          <>
+            <Stack.Screen name="(admin)" options={{ headerShown: false }} />
+            <Stack.Screen name="(encargado)" options={{ headerShown: false }} />
+            <Stack.Screen
+              name="(brigadista)"
+              options={{ headerShown: false }}
+            />
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen name="profile" options={{ headerShown: false }} />
           </>
         )}
-        {/* Demo screen - remove in production */}
-        <Stack.Screen name="components-demo" options={{ headerShown: false }} />
       </Stack>
-      <StatusBar style="auto" />
       <ToastContainer />
     </ThemeProvider>
   );

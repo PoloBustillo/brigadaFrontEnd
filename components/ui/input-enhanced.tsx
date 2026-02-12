@@ -4,6 +4,7 @@
  */
 
 import { DesignTokens } from "@/constants/design-tokens";
+import { useThemeColors } from "@/contexts/theme-context";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useState } from "react";
 import {
@@ -52,6 +53,7 @@ export function InputEnhanced({
   style,
   ...props
 }: InputEnhancedProps) {
+  const colors = useThemeColors();
   const [isFocused, setIsFocused] = useState(false);
   const focusAnim = useSharedValue(0);
 
@@ -59,10 +61,10 @@ export function InputEnhanced({
   const animatedBorderStyle = useAnimatedStyle(() => {
     const borderColor = withTiming(
       error
-        ? DesignTokens.colors.error.main
+        ? colors.error
         : focusAnim.value === 1
-          ? DesignTokens.colors.primary[600]
-          : DesignTokens.colors.neutral[300],
+          ? colors.primary
+          : colors.border,
       { duration: 200 },
     );
 
@@ -109,9 +111,9 @@ export function InputEnhanced({
 
   // Color de iconos dinámico
   const getIconColor = (): string => {
-    if (error) return DesignTokens.colors.error.main;
-    if (isFocused) return DesignTokens.colors.primary[600];
-    return DesignTokens.colors.neutral[400];
+    if (error) return colors.error;
+    if (isFocused) return colors.primary;
+    return colors.textSecondary;
   };
 
   return (
@@ -121,12 +123,19 @@ export function InputEnhanced({
         <Text
           style={[
             styles.label,
-            isFocused && styles.labelFocused,
-            error && styles.labelError,
+            {
+              color: error
+                ? colors.error
+                : isFocused
+                  ? colors.primary
+                  : colors.textSecondary,
+            },
           ]}
         >
           {label}
-          {required && <Text style={styles.required}> *</Text>}
+          {required && (
+            <Text style={[styles.required, { color: colors.error }]}> *</Text>
+          )}
         </Text>
       )}
 
@@ -134,6 +143,9 @@ export function InputEnhanced({
       <Animated.View
         style={[
           styles.inputContainer,
+          {
+            backgroundColor: colors.surface,
+          },
           variantStyles[variant],
           {
             paddingHorizontal: sizeConfig[size].padding,
@@ -159,12 +171,13 @@ export function InputEnhanced({
             styles.input,
             {
               fontSize: sizeConfig[size].fontSize,
+              color: colors.text,
             },
             leftIcon && styles.inputWithLeftIcon,
             rightIcon && styles.inputWithRightIcon,
             style,
           ]}
-          placeholderTextColor={DesignTokens.colors.neutral[400]}
+          placeholderTextColor={colors.textSecondary}
           onFocus={handleFocus}
           onBlur={handleBlur}
           value={value}
@@ -197,14 +210,18 @@ export function InputEnhanced({
               <Ionicons
                 name="alert-circle"
                 size={14}
-                color={DesignTokens.colors.error.main}
+                color={colors.error}
                 style={styles.errorIcon}
               />
-              <Text style={styles.errorText}>{error}</Text>
+              <Text style={[styles.errorText, { color: colors.error }]}>
+                {error}
+              </Text>
             </View>
           )}
           {helperText && !error && (
-            <Text style={styles.helperText}>{helperText}</Text>
+            <Text style={[styles.helperText, { color: colors.textSecondary }]}>
+              {helperText}
+            </Text>
           )}
         </View>
 
