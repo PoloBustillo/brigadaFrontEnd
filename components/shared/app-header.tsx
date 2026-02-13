@@ -11,13 +11,7 @@ import NetInfo from "@react-native-community/netinfo";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import {
-  Alert,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 interface AppHeaderProps {
   title: string;
@@ -65,7 +59,7 @@ export function AppHeader({
           },
         },
       ],
-      { cancelable: true }
+      { cancelable: true },
     );
   };
 

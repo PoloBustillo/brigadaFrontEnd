@@ -1,23 +1,372 @@
-import { AppHeader } from "@/components/shared";
-import { typography } from "@/constants/typography";
-import { useThemeColors } from "@/contexts/theme-context";
-import { StyleSheet, Text, View } from "react-native";
-
 /**
  * Encargado Team - Team Management
- * Shows: Team members (brigadistas), assignments
+ * Shows: Team members (brigadistas), assignments, performance
+ * Access: Encargados only (Rule 10)
  */
+
+import { AppHeader } from "@/components/shared";
+import { useThemeColors } from "@/contexts/theme-context";
+import { Ionicons } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
+import { useRouter } from "expo-router";
+import { useState } from "react";
+import {
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+
+interface TeamMember {
+  id: number;
+  name: string;
+  email: string;
+  surveysAssigned: number;
+  responsesCompleted: number;
+  targetResponses: number;
+  lastActive: string;
+  status: "active" | "idle" | "offline";
+}
+
+// Mock data
+const mockTeamMembers: TeamMember[] = [
+  {
+    id: 1,
+    name: "Juan Pérez",
+    email: "juan.perez@brigada.com",
+    surveysAssigned: 3,
+    responsesCompleted: 45,
+    targetResponses: 60,
+    lastActive: "Hace 1 hora",
+    status: "active",
+  },
+  {
+    id: 2,
+    name: "María López",
+    email: "maria.lopez@brigada.com",
+    surveysAssigned: 2,
+    responsesCompleted: 32,
+    targetResponses: 40,
+    lastActive: "Hace 3 horas",
+    status: "active",
+  },
+  {
+    id: 3,
+    name: "Carlos García",
+    email: "carlos.garcia@brigada.com",
+    surveysAssigned: 2,
+    responsesCompleted: 28,
+    targetResponses: 40,
+    lastActive: "Hace 5 horas",
+    status: "idle",
+  },
+  {
+    id: 4,
+    name: "Ana Martínez",
+    email: "ana.martinez@brigada.com",
+    surveysAssigned: 1,
+    responsesCompleted: 15,
+    targetResponses: 20,
+    lastActive: "Hace 2 días",
+    status: "offline",
+  },
+];
+
 export default function EncargadoTeam() {
   const colors = useThemeColors();
+  const router = useRouter();
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>(mockTeamMembers);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const statusConfig = {
+    active: {
+      label: "Activo",
+      color: colors.success,
+      icon: "checkmark-circle" as const,
+    },
+    idle: {
+      label: "Inactivo",
+      color: colors.warning,
+      icon: "time" as const,
+    },
+    offline: {
+      label: "Sin conexión",
+      color: colors.textSecondary,
+      icon: "cloud-offline" as const,
+    },
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    // TODO: Fetch team members from database
+    setTimeout(() => {
+      setRefreshing(false);
+    }, 1000);
+  };
+
+  const handleMemberPress = (member: TeamMember) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    // TODO: Navigate to member detail
+    console.log("View member:", member.id);
+  };
+
+  const totalResponses = teamMembers.reduce(
+    (acc, m) => acc + m.responsesCompleted,
+    0,
+  );
+  const activeMembers = teamMembers.filter((m) => m.status === "active").length;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <AppHeader title="Mi Equipo" />
-      <View style={styles.content}>
-        <Text style={[styles.emptyState, { color: colors.textSecondary }]}>
-          TODO: Miembros del equipo
-        </Text>
-      </View>
+
+      <ScrollView
+        contentContainerStyle={styles.content}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
+        {/* Stats Cards */}
+        <View style={styles.statsContainer}>
+          <View
+            style={[
+              styles.statCard,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+            ]}
+          >
+            <Ionicons name="people" size={24} color={colors.primary} />
+            <Text style={[styles.statValue, { color: colors.text }]}>
+              {teamMembers.length}
+            </Text>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
+              Brigadistas
+            </Text>
+          </View>
+          <View
+            style={[
+              styles.statCard,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+            ]}
+          >
+            <Ionicons
+              name="checkmark-circle"
+              size={24}
+              color={colors.success}
+            />
+            <Text style={[styles.statValue, { color: colors.text }]}>
+              {activeMembers}
+            </Text>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
+              Activos
+            </Text>
+          </View>
+          <View
+            style={[
+              styles.statCard,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+            ]}
+          >
+            <Ionicons name="chatbox" size={24} color={colors.info} />
+            <Text style={[styles.statValue, { color: colors.text }]}>
+              {totalResponses}
+            </Text>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
+              Respuestas
+            </Text>
+          </View>
+        </View>
+
+        {/* Team Members List */}
+        <View style={styles.listContainer}>
+          {teamMembers.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Ionicons
+                name="people-outline"
+                size={64}
+                color={colors.textSecondary}
+              />
+              <Text style={[styles.emptyText, { color: colors.text }]}>
+                No hay miembros
+              </Text>
+              <Text
+                style={[styles.emptySubtext, { color: colors.textSecondary }]}
+              >
+                Los miembros de tu equipo aparecerán aquí
+              </Text>
+            </View>
+          ) : (
+            teamMembers.map((member) => {
+              const config = statusConfig[member.status];
+              const progress =
+                (member.responsesCompleted / member.targetResponses) * 100;
+
+              return (
+                <TouchableOpacity
+                  key={member.id}
+                  style={[
+                    styles.memberCard,
+                    {
+                      backgroundColor: colors.surface,
+                      borderColor: colors.border,
+                    },
+                  ]}
+                  onPress={() => handleMemberPress(member)}
+                  activeOpacity={0.7}
+                >
+                  {/* Header */}
+                  <View style={styles.cardHeader}>
+                    <View
+                      style={[
+                        styles.avatar,
+                        { backgroundColor: colors.success + "20" },
+                      ]}
+                    >
+                      <Text
+                        style={[styles.avatarText, { color: colors.success }]}
+                      >
+                        {member.name
+                          .split(" ")
+                          .map((n) => n[0])
+                          .join("")
+                          .toUpperCase()
+                          .slice(0, 2)}
+                      </Text>
+                    </View>
+                    <View style={styles.memberInfo}>
+                      <Text style={[styles.memberName, { color: colors.text }]}>
+                        {member.name}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.memberEmail,
+                          { color: colors.textSecondary },
+                        ]}
+                      >
+                        {member.email}
+                      </Text>
+                    </View>
+                    <View
+                      style={[
+                        styles.statusBadge,
+                        { backgroundColor: config.color + "20" },
+                      ]}
+                    >
+                      <Ionicons
+                        name={config.icon}
+                        size={12}
+                        color={config.color}
+                      />
+                    </View>
+                  </View>
+
+                  {/* Stats Row */}
+                  <View style={styles.statsRow}>
+                    <View style={styles.statItem}>
+                      <Ionicons
+                        name="document-text-outline"
+                        size={16}
+                        color={colors.textSecondary}
+                      />
+                      <Text
+                        style={[
+                          styles.statText,
+                          { color: colors.textSecondary },
+                        ]}
+                      >
+                        {member.surveysAssigned} encuestas
+                      </Text>
+                    </View>
+                    <View style={styles.statItem}>
+                      <Ionicons
+                        name="checkmark-done-outline"
+                        size={16}
+                        color={colors.textSecondary}
+                      />
+                      <Text
+                        style={[
+                          styles.statText,
+                          { color: colors.textSecondary },
+                        ]}
+                      >
+                        {member.responsesCompleted} completadas
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Progress */}
+                  <View style={styles.progressSection}>
+                    <View style={styles.progressHeader}>
+                      <Text
+                        style={[
+                          styles.progressText,
+                          { color: colors.textSecondary },
+                        ]}
+                      >
+                        Progreso
+                      </Text>
+                      <Text
+                        style={[
+                          styles.progressValue,
+                          { color: colors.primary },
+                        ]}
+                      >
+                        {member.responsesCompleted}/{member.targetResponses}
+                      </Text>
+                    </View>
+                    <View
+                      style={[
+                        styles.progressBar,
+                        { backgroundColor: colors.border },
+                      ]}
+                    >
+                      <View
+                        style={[
+                          styles.progressFill,
+                          {
+                            backgroundColor: colors.primary,
+                            width: `${Math.min(progress, 100)}%`,
+                          },
+                        ]}
+                      />
+                    </View>
+                  </View>
+
+                  {/* Footer */}
+                  <View
+                    style={[
+                      styles.cardFooter,
+                      { borderTopColor: colors.border },
+                    ]}
+                  >
+                    <View style={styles.footerItem}>
+                      <Ionicons
+                        name="time-outline"
+                        size={14}
+                        color={colors.textSecondary}
+                      />
+                      <Text
+                        style={[
+                          styles.footerText,
+                          { color: colors.textSecondary },
+                        ]}
+                      >
+                        {member.lastActive}
+                      </Text>
+                    </View>
+                    <Ionicons
+                      name="chevron-forward"
+                      size={20}
+                      color={colors.textSecondary}
+                    />
+                  </View>
+                </TouchableOpacity>
+              );
+            })
+          )}
+        </View>
+      </ScrollView>
     </View>
   );
 }
@@ -29,8 +378,131 @@ const styles = StyleSheet.create({
   content: {
     padding: 20,
   },
+  statsContainer: {
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 20,
+  },
+  statCard: {
+    flex: 1,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: "center",
+    gap: 8,
+  },
+  statValue: {
+    fontSize: 24,
+    fontWeight: "700",
+  },
+  statLabel: {
+    fontSize: 12,
+  },
+  listContainer: {
+    gap: 12,
+  },
   emptyState: {
-    textAlign: "center",
-    paddingVertical: 40,
+    alignItems: "center",
+    paddingVertical: 60,
+  },
+  emptyText: {
+    fontSize: 20,
+    fontWeight: "600",
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  emptySubtext: {
+    fontSize: 14,
+  },
+  memberCard: {
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  cardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+    gap: 12,
+  },
+  avatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarText: {
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  memberInfo: {
+    flex: 1,
+  },
+  memberName: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 4,
+  },
+  memberEmail: {
+    fontSize: 13,
+  },
+  statusBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  statsRow: {
+    flexDirection: "row",
+    gap: 16,
+    marginBottom: 12,
+  },
+  statItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  statText: {
+    fontSize: 13,
+  },
+  progressSection: {
+    marginBottom: 12,
+  },
+  progressHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 6,
+  },
+  progressText: {
+    fontSize: 12,
+  },
+  progressValue: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  progressBar: {
+    height: 6,
+    borderRadius: 3,
+    overflow: "hidden",
+  },
+  progressFill: {
+    height: "100%",
+  },
+  cardFooter: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingTop: 12,
+    borderTopWidth: 1,
+  },
+  footerItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  footerText: {
+    fontSize: 12,
   },
 });

@@ -3,9 +3,9 @@ import React from "react";
 
 import { ProtectedRoute } from "@/components/auth";
 import { HapticTab } from "@/components/haptic-tab";
-import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { Ionicons } from "@expo/vector-icons";
 
 /**
  * Brigadista Layout - Tabs for Field Worker Role

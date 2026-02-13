@@ -4,7 +4,7 @@
  * Rules 9-11: Assignment permissions by role
  */
 
-import { UserHeader } from "@/components/shared";
+import { AppHeader } from "@/components/shared";
 import { typography } from "@/constants/typography";
 import { useThemeColors } from "@/contexts/theme-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -57,27 +57,28 @@ const mockAssignments: Assignment[] = [
   },
 ];
 
-const STATUS_CONFIG = {
+const getStatusConfig = (colors: ReturnType<typeof useThemeColors>) => ({
   ACTIVE: {
     label: "Activa",
-    color: "#06D6A0",
+    color: colors.success,
     icon: "play-circle" as const,
   },
   COMPLETED: {
     label: "Completada",
-    color: "#00B4D8",
+    color: colors.info,
     icon: "checkmark-circle" as const,
   },
   PAUSED: {
     label: "Pausada",
-    color: "#FF9F1C",
+    color: colors.warning,
     icon: "pause-circle" as const,
   },
-};
+});
 
 export default function AdminAssignmentsScreen() {
   const router = useRouter();
   const colors = useThemeColors();
+  const STATUS_CONFIG = getStatusConfig(colors);
 
   const [assignments, setAssignments] = useState<Assignment[]>(mockAssignments);
   const [refreshing, setRefreshing] = useState(false);
@@ -106,7 +107,7 @@ export default function AdminAssignmentsScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <UserHeader title="Asignaciones" />
+      <AppHeader title="Asignaciones" />
 
       <ScrollView
         contentContainerStyle={styles.content}
@@ -116,19 +117,23 @@ export default function AdminAssignmentsScreen() {
       >
         {/* Summary Cards */}
         <View style={styles.summaryContainer}>
-          <View style={[styles.summaryCard, { backgroundColor: "#06D6A0" }]}>
+          <View
+            style={[styles.summaryCard, { backgroundColor: colors.success }]}
+          >
             <Text style={styles.summaryValue}>
               {assignments.filter((a) => a.status === "ACTIVE").length}
             </Text>
             <Text style={styles.summaryLabel}>Activas</Text>
           </View>
-          <View style={[styles.summaryCard, { backgroundColor: "#00B4D8" }]}>
+          <View style={[styles.summaryCard, { backgroundColor: colors.info }]}>
             <Text style={styles.summaryValue}>
               {assignments.filter((a) => a.status === "COMPLETED").length}
             </Text>
             <Text style={styles.summaryLabel}>Completadas</Text>
           </View>
-          <View style={[styles.summaryCard, { backgroundColor: "#FF9F1C" }]}>
+          <View
+            style={[styles.summaryCard, { backgroundColor: colors.warning }]}
+          >
             <Text style={styles.summaryValue}>
               {assignments.reduce((acc, a) => acc + a.brigadistasCount, 0)}
             </Text>
@@ -138,7 +143,7 @@ export default function AdminAssignmentsScreen() {
 
         {/* Create Button */}
         <TouchableOpacity
-          style={[styles.createButton, { backgroundColor: colors.tint }]}
+          style={[styles.createButton, { backgroundColor: colors.primary }]}
           onPress={handleCreateAssignment}
           activeOpacity={0.8}
         >
@@ -179,7 +184,7 @@ export default function AdminAssignmentsScreen() {
                   key={assignment.id}
                   style={[
                     styles.assignmentCard,
-                    { backgroundColor: "#FFFFFF" },
+                    { backgroundColor: colors.surface },
                   ]}
                   onPress={() => handleViewAssignment(assignment)}
                   activeOpacity={0.7}
@@ -254,7 +259,7 @@ export default function AdminAssignmentsScreen() {
                     <View
                       style={[
                         styles.progressBar,
-                        { backgroundColor: "#E5E7EB" },
+                        { backgroundColor: colors.border },
                       ]}
                     >
                       <View
@@ -278,7 +283,12 @@ export default function AdminAssignmentsScreen() {
                   </View>
 
                   {/* Footer */}
-                  <View style={styles.cardFooter}>
+                  <View
+                    style={[
+                      styles.cardFooter,
+                      { borderTopColor: colors.border },
+                    ]}
+                  >
                     <Text style={[styles.dateText, { color: colors.icon }]}>
                       Asignada:{" "}
                       {new Date(assignment.assignedAt).toLocaleDateString()}
@@ -445,7 +455,6 @@ const styles = StyleSheet.create({
     marginTop: 8,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: "#E5E7EB",
   },
   dateText: {
     ...typography.bodySmall,

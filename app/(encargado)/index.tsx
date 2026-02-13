@@ -123,10 +123,7 @@ function TeamMemberCard({
             {surveysCompleted} de {surveysTotal} encuestas
           </Text>
           <View
-            style={[
-              styles.progressBar,
-              { backgroundColor: colors.border },
-            ]}
+            style={[styles.progressBar, { backgroundColor: colors.border }]}
           >
             <View
               style={[
@@ -223,7 +220,7 @@ export default function EncargadoHome() {
           },
         },
       ],
-      { cancelable: true }
+      { cancelable: true },
     );
   };
 
@@ -400,11 +397,7 @@ export default function EncargadoHome() {
               router.push("/(encargado)/assignments" as any);
             }}
           >
-            <Ionicons
-              name="add-circle"
-              size={32}
-              color={colors.primary}
-            />
+            <Ionicons name="add-circle" size={32} color={colors.primary} />
             <Text style={[styles.actionText, { color: colors.text }]}>
               Nueva Asignación
             </Text>
@@ -420,11 +413,7 @@ export default function EncargadoHome() {
               router.push("/(encargado)/surveys/" as any);
             }}
           >
-            <Ionicons
-              name="bar-chart"
-              size={32}
-              color={colors.success}
-            />
+            <Ionicons name="bar-chart" size={32} color={colors.success} />
             <Text style={[styles.actionText, { color: colors.text }]}>
               Ver Progreso
             </Text>

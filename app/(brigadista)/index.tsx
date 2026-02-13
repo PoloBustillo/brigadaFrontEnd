@@ -86,15 +86,29 @@ function SurveyAssignmentCard({
     >
       {/* Header with Priority and Sync Status */}
       <View style={styles.cardHeader}>
-        <View style={[styles.priorityBadge, { backgroundColor: config.color + "20" }]}>
+        <View
+          style={[
+            styles.priorityBadge,
+            { backgroundColor: config.color + "20" },
+          ]}
+        >
           <Ionicons name={config.icon} size={14} color={config.color} />
           <Text style={[styles.priorityText, { color: config.color }]}>
             {config.label}
           </Text>
         </View>
         {!synced && (
-          <View style={[styles.syncBadge, { backgroundColor: colors.warning + "20" }]}>
-            <Ionicons name="cloud-upload-outline" size={14} color={colors.warning} />
+          <View
+            style={[
+              styles.syncBadge,
+              { backgroundColor: colors.warning + "20" },
+            ]}
+          >
+            <Ionicons
+              name="cloud-upload-outline"
+              size={14}
+              color={colors.warning}
+            />
           </View>
         )}
       </View>
@@ -116,16 +130,16 @@ function SurveyAssignmentCard({
           <Text style={[styles.progressText, { color: colors.textSecondary }]}>
             Progreso: {completed}/{total}
           </Text>
-          <Text style={[styles.progressPercent, { color: isComplete ? colors.success : colors.primary }]}>
+          <Text
+            style={[
+              styles.progressPercent,
+              { color: isComplete ? colors.success : colors.primary },
+            ]}
+          >
             {Math.round(progress)}%
           </Text>
         </View>
-        <View
-          style={[
-            styles.progressBar,
-            { backgroundColor: colors.border },
-          ]}
-        >
+        <View style={[styles.progressBar, { backgroundColor: colors.border }]}>
           <View
             style={[
               styles.progressFill,
@@ -140,7 +154,11 @@ function SurveyAssignmentCard({
 
       {/* Due Date */}
       <View style={styles.cardFooter}>
-        <Ionicons name="calendar-outline" size={14} color={colors.textSecondary} />
+        <Ionicons
+          name="calendar-outline"
+          size={14}
+          color={colors.textSecondary}
+        />
         <Text style={[styles.dueDateText, { color: colors.textSecondary }]}>
           Vence: {dueDate}
         </Text>
@@ -234,7 +252,7 @@ export default function BrigadistaHome() {
           },
         },
       ],
-      { cancelable: true }
+      { cancelable: true },
     );
   };
 
@@ -390,13 +408,19 @@ export default function BrigadistaHome() {
                 style={[
                   styles.syncStatus,
                   {
-                    color: syncStatus.isSynced ? colors.success : colors.warning,
+                    color: syncStatus.isSynced
+                      ? colors.success
+                      : colors.warning,
                   },
                 ]}
               >
-                {syncStatus.isSynced ? "Todo Sincronizado" : "Pendiente de Sync"}
+                {syncStatus.isSynced
+                  ? "Todo Sincronizado"
+                  : "Pendiente de Sync"}
               </Text>
-              <Text style={[styles.syncDetails, { color: colors.textSecondary }]}>
+              <Text
+                style={[styles.syncDetails, { color: colors.textSecondary }]}
+              >
                 {syncStatus.lastSync}
               </Text>
             </View>
@@ -410,7 +434,12 @@ export default function BrigadistaHome() {
           )}
         </View>
         {syncStatus.pendingResponses > 0 && (
-          <View style={[styles.pendingBadge, { backgroundColor: colors.warning + "30" }]}>
+          <View
+            style={[
+              styles.pendingBadge,
+              { backgroundColor: colors.warning + "30" },
+            ]}
+          >
             <Text style={[styles.pendingText, { color: colors.warning }]}>
               {syncStatus.pendingResponses} respuestas pendientes de subir
             </Text>

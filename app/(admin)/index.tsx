@@ -9,16 +9,13 @@
  * ✅ Filter Tabs: Quick navigation between sections
  */
 
-import { ThemeToggleIcon } from "@/components/ui/theme-toggle";
-import { useAuth } from "@/contexts/auth-context";
+import { AppHeader } from "@/components/shared";
 import { useThemeColors } from "@/contexts/theme-context";
 import { Ionicons } from "@expo/vector-icons";
-import NetInfo from "@react-native-community/netinfo";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
-  Alert,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -192,19 +189,8 @@ function StatCard({ icon, value, label, color }: StatCardProps) {
 export default function AdminDashboard() {
   const colors = useThemeColors();
   const router = useRouter();
-  const { user, logout } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
   const [activeFilter, setActiveFilter] = useState<FilterTab>("all");
-  const [isOnline, setIsOnline] = useState(true);
-
-  // Monitor network connectivity
-  useEffect(() => {
-    const unsubscribe = NetInfo.addEventListener((state) => {
-      setIsOnline(state.isConnected ?? false);
-    });
-
-    return () => unsubscribe();
-  }, []);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -218,31 +204,6 @@ export default function AdminDashboard() {
   const handleFilterChange = (filter: FilterTab) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setActiveFilter(filter);
-  };
-
-  const handleLogout = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    Alert.alert(
-      "Cerrar Sesión",
-      "¿Estás seguro que deseas cerrar sesión?",
-      [
-        {
-          text: "Cancelar",
-          style: "cancel",
-          onPress: () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light),
-        },
-        {
-          text: "Cerrar Sesión",
-          style: "destructive",
-          onPress: async () => {
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            await logout();
-            router.replace("/(auth)/welcome");
-          },
-        },
-      ],
-      { cancelable: true }
-    );
   };
 
   // 🧪 MOCK DATA
@@ -323,63 +284,7 @@ export default function AdminDashboard() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Header */}
-      <View
-        style={[
-          styles.header,
-          {
-            backgroundColor: colors.background,
-            borderBottomColor: colors.border,
-          },
-        ]}
-      >
-        <View>
-          <Text style={[styles.headerTitle, { color: colors.text }]}>
-            Mis tareas
-          </Text>
-        </View>
-        <View style={styles.headerActions}>
-          <View
-            style={[
-              styles.statusIndicator,
-              {
-                backgroundColor: isOnline
-                  ? colors.success + "20"
-                  : colors.error + "20",
-                borderColor: isOnline ? colors.success : colors.error,
-              },
-            ]}
-          >
-            <Ionicons
-              name={isOnline ? "wifi" : "wifi-outline"}
-              size={16}
-              color={isOnline ? colors.success : colors.error}
-            />
-          </View>
-          <ThemeToggleIcon />
-          <TouchableOpacity
-            style={[styles.headerButton, { backgroundColor: colors.surface }]}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              // TODO: Search functionality
-            }}
-          >
-            <Ionicons name="search-outline" size={22} color={colors.text} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.headerButton, { backgroundColor: colors.surface }]}
-            onPress={onRefresh}
-          >
-            <Ionicons name="refresh-outline" size={22} color={colors.text} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.headerButton, { backgroundColor: colors.surface }]}
-            onPress={handleLogout}
-          >
-            <Ionicons name="log-out-outline" size={22} color={colors.error} />
-          </TouchableOpacity>
-        </View>
-      </View>
+      <AppHeader title="Dashboard" />
 
       <ScrollView
         contentContainerStyle={styles.content}
@@ -549,44 +454,6 @@ export default function AdminDashboard() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingTop: 60,
-    paddingBottom: 20,
-    borderBottomWidth: 1,
-  },
-  headerTitle: {
-    fontSize: 32,
-    fontWeight: "800",
-    letterSpacing: -0.5,
-  },
-  headerActions: {
-    flexDirection: "row",
-    gap: 8,
-  },
-  statusIndicator: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  headerButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    justifyContent: "center",
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 2,
-    elevation: 1,
   },
   content: {
     padding: 20,

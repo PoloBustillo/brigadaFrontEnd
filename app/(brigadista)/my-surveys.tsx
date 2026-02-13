@@ -6,7 +6,6 @@
 
 import { AppHeader } from "@/components/shared";
 import { typography } from "@/constants/typography";
-import { useAuth } from "@/contexts/auth-context";
 import { useThemeColors } from "@/contexts/theme-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
@@ -143,7 +142,12 @@ export default function BrigadistaSurveysScreen() {
               <Text style={[styles.summaryTitle, { color: colors.text }]}>
                 Mi Progreso Total
               </Text>
-              <Text style={[styles.summarySubtitle, { color: colors.textSecondary }]}>
+              <Text
+                style={[
+                  styles.summarySubtitle,
+                  { color: colors.textSecondary },
+                ]}
+              >
                 {surveys.length} encuestas asignadas
               </Text>
             </View>
@@ -156,16 +160,15 @@ export default function BrigadistaSurveysScreen() {
                 },
               ]}
             >
-              <Text style={[styles.summaryBadgeText, { color: colors.success }]}>
+              <Text
+                style={[styles.summaryBadgeText, { color: colors.success }]}
+              >
                 {totalMyResponses}/{totalMyTarget}
               </Text>
             </View>
           </View>
           <View
-            style={[
-              styles.progressBar,
-              { backgroundColor: colors.border },
-            ]}
+            style={[styles.progressBar, { backgroundColor: colors.border }]}
           >
             <View
               style={[
@@ -195,7 +198,9 @@ export default function BrigadistaSurveysScreen() {
               <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
                 No tienes encuestas asignadas
               </Text>
-              <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>
+              <Text
+                style={[styles.emptySubtext, { color: colors.textSecondary }]}
+              >
                 Tu encargado te asignará encuestas próximamente
               </Text>
             </View>
@@ -229,7 +234,10 @@ export default function BrigadistaSurveysScreen() {
                       {survey.title}
                     </Text>
                     <Text
-                      style={[styles.cardDescription, { color: colors.textSecondary }]}
+                      style={[
+                        styles.cardDescription,
+                        { color: colors.textSecondary },
+                      ]}
                       numberOfLines={2}
                     >
                       {survey.description}
@@ -286,7 +294,9 @@ export default function BrigadistaSurveysScreen() {
                       size={16}
                       color={colors.textSecondary}
                     />
-                    <Text style={[styles.infoText, { color: colors.textSecondary }]}>
+                    <Text
+                      style={[styles.infoText, { color: colors.textSecondary }]}
+                    >
                       Encargado: {survey.encargadoName}
                     </Text>
                   </View>
@@ -302,7 +312,11 @@ export default function BrigadistaSurveysScreen() {
                       <Text
                         style={[
                           styles.progressStats,
-                          { color: isCompleted ? colors.success : colors.textSecondary },
+                          {
+                            color: isCompleted
+                              ? colors.success
+                              : colors.textSecondary,
+                          },
                         ]}
                       >
                         {survey.myResponses} / {survey.myTarget}
@@ -330,9 +344,17 @@ export default function BrigadistaSurveysScreen() {
                   </View>
 
                   {/* Team Progress */}
-                  <View style={[styles.teamProgressRow, { borderTopColor: colors.border }]}>
+                  <View
+                    style={[
+                      styles.teamProgressRow,
+                      { borderTopColor: colors.border },
+                    ]}
+                  >
                     <Text
-                      style={[styles.teamProgressLabel, { color: colors.textSecondary }]}
+                      style={[
+                        styles.teamProgressLabel,
+                        { color: colors.textSecondary },
+                      ]}
                     >
                       Progreso del equipo:
                     </Text>
@@ -365,7 +387,9 @@ export default function BrigadistaSurveysScreen() {
                     <Text
                       style={[
                         styles.actionButtonText,
-                        { color: isCompleted ? colors.textSecondary : "#FFFFFF" },
+                        {
+                          color: isCompleted ? colors.textSecondary : "#FFFFFF",
+                        },
                       ]}
                     >
                       {isCompleted ? "Meta Completada" : "Llenar Encuesta"}
@@ -389,7 +413,6 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   summaryCard: {
-
     padding: 20,
     borderRadius: 16,
     marginBottom: 24,
@@ -535,7 +558,6 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     paddingTop: 12,
     borderTopWidth: 1,
-
   },
   teamProgressLabel: {
     ...typography.bodySmall,

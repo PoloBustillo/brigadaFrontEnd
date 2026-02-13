@@ -12,6 +12,7 @@ Estado: ACTIVE
 ```
 
 **Flujo esperado:**
+
 1. Ingresar en pantalla de login
 2. Al iniciar sesión → Te lleva directamente al **Dashboard Admin**
 3. Dashboard muestra métricas generales del sistema
@@ -28,6 +29,7 @@ Estado: ACTIVE
 ```
 
 **Flujo esperado:**
+
 1. Ingresar en pantalla de login
 2. Al iniciar sesión → Te lleva al **Dashboard del Encargado**
 3. Dashboard muestra equipo y encuestas asignadas
@@ -44,6 +46,7 @@ Estado: ACTIVE
 ```
 
 **Flujo esperado:**
+
 1. Ingresar en pantalla de login
 2. Al iniciar sesión → Te lleva al **Dashboard del Brigadista**
 3. Dashboard muestra encuestas asignadas y estado de sync
@@ -60,6 +63,7 @@ Estado: INVITED
 ```
 
 **Flujo esperado:**
+
 1. Ingresar en pantalla de login
 2. Al iniciar sesión → Te lleva a pantalla de **Activación**
 3. Usar código de activación: `123456`
