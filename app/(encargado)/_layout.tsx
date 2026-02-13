@@ -3,7 +3,7 @@ import React from "react";
 
 import { ProtectedRoute } from "@/components/auth";
 import { HapticTab } from "@/components/haptic-tab";
-import { IconSymbol } from "@/components/ui/icon-symbol";
+import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 
@@ -32,7 +32,7 @@ export default function EncargadoLayout() {
           options={{
             title: "Inicio",
             tabBarIcon: ({ color }) => (
-              <IconSymbol size={28} name="house.fill" color={color} />
+              <Ionicons name="home" size={24} color={color} />
             ),
           }}
         />
@@ -41,7 +41,7 @@ export default function EncargadoLayout() {
           options={{
             title: "Encuestas",
             tabBarIcon: ({ color }) => (
-              <IconSymbol size={28} name="doc.text.fill" color={color} />
+              <Ionicons name="document-text" size={24} color={color} />
             ),
           }}
         />
@@ -50,7 +50,7 @@ export default function EncargadoLayout() {
           options={{
             title: "Equipo",
             tabBarIcon: ({ color }) => (
-              <IconSymbol size={28} name="person.3.fill" color={color} />
+              <Ionicons name="people" size={24} color={color} />
             ),
           }}
         />
@@ -59,11 +59,7 @@ export default function EncargadoLayout() {
           options={{
             title: "Respuestas",
             tabBarIcon: ({ color }) => (
-              <IconSymbol
-                size={28}
-                name="list.bullet.clipboard.fill"
-                color={color}
-              />
+              <Ionicons name="clipboard" size={24} color={color} />
             ),
           }}
         />

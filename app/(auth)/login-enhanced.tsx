@@ -84,7 +84,7 @@ async function retryWithBackoff<T>(
 
 export default function LoginScreen() {
   const router = useRouter();
-  const { setPendingEmail } = useAuth();
+  const { setPendingEmail, login } = useAuth();
   const colors = useThemeColors();
 
   // Form State
@@ -153,8 +153,12 @@ export default function LoginScreen() {
   const checkWhitelist = async (email: string): Promise<boolean> => {
     // TODO: Query whitelist table
     // Mock data para pruebas - Primera vez: llevar a activación
-    // Usuario de prueba: test@brigada.com
-    const mockWhitelist = ["test@brigada.com", "admin@brigada.com"];
+    const mockWhitelist = [
+      "test@brigada.com",
+      "admin@brigada.com",
+      "encargado@brigada.com",
+      "brigadista@brigada.com",
+    ];
 
     // const whitelisted = await db
     //   .select()
@@ -180,10 +184,10 @@ export default function LoginScreen() {
     // Mock authentication
     await new Promise((resolve) => setTimeout(resolve, 1500));
 
-    // ⚠️ DATOS DE PRUEBA - Primera vez: Estado INVITED
-    // Email: test@brigada.com | Password: cualquiera
-    // Esto llevará a la pantalla de activación
+    // ⚠️ DATOS DE PRUEBA - Usuarios por rol
+    // ===========================================
 
+    // 1. test@brigada.com - Para probar flujo de activación
     if (email === "test@brigada.com") {
       return {
         success: true,
@@ -196,7 +200,7 @@ export default function LoginScreen() {
       };
     }
 
-    // Usuario admin de prueba (ya activado)
+    // 2. admin@brigada.com - Usuario administrador
     if (email === "admin@brigada.com" && password === "admin123") {
       return {
         success: true,
@@ -209,17 +213,39 @@ export default function LoginScreen() {
       };
     }
 
-    // Simulate different scenarios for testing
-    const mockUser = {
-      id: 1,
-      email: email,
-      role: "BRIGADISTA" as UserRole,
-      state: "ACTIVE" as UserState,
-    };
+    // 3. encargado@brigada.com - Usuario encargado de equipo
+    if (email === "encargado@brigada.com" && password === "encargado123") {
+      return {
+        success: true,
+        user: {
+          id: 3,
+          email,
+          role: "ENCARGADO",
+          state: "ACTIVE",
+        },
+      };
+    }
 
+    // 4. brigadista@brigada.com - Usuario brigadista de campo
+    if (email === "brigadista@brigada.com" && password === "brigadista123") {
+      return {
+        success: true,
+        user: {
+          id: 4,
+          email,
+          role: "BRIGADISTA",
+          state: "ACTIVE",
+        },
+      };
+    }
+
+    // Fallback: simulate invalid credentials
     return {
-      success: true,
-      user: mockUser,
+      success: false,
+      error: {
+        code: "INVALID_CREDENTIALS",
+        message: "Usuario o contraseña incorrectos",
+      },
     };
   };
 
@@ -300,21 +326,17 @@ export default function LoginScreen() {
     // Haptic feedback on button press
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-    // 🧪 HARDCODED FOR TESTING - REMOVE IN PRODUCTION
-    // ⚠️ Cambiar el rol aquí para testear diferentes pantallas:
-    // "ADMIN" → pantallas de administrador
-    // "ENCARGADO" → pantallas de encargado
-    // "BRIGADISTA" → pantallas de brigadista
-    setLoading(true);
-    setTimeout(() => {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      navigateByRole("ADMIN"); // 🔧 Cambiar aquí el rol para testear
-      setLoading(false);
-    }, 500);
-    return;
-    // 🧪 END HARDCODED - Descomentar código abajo para usar autenticación real
+    // 🧪 HARDCODED LOGIN FOR QUICK TESTING - Comentar para usar autenticación real
+    // setLoading(true);
+    // setTimeout(() => {
+    //   Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    //   navigateByRole("ADMIN"); // 🔧 Cambiar rol: "ADMIN" | "ENCARGADO" | "BRIGADISTA"
+    //   setLoading(false);
+    // }, 500);
+    // return;
+    // 🧪 END HARDCODED
 
-    /* // 1. Validate form
+    // 1. Validate form
     let hasError = false;
 
     if (email.length === 0) {
@@ -380,18 +402,24 @@ export default function LoginScreen() {
         }
 
         // 5. Generate offline token (Rule 22)
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const token = await generateOfflineToken(user.id);
 
         // Haptic feedback for success
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-        // TODO: Store session
-        // await AsyncStorage.setItem('userToken', token);
-        // await AsyncStorage.setItem('userId', user.id.toString());
-        // await AsyncStorage.setItem('userRole', user.role);
+        // 6. Store session in AuthContext (saves to AsyncStorage)
+        const userForContext = {
+          id: user.id,
+          email: user.email,
+          name: user.email.split("@")[0], // Temporary name from email
+          role: user.role,
+          state: user.state,
+          created_at: Date.now(),
+          updated_at: Date.now(),
+        };
+        await login(userForContext, token);
 
-        // 6. Navigate based on role
+        // 7. Navigate based on role
         navigateByRole(user.role);
       }, 3); // 3 retry attempts
     } catch (error) {
@@ -429,7 +457,7 @@ export default function LoginScreen() {
       });
     } finally {
       setLoading(false);
-    } */
+    }
   };
 
   const handleBack = () => {

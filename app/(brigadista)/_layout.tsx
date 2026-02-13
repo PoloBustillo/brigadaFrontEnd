@@ -3,7 +3,7 @@ import React from "react";
 
 import { ProtectedRoute } from "@/components/auth";
 import { HapticTab } from "@/components/haptic-tab";
-import { IconSymbol } from "@/components/ui/icon-symbol";
+import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 
@@ -32,16 +32,16 @@ export default function BrigadistaLayout() {
           options={{
             title: "Inicio",
             tabBarIcon: ({ color }) => (
-              <IconSymbol size={28} name="house.fill" color={color} />
+              <Ionicons name="home" size={24} color={color} />
             ),
           }}
         />
         <Tabs.Screen
-          name="surveys/index"
+          name="my-surveys"
           options={{
             title: "Mis Encuestas",
             tabBarIcon: ({ color }) => (
-              <IconSymbol size={28} name="doc.text.fill" color={color} />
+              <Ionicons name="clipboard" size={24} color={color} />
             ),
           }}
         />
@@ -50,12 +50,14 @@ export default function BrigadistaLayout() {
           options={{
             title: "Mis Respuestas",
             tabBarIcon: ({ color }) => (
-              <IconSymbol
-                size={28}
-                name="checkmark.circle.fill"
-                color={color}
-              />
+              <Ionicons name="checkmark-circle" size={24} color={color} />
             ),
+          }}
+        />
+        <Tabs.Screen
+          name="surveys/index"
+          options={{
+            href: null, // Hidden from tabs
           }}
         />
       </Tabs>

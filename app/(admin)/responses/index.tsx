@@ -1,6 +1,6 @@
-import { Colors } from "@/constants/theme";
+import { AppHeader } from "@/components/shared";
 import { typography } from "@/constants/typography";
-import { useColorScheme } from "@/hooks/use-color-scheme";
+import { useThemeColors } from "@/contexts/theme-context";
 import { StyleSheet, Text, View } from "react-native";
 
 /**
@@ -8,17 +8,16 @@ import { StyleSheet, Text, View } from "react-native";
  * Shows: All responses from all surveys, analytics
  */
 export default function AdminResponses() {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? "light"];
+  const colors = useThemeColors();
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={styles.header}>
-        <Text style={[styles.title, { color: colors.text }]}>Respuestas</Text>
+      <AppHeader title="Respuestas" />
+      <View style={styles.content}>
+        <Text style={[styles.emptyState, { color: colors.textSecondary }]}>
+          TODO: Todas las respuestas
+        </Text>
       </View>
-      <Text style={[styles.emptyState, { color: colors.icon }]}>
-        TODO: Lista de respuestas
-      </Text>
     </View>
   );
 }
@@ -26,17 +25,11 @@ export default function AdminResponses() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  content: {
     padding: 20,
   },
-  header: {
-    paddingTop: 60,
-    marginBottom: 24,
-  },
-  title: {
-    ...typography.h1,
-  },
   emptyState: {
-    ...typography.body,
     textAlign: "center",
     paddingVertical: 40,
   },

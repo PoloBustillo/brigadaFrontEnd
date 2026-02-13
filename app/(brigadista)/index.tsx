@@ -1,77 +1,493 @@
-import { Colors } from "@/constants/theme";
-import { typography } from "@/constants/typography";
-import { useColorScheme } from "@/hooks/use-color-scheme";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
-
 /**
- * Brigadista Home - Main Screen
+ * Brigadista Dashboard - Main Screen
  * Shows: Assigned surveys, completion progress, sync status
  * Access: Field workers only (Rule 11)
+ *
+ * ✅ Modern Design: Clean cards with field work focus
+ * ✅ Dynamic Theme: Uses useThemeColors for full theme support
+ * ✅ Mock Data: Shows realistic data for testing UI
+ * ✅ Offline Ready: Sync status and offline capabilities highlighted
  */
+
+import { ThemeToggleIcon } from "@/components/ui/theme-toggle";
+import { useAuth } from "@/contexts/auth-context";
+import { useThemeColors } from "@/contexts/theme-context";
+import { Ionicons } from "@expo/vector-icons";
+import NetInfo from "@react-native-community/netinfo";
+import * as Haptics from "expo-haptics";
+import { useRouter } from "expo-router";
+import { useEffect, useState } from "react";
+import {
+  Alert,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+
+interface SurveyAssignmentCardProps {
+  id: number;
+  title: string;
+  category: string;
+  completed: number;
+  total: number;
+  dueDate: string;
+  priority: "high" | "medium" | "low";
+  synced: boolean;
+}
+
+function SurveyAssignmentCard({
+  title,
+  category,
+  completed,
+  total,
+  dueDate,
+  priority,
+  synced,
+}: SurveyAssignmentCardProps) {
+  const colors = useThemeColors();
+  const router = useRouter();
+
+  const priorityConfig = {
+    high: {
+      label: "Alta",
+      color: colors.error,
+      icon: "alert-circle" as const,
+    },
+    medium: {
+      label: "Media",
+      color: colors.warning,
+      icon: "warning" as const,
+    },
+    low: {
+      label: "Baja",
+      color: colors.info,
+      icon: "information-circle" as const,
+    },
+  };
+
+  const config = priorityConfig[priority];
+  const progress = (completed / total) * 100;
+  const isComplete = completed === total;
+
+  return (
+    <TouchableOpacity
+      style={[
+        styles.surveyCard,
+        { backgroundColor: colors.surface, borderColor: colors.border },
+      ]}
+      activeOpacity={0.7}
+      onPress={() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        router.push("/(brigadista)/my-surveys" as any);
+      }}
+    >
+      {/* Header with Priority and Sync Status */}
+      <View style={styles.cardHeader}>
+        <View style={[styles.priorityBadge, { backgroundColor: config.color + "20" }]}>
+          <Ionicons name={config.icon} size={14} color={config.color} />
+          <Text style={[styles.priorityText, { color: config.color }]}>
+            {config.label}
+          </Text>
+        </View>
+        {!synced && (
+          <View style={[styles.syncBadge, { backgroundColor: colors.warning + "20" }]}>
+            <Ionicons name="cloud-upload-outline" size={14} color={colors.warning} />
+          </View>
+        )}
+      </View>
+
+      {/* Title and Category */}
+      <Text
+        style={[styles.cardTitle, { color: colors.text }]}
+        numberOfLines={2}
+      >
+        {title}
+      </Text>
+      <Text style={[styles.cardCategory, { color: colors.textSecondary }]}>
+        {category}
+      </Text>
+
+      {/* Progress */}
+      <View style={styles.progressSection}>
+        <View style={styles.progressHeader}>
+          <Text style={[styles.progressText, { color: colors.textSecondary }]}>
+            Progreso: {completed}/{total}
+          </Text>
+          <Text style={[styles.progressPercent, { color: isComplete ? colors.success : colors.primary }]}>
+            {Math.round(progress)}%
+          </Text>
+        </View>
+        <View
+          style={[
+            styles.progressBar,
+            { backgroundColor: colors.border },
+          ]}
+        >
+          <View
+            style={[
+              styles.progressFill,
+              {
+                backgroundColor: isComplete ? colors.success : colors.primary,
+                width: `${progress}%`,
+              },
+            ]}
+          />
+        </View>
+      </View>
+
+      {/* Due Date */}
+      <View style={styles.cardFooter}>
+        <Ionicons name="calendar-outline" size={14} color={colors.textSecondary} />
+        <Text style={[styles.dueDateText, { color: colors.textSecondary }]}>
+          Vence: {dueDate}
+        </Text>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+interface StatCardProps {
+  icon: keyof typeof Ionicons.glyphMap;
+  value: string;
+  label: string;
+  color: string;
+}
+
+function StatCard({ icon, value, label, color }: StatCardProps) {
+  const colors = useThemeColors();
+
+  return (
+    <View
+      style={[
+        styles.statCard,
+        { backgroundColor: colors.surface, borderColor: colors.border },
+      ]}
+    >
+      <View style={[styles.statIcon, { backgroundColor: color + "20" }]}>
+        <Ionicons name={icon} size={20} color={color} />
+      </View>
+      <Text style={[styles.statValue, { color: colors.text }]}>{value}</Text>
+      <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
+        {label}
+      </Text>
+    </View>
+  );
+}
+
 export default function BrigadistaHome() {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? "light"];
+  const colors = useThemeColors();
+  const router = useRouter();
+  const { user, logout } = useAuth();
+  const [refreshing, setRefreshing] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [isOnline, setIsOnline] = useState(true);
+
+  // Monitor network connectivity
+  useEffect(() => {
+    const unsubscribe = NetInfo.addEventListener((state) => {
+      setIsOnline(state.isConnected ?? false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    // TODO: Fetch real data from API
+    setTimeout(() => {
+      setRefreshing(false);
+    }, 1500);
+  };
+
+  const handleSync = async () => {
+    setIsSyncing(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    // TODO: Sync data with server
+    setTimeout(() => {
+      setIsSyncing(false);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }, 2000);
+  };
+
+  const handleLogout = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Alert.alert(
+      "Cerrar Sesión",
+      "¿Estás seguro que deseas cerrar sesión?",
+      [
+        {
+          text: "Cancelar",
+          style: "cancel",
+          onPress: () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light),
+        },
+        {
+          text: "Cerrar Sesión",
+          style: "destructive",
+          onPress: async () => {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            await logout();
+            router.replace("/(auth)/welcome");
+          },
+        },
+      ],
+      { cancelable: true }
+    );
+  };
+
+  // 🧪 MOCK DATA
+  const stats = [
+    {
+      icon: "checkmark-circle" as const,
+      value: "18",
+      label: "Completadas",
+      color: colors.success,
+    },
+    {
+      icon: "time" as const,
+      value: "5",
+      label: "Pendientes",
+      color: colors.warning,
+    },
+    {
+      icon: "document-text" as const,
+      value: "23",
+      label: "Total",
+      color: colors.primary,
+    },
+    {
+      icon: "cloud-upload" as const,
+      value: "2",
+      label: "Sin Sync",
+      color: colors.info,
+    },
+  ];
+
+  const assignments = [
+    {
+      id: 1,
+      title: "Encuesta de Salud Mental y Bienestar",
+      category: "Salud Comunitaria",
+      completed: 8,
+      total: 10,
+      dueDate: "15 Feb",
+      priority: "high" as const,
+      synced: true,
+    },
+    {
+      id: 2,
+      title: "Evaluación de Infraestructura Urbana",
+      category: "Urbanismo",
+      completed: 3,
+      total: 15,
+      dueDate: "20 Feb",
+      priority: "medium" as const,
+      synced: false,
+    },
+    {
+      id: 3,
+      title: "Censo de Recursos Educativos",
+      category: "Educación",
+      completed: 7,
+      total: 8,
+      dueDate: "18 Feb",
+      priority: "low" as const,
+      synced: true,
+    },
+  ];
+
+  const syncStatus = {
+    lastSync: "Hace 5 minutos",
+    pendingResponses: 2,
+    isSynced: true,
+  };
 
   return (
     <ScrollView
       style={[styles.container, { backgroundColor: colors.background }]}
       contentContainerStyle={styles.content}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          tintColor={colors.primary}
+          colors={[colors.primary]}
+        />
+      }
     >
+      {/* Header */}
       <View style={styles.header}>
-        <Text style={[styles.title, { color: colors.text }]}>
-          Mis Encuestas
-        </Text>
-        <Text style={[styles.subtitle, { color: colors.icon }]}>
-          Completa tus encuestas asignadas
-        </Text>
-      </View>
-
-      {/* TODO: Add sync status indicator */}
-      <View style={[styles.syncCard, { backgroundColor: colors.tint + "15" }]}>
-        <Text style={[styles.syncStatus, { color: colors.tint }]}>
-          ✓ Sincronizado
-        </Text>
-        <Text style={[styles.syncDetails, { color: colors.icon }]}>
-          Última sincronización: Ahora
-        </Text>
-      </View>
-
-      {/* TODO: Add progress cards */}
-      <View style={styles.progressGrid}>
-        <View
-          style={[styles.progressCard, { backgroundColor: colors.tint + "20" }]}
-        >
-          <Text style={[styles.progressValue, { color: colors.tint }]}>0</Text>
-          <Text style={[styles.progressLabel, { color: colors.text }]}>
-            Completadas
+        <View style={styles.headerLeft}>
+          <Text style={[styles.greeting, { color: colors.textSecondary }]}>
+            Hola de nuevo
+          </Text>
+          <Text style={[styles.title, { color: colors.text }]}>
+            {user?.name || "Brigadista"}
           </Text>
         </View>
-        <View
-          style={[styles.progressCard, { backgroundColor: colors.tint + "20" }]}
-        >
-          <Text style={[styles.progressValue, { color: colors.tint }]}>0</Text>
-          <Text style={[styles.progressLabel, { color: colors.text }]}>
-            Pendientes
-          </Text>
-        </View>
-        <View
-          style={[styles.progressCard, { backgroundColor: colors.tint + "20" }]}
-        >
-          <Text style={[styles.progressValue, { color: colors.tint }]}>0</Text>
-          <Text style={[styles.progressLabel, { color: colors.text }]}>
-            Sin Sincronizar
-          </Text>
+        <View style={styles.headerActions}>
+          {/* Connection Status */}
+          <View
+            style={[
+              styles.statusIndicator,
+              {
+                backgroundColor: isOnline
+                  ? colors.success + "20"
+                  : colors.error + "20",
+                borderColor: isOnline ? colors.success : colors.error,
+              },
+            ]}
+          >
+            <Ionicons
+              name={isOnline ? "wifi" : "wifi-outline"}
+              size={16}
+              color={isOnline ? colors.success : colors.error}
+            />
+          </View>
+          {/* Theme Toggle */}
+          <ThemeToggleIcon />
+          {/* Logout */}
+          <TouchableOpacity
+            style={[
+              styles.logoutButton,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+            ]}
+            onPress={handleLogout}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="log-out-outline" size={20} color={colors.error} />
+          </TouchableOpacity>
         </View>
       </View>
 
-      {/* TODO: Add assigned surveys list */}
+      {/* Sync Status Card */}
+      <TouchableOpacity
+        style={[
+          styles.syncCard,
+          {
+            backgroundColor: syncStatus.isSynced
+              ? colors.success + "15"
+              : colors.warning + "15",
+            borderColor: syncStatus.isSynced ? colors.success : colors.warning,
+          },
+        ]}
+        activeOpacity={0.7}
+        onPress={handleSync}
+        disabled={isSyncing}
+      >
+        <View style={styles.syncHeader}>
+          <View style={styles.syncInfo}>
+            <Ionicons
+              name={syncStatus.isSynced ? "checkmark-circle" : "cloud-upload"}
+              size={24}
+              color={syncStatus.isSynced ? colors.success : colors.warning}
+            />
+            <View>
+              <Text
+                style={[
+                  styles.syncStatus,
+                  {
+                    color: syncStatus.isSynced ? colors.success : colors.warning,
+                  },
+                ]}
+              >
+                {syncStatus.isSynced ? "Todo Sincronizado" : "Pendiente de Sync"}
+              </Text>
+              <Text style={[styles.syncDetails, { color: colors.textSecondary }]}>
+                {syncStatus.lastSync}
+              </Text>
+            </View>
+          </View>
+          {isSyncing ? (
+            <Text style={[styles.syncingText, { color: colors.primary }]}>
+              Sincronizando...
+            </Text>
+          ) : (
+            <Ionicons name="sync" size={20} color={colors.primary} />
+          )}
+        </View>
+        {syncStatus.pendingResponses > 0 && (
+          <View style={[styles.pendingBadge, { backgroundColor: colors.warning + "30" }]}>
+            <Text style={[styles.pendingText, { color: colors.warning }]}>
+              {syncStatus.pendingResponses} respuestas pendientes de subir
+            </Text>
+          </View>
+        )}
+      </TouchableOpacity>
+
+      {/* Stats Grid */}
+      <View style={styles.statsGrid}>
+        {stats.map((stat, index) => (
+          <StatCard key={index} {...stat} />
+        ))}
+      </View>
+
+      {/* Assignments Section */}
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>
+            Mis Asignaciones
+          </Text>
+          <TouchableOpacity
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              router.push("/(brigadista)/my-surveys" as any);
+            }}
+          >
+            <Text style={[styles.seeAllText, { color: colors.primary }]}>
+              Ver todas
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.assignmentsList}>
+          {assignments.map((assignment) => (
+            <SurveyAssignmentCard key={assignment.id} {...assignment} />
+          ))}
+        </View>
+      </View>
+
+      {/* Quick Actions */}
       <View style={styles.section}>
         <Text style={[styles.sectionTitle, { color: colors.text }]}>
-          Encuestas Asignadas
+          Acciones Rápidas
         </Text>
-        <Text style={[styles.emptyState, { color: colors.icon }]}>
-          No tienes encuestas asignadas
-        </Text>
+        <View style={styles.actionsGrid}>
+          <TouchableOpacity
+            style={[
+              styles.actionCard,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+            ]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              router.push("/(brigadista)/my-surveys" as any);
+            }}
+          >
+            <Ionicons name="clipboard" size={32} color={colors.primary} />
+            <Text style={[styles.actionText, { color: colors.text }]}>
+              Ver Encuestas
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.actionCard,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+            ]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              router.push("/(brigadista)/responses/" as any);
+            }}
+          >
+            <Ionicons name="list" size={32} color={colors.success} />
+            <Text style={[styles.actionText, { color: colors.text }]}>
+              Mis Respuestas
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </ScrollView>
   );
@@ -82,61 +498,227 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    padding: 20,
+    paddingBottom: 32,
   },
   header: {
-    marginBottom: 24,
+    paddingHorizontal: 20,
     paddingTop: 60,
-  },
-  title: {
-    ...typography.h1,
-    marginBottom: 8,
-  },
-  subtitle: {
-    ...typography.body,
-  },
-  syncCard: {
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 24,
+    paddingBottom: 24,
+    flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "center",
   },
-  syncStatus: {
-    ...typography.h3,
+  headerLeft: {
+    flex: 1,
+  },
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  statusIndicator: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  logoutButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  greeting: {
+    fontSize: 14,
     marginBottom: 4,
   },
-  syncDetails: {
-    ...typography.bodySmall,
+  title: {
+    fontSize: 28,
+    fontWeight: "700",
   },
-  progressGrid: {
+  syncCard: {
+    marginHorizontal: 20,
+    marginBottom: 24,
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 12,
+  },
+  syncHeader: {
     flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  syncInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  syncStatus: {
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  syncDetails: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  syncingText: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  pendingBadge: {
+    padding: 8,
+    borderRadius: 8,
+  },
+  pendingText: {
+    fontSize: 12,
+    fontWeight: "500",
+    textAlign: "center",
+  },
+  statsGrid: {
+    paddingHorizontal: 20,
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: 12,
     marginBottom: 32,
   },
-  progressCard: {
+  statCard: {
     flex: 1,
+    minWidth: "22%",
     padding: 16,
     borderRadius: 16,
+    borderWidth: 1,
     alignItems: "center",
+    gap: 8,
   },
-  progressValue: {
-    ...typography.h2,
-    marginBottom: 4,
+  statIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  progressLabel: {
-    ...typography.bodySmall,
+  statValue: {
+    fontSize: 20,
+    fontWeight: "700",
+  },
+  statLabel: {
+    fontSize: 12,
     textAlign: "center",
   },
   section: {
-    marginBottom: 24,
+    marginBottom: 32,
   },
-  sectionTitle: {
-    ...typography.h3,
+  sectionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 20,
     marginBottom: 16,
   },
-  emptyState: {
-    ...typography.body,
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    paddingHorizontal: 20,
+    marginTop: 8,
+    marginBottom: 12,
+  },
+  seeAllText: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  assignmentsList: {
+    paddingHorizontal: 20,
+    gap: 12,
+  },
+  surveyCard: {
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 12,
+  },
+  cardHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  priorityBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  priorityText: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  syncBadge: {
+    padding: 6,
+    borderRadius: 8,
+  },
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    lineHeight: 22,
+  },
+  cardCategory: {
+    fontSize: 14,
+  },
+  progressSection: {
+    gap: 6,
+  },
+  progressHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  progressText: {
+    fontSize: 12,
+  },
+  progressPercent: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  progressBar: {
+    height: 6,
+    borderRadius: 3,
+    overflow: "hidden",
+  },
+  progressFill: {
+    height: "100%",
+    borderRadius: 3,
+  },
+  cardFooter: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  dueDateText: {
+    fontSize: 12,
+  },
+  actionsGrid: {
+    paddingHorizontal: 20,
+    flexDirection: "row",
+    gap: 12,
+  },
+  actionCard: {
+    flex: 1,
+    padding: 24,
+    borderRadius: 16,
+    borderWidth: 1,
+    alignItems: "center",
+    gap: 12,
+  },
+  actionText: {
+    fontSize: 14,
+    fontWeight: "600",
     textAlign: "center",
-    paddingVertical: 40,
+    lineHeight: 18,
   },
 });

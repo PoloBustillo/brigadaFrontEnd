@@ -5,9 +5,8 @@
  */
 
 import { UserHeader } from "@/components/shared";
-import { Colors } from "@/constants/theme";
 import { typography } from "@/constants/typography";
-import { useColorScheme } from "@/hooks/use-color-scheme";
+import { useThemeColors } from "@/contexts/theme-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useState } from "react";
@@ -78,8 +77,7 @@ const STATUS_CONFIG = {
 
 export default function AdminAssignmentsScreen() {
   const router = useRouter();
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? "light"];
+  const colors = useThemeColors();
 
   const [assignments, setAssignments] = useState<Assignment[]>(mockAssignments);
   const [refreshing, setRefreshing] = useState(false);

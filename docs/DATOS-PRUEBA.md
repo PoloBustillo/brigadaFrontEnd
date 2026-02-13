@@ -2,25 +2,7 @@
 
 ## 📋 Usuarios Mock
 
-### 1. Usuario Primera Vez (Estado: INVITED)
-
-```
-Email: test@brigada.com
-Password: cualquier contraseña
-Rol: BRIGADISTA
-Estado: INVITED
-```
-
-**Flujo esperado:**
-
-1. Ingresar en pantalla de login
-2. Al iniciar sesión → Te lleva a pantalla de **Activación**
-3. Usar código de activación: `123456`
-4. Continuar a crear contraseña
-
----
-
-### 2. Usuario Admin (Estado: ACTIVE)
+### 1. 👨‍💼 Usuario Admin (Estado: ACTIVE)
 
 ```
 Email: admin@brigada.com
@@ -30,9 +12,58 @@ Estado: ACTIVE
 ```
 
 **Flujo esperado:**
-
 1. Ingresar en pantalla de login
 2. Al iniciar sesión → Te lleva directamente al **Dashboard Admin**
+3. Dashboard muestra métricas generales del sistema
+
+---
+
+### 2. 👥 Usuario Encargado (Estado: ACTIVE)
+
+```
+Email: encargado@brigada.com
+Password: encargado123
+Rol: ENCARGADO
+Estado: ACTIVE
+```
+
+**Flujo esperado:**
+1. Ingresar en pantalla de login
+2. Al iniciar sesión → Te lleva al **Dashboard del Encargado**
+3. Dashboard muestra equipo y encuestas asignadas
+
+---
+
+### 3. 🚶 Usuario Brigadista (Estado: ACTIVE)
+
+```
+Email: brigadista@brigada.com
+Password: brigadista123
+Rol: BRIGADISTA
+Estado: ACTIVE
+```
+
+**Flujo esperado:**
+1. Ingresar en pantalla de login
+2. Al iniciar sesión → Te lleva al **Dashboard del Brigadista**
+3. Dashboard muestra encuestas asignadas y estado de sync
+
+---
+
+### 4. 🔄 Usuario Primera Vez (Estado: INVITED)
+
+```
+Email: test@brigada.com
+Password: cualquier contraseña
+Rol: BRIGADISTA
+Estado: INVITED
+```
+
+**Flujo esperado:**
+1. Ingresar en pantalla de login
+2. Al iniciar sesión → Te lleva a pantalla de **Activación**
+3. Usar código de activación: `123456`
+4. Continuar a crear contraseña
 
 ---
 
@@ -54,8 +85,10 @@ Estado: ACTIVE
 
 Solo los siguientes emails están en la whitelist de prueba:
 
-- `test@brigada.com`
-- `admin@brigada.com`
+- `admin@brigada.com` - Admin activo
+- `encargado@brigada.com` - Encargado activo
+- `brigadista@brigada.com` - Brigadista activo
+- `test@brigada.com` - Para probar activación
 
 **Cualquier otro email será rechazado con mensaje:**
 

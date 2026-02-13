@@ -49,28 +49,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const loadSession = async () => {
-    // 🧪 HARDCODED FOR TESTING - REMOVE IN PRODUCTION
-    // ⚠️ Cambiar el rol aquí para testear diferentes pantallas:
-    // "ADMIN" → pantallas de administrador
-    // "ENCARGADO" → pantallas de encargado
-    // "BRIGADISTA" → pantallas de brigadista
-    const mockUser: User = {
-      id: 999,
-      email: "test@brigada.com",
-      name: "Test User",
-      role: "ADMIN", // 🔧 Cambiar aquí el rol para testear
-      state: "ACTIVE",
-      created_at: Date.now(),
-      updated_at: Date.now(),
-    };
-    setUser(mockUser);
-    setToken("mock-token-999");
-    setLoading(false);
-    console.log("🧪 MOCK SESSION loaded for testing:", mockUser.role);
-    return;
-    // 🧪 END HARDCODED - Descomentar código abajo para usar sesión real
+    // 🧪 MOCK SESSION - Descomentar para testear sin login
+    // const mockUser: User = {
+    //   id: 999,
+    //   email: "test@brigada.com",
+    //   name: "Test User",
+    //   role: "ADMIN", // 🔧 Cambiar aquí: "ADMIN" | "ENCARGADO" | "BRIGADISTA"
+    //   state: "ACTIVE",
+    //   created_at: Date.now(),
+    //   updated_at: Date.now(),
+    // };
+    // setUser(mockUser);
+    // setToken("mock-token-999");
+    // setLoading(false);
+    // console.log("🧪 MOCK SESSION loaded for testing:", mockUser.role);
+    // return;
+    // 🧪 END MOCK SESSION
 
-    /* try {
+    try {
       const [storedUser, storedToken, storedExpiry, storedPendingEmail] =
         await Promise.all([
           AsyncStorage.getItem(STORAGE_KEYS.USER),
@@ -106,7 +102,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await clearSession();
     } finally {
       setLoading(false);
-    } */
+    }
   };
 
   // Load user session on mount

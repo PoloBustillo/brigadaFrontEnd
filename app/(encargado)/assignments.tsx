@@ -5,10 +5,9 @@
  */
 
 import { UserHeader } from "@/components/shared";
-import { Colors } from "@/constants/theme";
 import { typography } from "@/constants/typography";
 import { useAuth } from "@/contexts/auth-context";
-import { useColorScheme } from "@/hooks/use-color-scheme";
+import { useThemeColors } from "@/contexts/theme-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
 import {
@@ -79,8 +78,7 @@ const STATUS_CONFIG = {
 
 export default function EncargadoAssignmentsScreen() {
   const { user } = useAuth();
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? "light"];
+  const colors = useThemeColors();
 
   const [assignments, setAssignments] =
     useState<MyAssignment[]>(mockMyAssignments);

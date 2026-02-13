@@ -9,13 +9,16 @@
  * ✅ Filter Tabs: Quick navigation between sections
  */
 
+import { ThemeToggleIcon } from "@/components/ui/theme-toggle";
 import { useAuth } from "@/contexts/auth-context";
 import { useThemeColors } from "@/contexts/theme-context";
 import { Ionicons } from "@expo/vector-icons";
+import NetInfo from "@react-native-community/netinfo";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
+  Alert,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -189,9 +192,19 @@ function StatCard({ icon, value, label, color }: StatCardProps) {
 export default function AdminDashboard() {
   const colors = useThemeColors();
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
   const [activeFilter, setActiveFilter] = useState<FilterTab>("all");
+  const [isOnline, setIsOnline] = useState(true);
+
+  // Monitor network connectivity
+  useEffect(() => {
+    const unsubscribe = NetInfo.addEventListener((state) => {
+      setIsOnline(state.isConnected ?? false);
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -205,6 +218,31 @@ export default function AdminDashboard() {
   const handleFilterChange = (filter: FilterTab) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setActiveFilter(filter);
+  };
+
+  const handleLogout = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Alert.alert(
+      "Cerrar Sesión",
+      "¿Estás seguro que deseas cerrar sesión?",
+      [
+        {
+          text: "Cancelar",
+          style: "cancel",
+          onPress: () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light),
+        },
+        {
+          text: "Cerrar Sesión",
+          style: "destructive",
+          onPress: async () => {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            await logout();
+            router.replace("/(auth)/welcome");
+          },
+        },
+      ],
+      { cancelable: true }
+    );
   };
 
   // 🧪 MOCK DATA
@@ -301,6 +339,24 @@ export default function AdminDashboard() {
           </Text>
         </View>
         <View style={styles.headerActions}>
+          <View
+            style={[
+              styles.statusIndicator,
+              {
+                backgroundColor: isOnline
+                  ? colors.success + "20"
+                  : colors.error + "20",
+                borderColor: isOnline ? colors.success : colors.error,
+              },
+            ]}
+          >
+            <Ionicons
+              name={isOnline ? "wifi" : "wifi-outline"}
+              size={16}
+              color={isOnline ? colors.success : colors.error}
+            />
+          </View>
+          <ThemeToggleIcon />
           <TouchableOpacity
             style={[styles.headerButton, { backgroundColor: colors.surface }]}
             onPress={() => {
@@ -315,6 +371,12 @@ export default function AdminDashboard() {
             onPress={onRefresh}
           >
             <Ionicons name="refresh-outline" size={22} color={colors.text} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.headerButton, { backgroundColor: colors.surface }]}
+            onPress={handleLogout}
+          >
+            <Ionicons name="log-out-outline" size={22} color={colors.error} />
           </TouchableOpacity>
         </View>
       </View>
@@ -505,6 +567,14 @@ const styles = StyleSheet.create({
   headerActions: {
     flexDirection: "row",
     gap: 8,
+  },
+  statusIndicator: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 1,
+    justifyContent: "center",
+    alignItems: "center",
   },
   headerButton: {
     width: 44,
