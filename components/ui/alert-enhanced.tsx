@@ -156,7 +156,8 @@ const styles = StyleSheet.create({
   container: {
     borderRadius: DesignTokens.borderRadius.md,
     borderWidth: 1,
-    padding: DesignTokens.spacing[4],
+    paddingHorizontal: DesignTokens.spacing[4],
+    paddingVertical: DesignTokens.spacing[5],
     ...DesignTokens.shadows.sm,
   },
   content: {
@@ -172,11 +173,11 @@ const styles = StyleSheet.create({
   title: {
     fontSize: DesignTokens.typography.fontSize.base,
     fontWeight: DesignTokens.typography.fontWeight.bold,
-    marginBottom: DesignTokens.spacing[1],
+    marginBottom: DesignTokens.spacing[2],
   },
   message: {
     fontSize: DesignTokens.typography.fontSize.sm,
-    lineHeight: DesignTokens.typography.lineHeight.relaxed,
+    lineHeight: 20,
   },
   closeButton: {
     marginLeft: DesignTokens.spacing[2],

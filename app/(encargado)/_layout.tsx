@@ -3,8 +3,7 @@ import React from "react";
 
 import { ProtectedRoute } from "@/components/auth";
 import { HapticTab } from "@/components/haptic-tab";
-import { Colors } from "@/constants/theme";
-import { useColorScheme } from "@/hooks/use-color-scheme";
+import { useThemeColors } from "@/contexts/theme-context";
 import { Ionicons } from "@expo/vector-icons";
 
 /**
@@ -13,17 +12,20 @@ import { Ionicons } from "@expo/vector-icons";
  * Tabs: Home, My Surveys, Team, Responses
  */
 export default function EncargadoLayout() {
-  const colorScheme = useColorScheme();
+  const colors = useThemeColors();
 
   return (
     <ProtectedRoute allowedRoles={["ENCARGADO"]}>
       <Tabs
         screenOptions={{
-          tabBarActiveTintColor: Colors[colorScheme ?? "light"].tint,
+          tabBarActiveTintColor: colors.primary,
+          tabBarInactiveTintColor: colors.textSecondary,
           headerShown: false,
           tabBarButton: HapticTab,
           tabBarStyle: {
-            backgroundColor: colorScheme === "dark" ? "#1a1a1a" : "#ffffff",
+            backgroundColor: colors.surface,
+            borderTopColor: colors.border,
+            borderTopWidth: 1,
           },
         }}
       >

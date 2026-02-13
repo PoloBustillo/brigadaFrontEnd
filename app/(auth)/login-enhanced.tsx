@@ -773,7 +773,7 @@ const styles = StyleSheet.create({
   },
   alertContainer: {
     marginBottom: 20,
-    marginHorizontal: -8, // Extiende más allá del padding del contenedor
+    marginHorizontal: 0, // Mismo ancho que los demás elementos (infoBox, forms, etc.)
   },
   form: {
     marginBottom: 16, // Reducido de 24 a 16
