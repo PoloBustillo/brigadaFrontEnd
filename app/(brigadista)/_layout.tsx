@@ -55,6 +55,15 @@ export default function BrigadistaLayout() {
           }}
         />
         <Tabs.Screen
+          name="profile"
+          options={{
+            title: "Perfil",
+            tabBarIcon: ({ color }) => (
+              <Ionicons name="person" size={24} color={color} />
+            ),
+          }}
+        />
+        <Tabs.Screen
           name="surveys/index"
           options={{
             href: null, // Hidden from tabs

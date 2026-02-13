@@ -1,9 +1,15 @@
 /**
  * 🎨 Theme Context - Brigada Digital
- * Contexto para manejar tema claro/oscuro con Design Tokens
+ * Contexto para manejar tema claro/oscuro y esquemas de colores
  */
 
-import { DesignTokens } from "@/constants/design-tokens";
+import {
+  colorSchemes,
+  defaultScheme,
+  getColorScheme,
+  type ColorScheme,
+  type ThemeColors,
+} from "@/constants/color-schemes";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { useColorScheme as useRNColorScheme } from "react-native";
@@ -11,120 +17,52 @@ import { useColorScheme as useRNColorScheme } from "react-native";
 type ThemeMode = "light" | "dark" | "auto";
 type ActiveTheme = "light" | "dark";
 
-interface ThemeColors {
-  // Background colors
-  background: string;
-  backgroundSecondary: string;
-  surface: string;
-  surfaceVariant: string;
-
-  // Text colors
-  text: string;
-  textSecondary: string;
-  textTertiary: string;
-
-  // Border colors
-  border: string;
-  borderLight: string;
-
-  // Primary colors
-  primary: string;
-  primaryLight: string;
-  primaryDark: string;
-
-  // Status colors
-  success: string;
-  warning: string;
-  error: string;
-  info: string;
-
-  // Overlay
-  overlay: string;
-  backdrop: string;
-}
-
 interface ThemeContextType {
   theme: ActiveTheme;
   themeMode: ThemeMode;
   colors: ThemeColors;
   setThemeMode: (mode: ThemeMode) => void;
   toggleTheme: () => void;
+  // Color scheme selection
+  colorScheme: string;
+  availableSchemes: ColorScheme[];
+  setColorScheme: (schemeId: string) => void;
 }
-
-const lightColors: ThemeColors = {
-  background: "#FFFFFF", // Blanco puro
-  backgroundSecondary: "#FFF5F8", // Rosa pastel muy claro
-  surface: "#FAFAFA", // Gris muy claro
-  surfaceVariant: "#FFE8F0", // Rosa pastel claro
-
-  text: "#FF1B8D", // Rosa vibrante para texto principal
-  textSecondary: "#FF4DA6", // Rosa medio para texto secundario
-  textTertiary: "#FF6BB8", // Rosa claro para texto terciario
-
-  border: "#FFD6E8", // Rosa pastel para bordes
-  borderLight: "#FFE8F0", // Rosa muy claro
-
-  primary: "#FF1B8D", // Rosa vibrante (tu rosa característico)
-  primaryLight: "#FFE8F0", // Rosa pastel
-  primaryDark: "#CC1670", // Rosa oscuro
-
-  success: "#10B981", // Verde
-  warning: "#F59E0B", // Naranja
-  error: "#EF4444", // Rojo
-  info: "#3B82F6", // Azul
-
-  overlay: `rgba(255, 27, 141, ${DesignTokens.opacity.overlay})`, // Overlay con rosa
-  backdrop: "rgba(255, 27, 141, 0.1)", // Backdrop rosa suave
-};
-
-const darkColors: ThemeColors = {
-  background: "#FF1B8D", // Rosa vibrante de fondo
-  backgroundSecondary: "#FF4DA6", // Rosa claro secundario
-  surface: "#CC1670", // Rosa oscuro para superficies
-  surfaceVariant: "#E01780", // Rosa medio para variantes
-
-  text: "#FFFFFF", // Blanco puro para texto
-  textSecondary: "#FFE8F0", // Rosa pastel muy claro
-  textTertiary: "#FFD6E8", // Rosa pastel claro
-
-  border: "#FFFFFF", // Blanco para bordes
-  borderLight: "rgba(255, 255, 255, 0.3)", // Blanco semi-transparente
-
-  primary: "#FFFFFF", // Blanco como primario (invierte el esquema)
-  primaryLight: "#FFE8F0", // Rosa pastel
-  primaryDark: "#F0F0F0", // Gris muy claro
-
-  success: "#34D399", // Verde claro
-  warning: "#FBBF24", // Naranja claro
-  error: "#FCA5A5", // Rojo claro
-  info: "#93C5FD", // Azul claro
-
-  overlay: `rgba(255, 27, 141, ${DesignTokens.opacity.overlay + 0.3})`, // Overlay rosa
-  backdrop: "rgba(26, 26, 46, 0.9)", // Backdrop oscuro con tinte
-};
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 const THEME_STORAGE_KEY = "@brigada_theme_mode";
+const SCHEME_STORAGE_KEY = "@brigada_color_scheme";
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const systemColorScheme = useRNColorScheme();
   const [themeMode, setThemeModeState] = useState<ThemeMode>("auto");
+  const [colorSchemeId, setColorSchemeIdState] = useState<string>(
+    defaultScheme.id,
+  );
   const [isLoading, setIsLoading] = useState(true);
 
-  // Cargar preferencia guardada
+  // Cargar preferencias guardadas
   useEffect(() => {
-    loadThemePreference();
+    loadPreferences();
   }, []);
 
-  const loadThemePreference = async () => {
+  const loadPreferences = async () => {
     try {
-      const savedMode = await AsyncStorage.getItem(THEME_STORAGE_KEY);
+      const [savedMode, savedScheme] = await Promise.all([
+        AsyncStorage.getItem(THEME_STORAGE_KEY),
+        AsyncStorage.getItem(SCHEME_STORAGE_KEY),
+      ]);
+
       if (savedMode && ["light", "dark", "auto"].includes(savedMode)) {
         setThemeModeState(savedMode as ThemeMode);
       }
+
+      if (savedScheme && getColorScheme(savedScheme)) {
+        setColorSchemeIdState(savedScheme);
+      }
     } catch (error) {
-      console.error("Error loading theme preference:", error);
+      console.error("Error loading preferences:", error);
     } finally {
       setIsLoading(false);
     }
@@ -136,6 +74,17 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       setThemeModeState(mode);
     } catch (error) {
       console.error("Error saving theme preference:", error);
+    }
+  };
+
+  const setColorScheme = async (schemeId: string) => {
+    try {
+      if (getColorScheme(schemeId)) {
+        await AsyncStorage.setItem(SCHEME_STORAGE_KEY, schemeId);
+        setColorSchemeIdState(schemeId);
+      }
+    } catch (error) {
+      console.error("Error saving color scheme:", error);
     }
   };
 
@@ -151,8 +100,10 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     return themeMode;
   };
 
+  // Get colors from the selected scheme
+  const currentScheme = getColorScheme(colorSchemeId) || defaultScheme;
   const theme = getActiveTheme();
-  const colors = theme === "dark" ? darkColors : lightColors;
+  const colors = theme === "dark" ? currentScheme.dark : currentScheme.light;
 
   if (isLoading) {
     return null; // O un loader
@@ -166,6 +117,9 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         colors,
         setThemeMode,
         toggleTheme,
+        colorScheme: colorSchemeId,
+        availableSchemes: colorSchemes,
+        setColorScheme,
       }}
     >
       {children}

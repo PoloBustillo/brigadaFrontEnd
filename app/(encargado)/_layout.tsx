@@ -63,6 +63,15 @@ export default function EncargadoLayout() {
             ),
           }}
         />
+        <Tabs.Screen
+          name="profile"
+          options={{
+            title: "Perfil",
+            tabBarIcon: ({ color }) => (
+              <Ionicons name="person" size={24} color={color} />
+            ),
+          }}
+        />
       </Tabs>
     </ProtectedRoute>
   );

@@ -17,8 +17,8 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 
-import { colors } from "@/constants/colors";
 import { typography } from "@/constants/typography";
+import { useThemeColors } from "@/contexts/theme-context";
 
 // Background decorative elements - Distribuidos estratégicamente con mayor presencia
 const DECORATIVE_ELEMENTS = [
@@ -113,6 +113,7 @@ interface DecorativeElementProps {
   opacity: number;
   rotate: number;
   delay: number;
+  color: string;
 }
 
 function DecorativeElement({
@@ -124,6 +125,7 @@ function DecorativeElement({
   opacity,
   rotate,
   delay,
+  color,
 }: DecorativeElementProps) {
   const elementOpacity = useSharedValue(0);
   const elementRotate = useSharedValue(rotate);
@@ -188,11 +190,7 @@ function DecorativeElement({
     <Animated.View
       style={[styles.decorativeElement, positionStyle, animatedStyle]}
     >
-      <Ionicons
-        name={icon as any}
-        size={size}
-        color="rgba(255, 255, 255, 0.65)"
-      />
+      <Ionicons name={icon as any} size={size} color={color} />
     </Animated.View>
   );
 }
@@ -201,21 +199,24 @@ function DecorativeElement({
 interface FeatureItemProps {
   icon: string;
   text: string;
+  iconColor: string;
+  textColor: string;
 }
 
-function FeatureItem({ icon, text }: FeatureItemProps) {
+function FeatureItem({ icon, text, iconColor, textColor }: FeatureItemProps) {
   return (
     <View style={styles.featureItem}>
       <View style={styles.featureIconContainer}>
-        <Ionicons name={icon as any} size={20} color={colors.primary} />
+        <Ionicons name={icon as any} size={20} color={iconColor} />
       </View>
-      <Text style={styles.featureText}>{text}</Text>
+      <Text style={[styles.featureText, { color: textColor }]}>{text}</Text>
     </View>
   );
 }
 
 export default function WelcomeScreen() {
   const router = useRouter();
+  const colors = useThemeColors();
   const [buttonPressed, setButtonPressed] = useState(false);
 
   const buttonScale = useSharedValue(1);
@@ -265,11 +266,16 @@ export default function WelcomeScreen() {
     router.push("/(auth)/activation" as any);
   };
 
+  // Crear gradiente dinámico desde el color primario
+  const gradientColors = [colors.primary, colors.primaryDark, colors.primary];
+
+  const decorativeColor = `${colors.background}99`; // background con 60% opacity
+
   return (
     <View style={styles.container}>
       {/* Gradient Background */}
       <LinearGradient
-        colors={["#FF1B8D", "#FF4B7D", "#FF6B9D"]}
+        colors={gradientColors}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
         style={styles.gradient}
@@ -286,6 +292,7 @@ export default function WelcomeScreen() {
             opacity={element.opacity}
             rotate={element.rotate}
             delay={200 + index * 100}
+            color={decorativeColor}
           />
         ))}
 
@@ -294,11 +301,26 @@ export default function WelcomeScreen() {
           {/* Logo Section */}
           <View style={styles.logoSection}>
             <Animated.View style={[styles.logoWrapper, logoAnimatedStyle]}>
-              <View style={styles.logoBadge}>
-                <Ionicons name="shield-checkmark" size={64} color="#FF1B8D" />
+              <View
+                style={[
+                  styles.logoBadge,
+                  { backgroundColor: colors.background },
+                ]}
+              >
+                <Ionicons
+                  name="shield-checkmark"
+                  size={64}
+                  color={colors.primary}
+                />
               </View>
-              <Text style={styles.brandName}>Brigada</Text>
-              <Text style={styles.brandSubtitle}>Digital</Text>
+              <Text style={[styles.brandName, { color: colors.background }]}>
+                Brigada
+              </Text>
+              <Text
+                style={[styles.brandSubtitle, { color: colors.background }]}
+              >
+                Digital
+              </Text>
             </Animated.View>
           </View>
 
@@ -308,18 +330,26 @@ export default function WelcomeScreen() {
               <FeatureItem
                 icon="clipboard-outline"
                 text="Digitaliza encuestas"
+                iconColor={colors.primary}
+                textColor={colors.background}
               />
               <FeatureItem
                 icon="checkmark-circle-outline"
                 text="Valida información"
+                iconColor={colors.primary}
+                textColor={colors.background}
               />
               <FeatureItem
                 icon="sync-outline"
                 text="Sincroniza en tiempo real"
+                iconColor={colors.primary}
+                textColor={colors.background}
               />
               <FeatureItem
                 icon="cloud-offline-outline"
                 text="Funciona sin internet"
+                iconColor={colors.primary}
+                textColor={colors.background}
               />
             </View>
 
@@ -332,29 +362,43 @@ export default function WelcomeScreen() {
               onPress={handleGetStarted}
               activeOpacity={0.9}
             >
-              <LinearGradient
-                colors={["#FFFFFF", "#F8F9FA"]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 0, y: 1 }}
-                style={styles.ctaButton}
+              <View
+                style={[
+                  styles.ctaButton,
+                  { backgroundColor: colors.background },
+                ]}
               >
-                <Text style={styles.ctaButtonText}>Iniciar Sesión</Text>
-                <Ionicons name="arrow-forward" size={22} color="#FF1B8D" />
-              </LinearGradient>
+                <Text style={[styles.ctaButtonText, { color: colors.primary }]}>
+                  Iniciar Sesión
+                </Text>
+                <Ionicons
+                  name="arrow-forward"
+                  size={22}
+                  color={colors.primary}
+                />
+              </View>
             </TouchableOpacity>
 
             {/* Activation Button */}
             <TouchableOpacity
-              style={styles.activationButton}
+              style={[
+                styles.activationButton,
+                { borderColor: `${colors.background}66` },
+              ]}
               onPress={handleActivation}
               activeOpacity={0.8}
             >
               <Ionicons
                 name="key-outline"
                 size={20}
-                color="rgba(255, 255, 255, 0.95)"
+                color={colors.background}
               />
-              <Text style={styles.activationButtonText}>
+              <Text
+                style={[
+                  styles.activationButtonText,
+                  { color: colors.background },
+                ]}
+              >
                 Tengo un código de activación
               </Text>
             </TouchableOpacity>
@@ -405,7 +449,6 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: "rgba(255, 255, 255, 0.98)",
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 20,
@@ -415,12 +458,11 @@ const styles = StyleSheet.create({
     shadowRadius: 20,
     elevation: 15,
     borderWidth: 4,
-    borderColor: "rgba(255, 255, 255, 0.6)",
+    borderColor: "rgba(255, 255, 255, 0.4)",
   },
   brandName: {
     fontFamily: "Pacifico",
     fontSize: 42,
-    color: "#FFFFFF",
     letterSpacing: 1,
     textShadowColor: "rgba(0, 0, 0, 0.25)",
     textShadowOffset: { width: 0, height: 3 },
@@ -429,7 +471,6 @@ const styles = StyleSheet.create({
   brandSubtitle: {
     fontSize: 18,
     fontWeight: "300",
-    color: "rgba(255, 255, 255, 0.95)",
     letterSpacing: 4,
     marginTop: 4,
   },
@@ -467,7 +508,6 @@ const styles = StyleSheet.create({
   },
   featureText: {
     ...typography.bodySmall,
-    color: "rgba(255, 255, 255, 0.98)",
     fontWeight: "600",
     flex: 1,
     fontSize: 15,
@@ -494,14 +534,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
     borderWidth: 2.5,
-    borderColor: "rgba(255, 27, 141, 0.3)",
+    borderColor: "rgba(255, 255, 255, 0.3)",
   },
   ctaButtonPressed: {
     transform: [{ scale: 0.97 }],
   },
   ctaButtonText: {
     ...typography.button,
-    color: colors.primary,
     letterSpacing: 1,
     fontSize: 18,
     fontWeight: "700",
@@ -516,10 +555,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     gap: 8,
     marginBottom: 8,
+    borderRadius: 12,
+    borderWidth: 1.5,
   },
   activationButtonText: {
     ...typography.bodySmall,
-    color: "rgba(255, 255, 255, 0.95)",
     fontWeight: "600",
     fontSize: 14,
   },

@@ -65,6 +65,15 @@ export default function AdminLayout() {
           }}
         />
         <Tabs.Screen
+          name="profile"
+          options={{
+            title: "Perfil",
+            tabBarIcon: ({ color }) => (
+              <Ionicons name="person" size={24} color={color} />
+            ),
+          }}
+        />
+        <Tabs.Screen
           name="assignments"
           options={{
             href: null, // Hidden from tabs

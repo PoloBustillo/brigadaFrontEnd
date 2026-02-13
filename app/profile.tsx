@@ -63,6 +63,10 @@ export default function ProfileScreen() {
     console.log("Experience menu:", id);
   };
 
+  const handleThemeSettings = () => {
+    router.push("/(tabs)/theme-settings" as any);
+  };
+
   const handleLogout = () => {
     // Clear session
     // await AsyncStorage.removeItem('userToken');
@@ -173,6 +177,16 @@ export default function ProfileScreen() {
               </Card>
             ))}
           </View>
+
+          {/* Theme Settings Button */}
+          <TouchableOpacity
+            style={styles.themeButton}
+            onPress={handleThemeSettings}
+          >
+            <Ionicons name="color-palette" size={20} color="#FF1B8D" />
+            <Text style={styles.themeButtonText}>Personalización</Text>
+            <Ionicons name="chevron-forward" size={20} color="#6C7A89" />
+          </TouchableOpacity>
 
           {/* Logout Button */}
           <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
@@ -366,6 +380,25 @@ const styles = StyleSheet.create({
     height: 32,
     justifyContent: "center",
     alignItems: "center",
+  },
+  themeButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    marginTop: 16,
+    backgroundColor: "#FFF5F8",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#FFE8F0",
+  },
+  themeButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#FF1B8D",
+    flex: 1,
+    marginLeft: 8,
   },
   logoutButton: {
     flexDirection: "row",
