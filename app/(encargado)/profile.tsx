@@ -3,9 +3,8 @@
  * Perfil y configuración para encargados de equipo
  */
 
-import { ColorSchemeSelector } from "@/components/ui/color-scheme-selector";
 import { useAuth } from "@/contexts/auth-context";
-import { useTheme, useThemeColors } from "@/contexts/theme-context";
+import { useThemeColors } from "@/contexts/theme-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React from "react";
@@ -19,7 +18,6 @@ import {
 
 export default function EncargadoProfileScreen() {
   const colors = useThemeColors();
-  const { themeMode } = useTheme();
   const router = useRouter();
   const { user } = useAuth();
 
@@ -80,48 +78,6 @@ export default function EncargadoProfileScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Color Scheme Selector */}
-        <View style={styles.colorSchemeSection}>
-          <View style={styles.sectionHeader}>
-            <Ionicons name="color-palette" size={20} color={colors.text} />
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>
-              Esquemas de Colores
-            </Text>
-          </View>
-
-          {/* Theme Mode Indicator */}
-          <View
-            style={[
-              styles.themeModeIndicator,
-              { backgroundColor: colors.surface, borderColor: colors.border },
-            ]}
-          >
-            <Ionicons
-              name={
-                themeMode === "light"
-                  ? "sunny"
-                  : themeMode === "dark"
-                    ? "moon"
-                    : "phone-portrait"
-              }
-              size={18}
-              color={colors.textSecondary}
-            />
-            <Text
-              style={[styles.themeModeText, { color: colors.textSecondary }]}
-            >
-              Modo:{" "}
-              {themeMode === "light"
-                ? "Claro"
-                : themeMode === "dark"
-                  ? "Oscuro"
-                  : "Auto"}
-            </Text>
-          </View>
-
-          <ColorSchemeSelector />
-        </View>
-
         {/* Menu Items */}
         <View style={styles.menuSection}>
           {menuItems.map((item) => (
@@ -217,35 +173,6 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
-  },
-  colorSchemeSection: {
-    marginBottom: 24,
-  },
-  sectionHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginBottom: 12,
-    paddingHorizontal: 4,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  themeModeIndicator: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    marginBottom: 12,
-    alignSelf: "flex-start",
-  },
-  themeModeText: {
-    fontSize: 14,
-    fontWeight: "500",
   },
   menuSection: {
     gap: 12,

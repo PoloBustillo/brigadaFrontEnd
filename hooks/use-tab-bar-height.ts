@@ -22,7 +22,7 @@ export function useTabBarHeight() {
   const tabBarHeight = baseHeight + bottomPadding;
 
   // Espacio recomendado para padding (con margen extra de seguridad)
-  const contentPadding = tabBarHeight + 24;
+  const contentPadding = tabBarHeight + 40;
 
   return {
     tabBarHeight,

@@ -3,12 +3,14 @@
  * Barra de tabs moderna con blur translúcido y animaciones
  */
 
+import { useSync } from "@/contexts/sync-context";
 import { useTheme, useThemeColors } from "@/contexts/theme-context";
 import { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { BlurView } from "expo-blur";
 import React from "react";
 import {
   Animated,
+  Easing,
   Platform,
   StyleSheet,
   Text,
@@ -23,6 +25,7 @@ interface TabButtonProps {
   options: any;
   onPress: () => void;
   onLongPress: () => void;
+  badge?: number;
 }
 
 function TabButton({
@@ -31,11 +34,15 @@ function TabButton({
   options,
   onPress,
   onLongPress,
+  badge,
 }: TabButtonProps) {
   const colors = useThemeColors();
   const scaleAnim = React.useRef(
     new Animated.Value(isFocused ? 1 : 0.95),
   ).current;
+
+  // Animación de pulso para badge
+  const pulseAnim = React.useRef(new Animated.Value(1)).current;
 
   const label =
     options.tabBarLabel !== undefined
@@ -51,6 +58,32 @@ function TabButton({
       friction: 8,
     }).start();
   }, [isFocused, scaleAnim]);
+
+  // Animación de pulso cuando hay badge
+  React.useEffect(() => {
+    if (badge && badge > 0) {
+      const pulseAnimation = Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 1.2,
+            duration: 1000,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 1000,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+        ]),
+      );
+      pulseAnimation.start();
+      return () => pulseAnimation.stop();
+    }
+  }, [badge, pulseAnim]);
+
+  const hasBadge = typeof badge === "number" && badge > 0;
 
   return (
     <TouchableOpacity
@@ -88,13 +121,29 @@ function TabButton({
             !isFocused && styles.contentWrapperCentered,
           ]}
         >
-          {/* Icon */}
+          {/* Icon with badge */}
           <View style={styles.iconContainer}>
-            {options.tabBarIcon?.({
-              focused: isFocused,
-              color: isFocused ? colors.primary : colors.textSecondary,
-              size: isFocused ? 24 : 24,
-            })}
+            {options.tabBarIcon &&
+              options.tabBarIcon({
+                focused: isFocused,
+                color: isFocused ? colors.primary : colors.textSecondary,
+                size: isFocused ? 24 : 24,
+              })}
+
+            {/* Badge con pulso */}
+            {hasBadge && badge !== undefined && (
+              <Animated.View
+                style={[
+                  styles.badge,
+                  {
+                    backgroundColor: colors.error,
+                    transform: [{ scale: pulseAnim }],
+                  },
+                ]}
+              >
+                <Text style={styles.badgeText}>{badge.toString()}</Text>
+              </Animated.View>
+            )}
           </View>
 
           {/* Label - Solo visible en tab activo */}
@@ -125,6 +174,21 @@ export function CustomTabBar({
   const insets = useSafeAreaInsets();
   const colors = useThemeColors();
   const { theme } = useTheme();
+  const { pendingByType } = useSync();
+
+  // Mapear rutas a tipos de sync para mostrar badges
+  const getRouteBadge = (routeName: string): number => {
+    if (routeName.includes("surveys")) {
+      return pendingByType.surveys;
+    }
+    if (routeName.includes("responses")) {
+      return pendingByType.responses;
+    }
+    if (routeName.includes("users")) {
+      return pendingByType.users;
+    }
+    return 0;
+  };
 
   return (
     <BlurView
@@ -174,6 +238,7 @@ export function CustomTabBar({
               options={options}
               onPress={onPress}
               onLongPress={onLongPress}
+              badge={getRouteBadge(route.name)}
             />
           );
         })}
@@ -253,5 +318,23 @@ const styles = StyleSheet.create({
     right: 16,
     height: 3,
     borderRadius: 2,
+  },
+  badge: {
+    position: "absolute",
+    top: -4,
+    right: -8,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 4,
+    borderWidth: 2,
+    borderColor: "#fff",
+  },
+  badgeText: {
+    color: "#fff",
+    fontSize: 10,
+    fontWeight: "700",
   },
 });

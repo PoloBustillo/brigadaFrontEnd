@@ -12,6 +12,7 @@ import "react-native-reanimated";
 import { SplashScreen } from "@/components/layout";
 import { ToastContainer } from "@/components/ui/toast-enhanced";
 import { AuthProvider, useAuth } from "@/contexts/auth-context";
+import { SyncProvider } from "@/contexts/sync-context";
 import { ThemeProvider as CustomThemeProvider } from "@/contexts/theme-context";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { initializeDatabase } from "@/lib/db";
@@ -27,7 +28,9 @@ export default function RootLayout() {
   return (
     <CustomThemeProvider>
       <AuthProvider>
-        <RootNavigator />
+        <SyncProvider>
+          <RootNavigator />
+        </SyncProvider>
       </AuthProvider>
     </CustomThemeProvider>
   );

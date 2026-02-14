@@ -1,14 +1,17 @@
 /**
  * Brigadista My Surveys Screen
  * View and fill assigned surveys
- * Rule 11: Brigadista can only see their assigned surveys
+ * Rule 1: Brigadista can only see surveys that:
+ *   - Are ACTIVE
+ *   - Are within deadline
+ *   - Are assigned to their encargado
  */
 
 import { AppHeader } from "@/components/shared";
 import { typography } from "@/constants/typography";
 import { useThemeColors } from "@/contexts/theme-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   RefreshControl,
   ScrollView,
@@ -87,6 +90,26 @@ export default function BrigadistaSurveysScreen() {
   const [surveys, setSurveys] = useState<MySurvey[]>(mockMySurveys);
   const [refreshing, setRefreshing] = useState(false);
 
+  // 🔒 RULE 1: Filter surveys - Only ACTIVE, within deadline, assigned to encargado
+  const activeSurveys = useMemo(() => {
+    return surveys.filter((survey) => {
+      // Rule 1.1: Must be ACTIVE
+      if (survey.status !== "ACTIVE") return false;
+
+      // Rule 1.2: Must be within deadline (if deadline exists)
+      if (survey.deadline) {
+        const now = new Date();
+        const deadlineDate = new Date(survey.deadline);
+        if (deadlineDate < now) return false;
+      }
+
+      // Rule 1.3: Must be assigned by encargado (implicitly true in mockData)
+      // In real implementation: survey.encargadoId === brigadista.encargadoId
+
+      return true;
+    });
+  }, [surveys]);
+
   const onRefresh = async () => {
     setRefreshing(true);
     // TODO: Fetch my assigned surveys from database
@@ -114,8 +137,66 @@ export default function BrigadistaSurveysScreen() {
     return diffDays;
   };
 
-  const totalMyResponses = surveys.reduce((acc, s) => acc + s.myResponses, 0);
-  const totalMyTarget = surveys.reduce((acc, s) => acc + s.myTarget, 0);
+  const totalMyResponses = activeSurveys.reduce(
+    (acc, s) => acc + s.myResponses,
+    0,
+  );
+  const totalMyTarget = activeSurveys.reduce((acc, s) => acc + s.myTarget, 0);
+
+  // Empty state logic
+  const getEmptyStateInfo = () => {
+    if (surveys.length === 0) {
+      return {
+        icon: "document-outline" as const,
+        title: "No tienes encuestas asignadas",
+        subtitle: "Tu encargado te asignará encuestas próximamente",
+        color: colors.textSecondary,
+      };
+    }
+
+    const expiredCount = surveys.filter((s) => {
+      if (!s.deadline) return false;
+      return new Date(s.deadline) < new Date();
+    }).length;
+
+    const inactiveCount = surveys.filter((s) => s.status !== "ACTIVE").length;
+
+    if (expiredCount > 0 && inactiveCount > 0) {
+      return {
+        icon: "alert-circle-outline" as const,
+        title: "No hay encuestas activas disponibles",
+        subtitle: `${expiredCount} encuesta(s) vencida(s) • ${inactiveCount} pausada(s) o completada(s)`,
+        color: colors.warning,
+      };
+    }
+
+    if (expiredCount > 0) {
+      return {
+        icon: "time-outline" as const,
+        title: "Todas las encuestas han vencido",
+        subtitle: `${expiredCount} encuesta(s) fuera de fecha. Consulta con tu encargado.`,
+        color: colors.error,
+      };
+    }
+
+    if (inactiveCount > 0) {
+      return {
+        icon: "pause-circle-outline" as const,
+        title: "Las encuestas no están activas",
+        subtitle: `${inactiveCount} encuesta(s) pausada(s) o completada(s)`,
+        color: colors.info,
+      };
+    }
+
+    return {
+      icon: "document-outline" as const,
+      title: "No hay encuestas disponibles",
+      subtitle: "Las encuestas activas aparecerán aquí automáticamente",
+      color: colors.textSecondary,
+    };
+  };
+
+  const emptyStateInfo = getEmptyStateInfo();
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -148,7 +229,7 @@ export default function BrigadistaSurveysScreen() {
                   { color: colors.textSecondary },
                 ]}
               >
-                {surveys.length} encuestas asignadas
+                {activeSurveys.length} encuestas activas
               </Text>
             </View>
             <View
@@ -192,20 +273,53 @@ export default function BrigadistaSurveysScreen() {
             Encuestas Activas
           </Text>
 
-          {surveys.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Ionicons name="document-outline" size={64} color={colors.icon} />
-              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                No tienes encuestas asignadas
+          {activeSurveys.length === 0 ? (
+            <View
+              style={[
+                styles.emptyState,
+                { backgroundColor: colors.surface, borderColor: colors.border },
+              ]}
+            >
+              <View
+                style={[
+                  styles.emptyIconContainer,
+                  { backgroundColor: emptyStateInfo.color + "15" },
+                ]}
+              >
+                <Ionicons
+                  name={emptyStateInfo.icon}
+                  size={48}
+                  color={emptyStateInfo.color}
+                />
+              </View>
+              <Text style={[styles.emptyText, { color: colors.text }]}>
+                {emptyStateInfo.title}
               </Text>
               <Text
                 style={[styles.emptySubtext, { color: colors.textSecondary }]}
               >
-                Tu encargado te asignará encuestas próximamente
+                {emptyStateInfo.subtitle}
               </Text>
+              {surveys.length > 0 && (
+                <View
+                  style={[
+                    styles.emptyHint,
+                    { backgroundColor: colors.info + "15" },
+                  ]}
+                >
+                  <Ionicons
+                    name="information-circle"
+                    size={16}
+                    color={colors.info}
+                  />
+                  <Text style={[styles.emptyHintText, { color: colors.info }]}>
+                    Solo se muestran encuestas activas y dentro de fecha
+                  </Text>
+                </View>
+              )}
             </View>
           ) : (
-            surveys.map((survey) => {
+            activeSurveys.map((survey) => {
               const statusConfig = STATUS_CONFIG[survey.status];
               const myProgress = calculateMyProgress(
                 survey.myResponses,
@@ -466,16 +580,44 @@ const styles = StyleSheet.create({
   },
   emptyState: {
     alignItems: "center",
-    paddingVertical: 60,
+    paddingVertical: 48,
+    paddingHorizontal: 24,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  emptyIconContainer: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 16,
   },
   emptyText: {
-    ...typography.h3,
-    marginTop: 16,
+    fontSize: 18,
+    fontWeight: "700",
     marginBottom: 8,
+    textAlign: "center",
   },
   emptySubtext: {
-    ...typography.body,
+    fontSize: 14,
     textAlign: "center",
+    lineHeight: 20,
+    marginBottom: 16,
+  },
+  emptyHint: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    marginTop: 8,
+  },
+  emptyHintText: {
+    fontSize: 13,
+    fontWeight: "600",
+    flex: 1,
   },
   surveyCard: {
     padding: 16,

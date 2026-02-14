@@ -3,9 +3,9 @@
  * Perfil y configuración para administradores
  */
 
-import { ColorSchemeSelector } from "@/components/ui/color-scheme-selector";
 import { useAuth } from "@/contexts/auth-context";
-import { useTheme, useThemeColors } from "@/contexts/theme-context";
+import { useSync } from "@/contexts/sync-context";
+import { useThemeColors } from "@/contexts/theme-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React from "react";
@@ -19,9 +19,9 @@ import {
 
 export default function AdminProfileScreen() {
   const colors = useThemeColors();
-  const { themeMode } = useTheme();
   const router = useRouter();
   const { user } = useAuth();
+  const { addPendingItem, clearPending, pendingByType } = useSync();
 
   const handleThemeSettings = () => {
     router.push("/theme-settings" as any);
@@ -29,6 +29,14 @@ export default function AdminProfileScreen() {
 
   const handleLogout = () => {
     router.replace("/(auth)/welcome" as any);
+  };
+
+  // Debug: Agregar items pendientes de prueba
+  const addTestPending = (type: "survey" | "response" | "user") => {
+    addPendingItem({
+      id: `test-${type}-${Date.now()}`,
+      type,
+    });
   };
 
   const menuItems = [
@@ -80,48 +88,6 @@ export default function AdminProfileScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Color Scheme Selector */}
-        <View style={styles.colorSchemeSection}>
-          <View style={styles.sectionHeader}>
-            <Ionicons name="color-palette" size={20} color={colors.text} />
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>
-              Esquemas de Colores
-            </Text>
-          </View>
-
-          {/* Theme Mode Indicator */}
-          <View
-            style={[
-              styles.themeModeIndicator,
-              { backgroundColor: colors.surface, borderColor: colors.border },
-            ]}
-          >
-            <Ionicons
-              name={
-                themeMode === "light"
-                  ? "sunny"
-                  : themeMode === "dark"
-                    ? "moon"
-                    : "phone-portrait"
-              }
-              size={18}
-              color={colors.textSecondary}
-            />
-            <Text
-              style={[styles.themeModeText, { color: colors.textSecondary }]}
-            >
-              Modo:{" "}
-              {themeMode === "light"
-                ? "Claro"
-                : themeMode === "dark"
-                  ? "Oscuro"
-                  : "Auto"}
-            </Text>
-          </View>
-
-          <ColorSchemeSelector />
-        </View>
-
         {/* Menu Items */}
         <View style={styles.menuSection}>
           {menuItems.map((item) => (
@@ -165,6 +131,63 @@ export default function AdminProfileScreen() {
               />
             </TouchableOpacity>
           ))}
+        </View>
+
+        {/* Debug Section - TEST SYNC BADGES */}
+        <View style={[styles.debugSection, { borderColor: colors.border }]}>
+          <Text style={[styles.debugTitle, { color: colors.textSecondary }]}>
+            🔧 Debug: Probar Sync Badges
+          </Text>
+          <Text style={[styles.debugSubtitle, { color: colors.textTertiary }]}>
+            Pendientes: Encuestas {pendingByType.surveys} | Respuestas{" "}
+            {pendingByType.responses} | Usuarios {pendingByType.users}
+          </Text>
+          <View style={styles.debugButtons}>
+            <TouchableOpacity
+              style={[
+                styles.debugButton,
+                { backgroundColor: colors.primary + "20" },
+              ]}
+              onPress={() => addTestPending("survey")}
+            >
+              <Text style={[styles.debugButtonText, { color: colors.primary }]}>
+                + Encuesta
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.debugButton,
+                { backgroundColor: colors.info + "20" },
+              ]}
+              onPress={() => addTestPending("response")}
+            >
+              <Text style={[styles.debugButtonText, { color: colors.info }]}>
+                + Respuesta
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.debugButton,
+                { backgroundColor: colors.success + "20" },
+              ]}
+              onPress={() => addTestPending("user")}
+            >
+              <Text style={[styles.debugButtonText, { color: colors.success }]}>
+                + Usuario
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.debugButton,
+                { backgroundColor: colors.error + "20" },
+              ]}
+              onPress={() => clearPending()}
+            >
+              <Text style={[styles.debugButtonText, { color: colors.error }]}>
+                Limpiar
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Logout */}
@@ -218,35 +241,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: 16,
   },
-  colorSchemeSection: {
-    marginBottom: 24,
-  },
-  sectionHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginBottom: 12,
-    paddingHorizontal: 4,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  themeModeIndicator: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    marginBottom: 12,
-    alignSelf: "flex-start",
-  },
-  themeModeText: {
-    fontSize: 14,
-    fontWeight: "500",
-  },
   menuSection: {
     gap: 12,
   },
@@ -275,6 +269,35 @@ const styles = StyleSheet.create({
   },
   menuSubtitle: {
     fontSize: 14,
+  },
+  debugSection: {
+    marginTop: 24,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  debugTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    marginBottom: 4,
+  },
+  debugSubtitle: {
+    fontSize: 12,
+    marginBottom: 12,
+  },
+  debugButtons: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  debugButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+  },
+  debugButtonText: {
+    fontSize: 12,
+    fontWeight: "600",
   },
   logoutButton: {
     flexDirection: "row",
