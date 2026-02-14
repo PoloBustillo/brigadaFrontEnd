@@ -252,8 +252,8 @@ export function CustomTabBar({
         {state.routes
           .filter((route) => {
             const { options } = descriptors[route.key];
-            // Only show routes that have a tabBarIcon and href is not explicitly null
-            return options.tabBarIcon && options.href !== null;
+            // Only show routes that have a tabBarIcon
+            return options.tabBarIcon;
           })
           .map((route, index) => {
             const { options } = descriptors[route.key];

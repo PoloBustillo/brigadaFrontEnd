@@ -11,6 +11,8 @@ export interface User {
   id: number;
   email: string;
   name: string | null;
+  phone?: string | null;
+  avatar_url?: string | null;
   role: UserRole;
   state: UserState;
   created_at: number;

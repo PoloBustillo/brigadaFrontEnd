@@ -25,9 +25,9 @@ export const APP_CONFIG = {
   // API
   api: {
     baseUrl: __DEV__
-      ? "http://localhost:3000/api"
-      : "https://api.brigada.com/api",
-    timeout: 30000, // 30 segundos
+      ? "http://localhost:8000" // FastAPI backend dev server
+      : "https://api.brigada.com",
+    timeout: 30000, // 30 seconds
   },
 
   // Validación

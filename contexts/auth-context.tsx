@@ -1,9 +1,11 @@
 /**
  * AuthContext - Brigada Digital
- * Global authentication state management
+ * Global authentication state management with JWT and RBAC
  * Handles user session, token, and authentication flow
  */
 
+import * as authAPI from "@/lib/api/auth";
+import { clearTokens, getAccessToken, isTokenExpired } from "@/lib/api/client";
 import type { User, UserRole } from "@/types/user";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useContext, useEffect, useState } from "react";
@@ -13,11 +15,12 @@ interface AuthContextType {
   token: string | null;
   loading: boolean;
   isAuthenticated: boolean;
-  pendingEmail: string | null; // Email en proceso de activación
+  pendingEmail: string | null;
   setPendingEmail: (email: string | null) => void;
-  login: (user: User, token: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   updateUser: (user: User) => Promise<void>;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -25,9 +28,7 @@ const AuthContext = createContext<AuthContextType | null>(null);
 // Storage keys
 const STORAGE_KEYS = {
   USER: "@brigada:user",
-  TOKEN: "@brigada:token",
-  TOKEN_EXPIRY: "@brigada:token_expiry",
-  PENDING_EMAIL: "@brigada:pending_email", // Email temporal
+  PENDING_EMAIL: "@brigada:pending_email",
 };
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -39,8 +40,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const clearSession = async () => {
     await Promise.all([
       AsyncStorage.removeItem(STORAGE_KEYS.USER),
-      AsyncStorage.removeItem(STORAGE_KEYS.TOKEN),
-      AsyncStorage.removeItem(STORAGE_KEYS.TOKEN_EXPIRY),
+      clearTokens(), // Clear JWT tokens from API client
       AsyncStorage.removeItem(STORAGE_KEYS.PENDING_EMAIL),
     ]);
     setUser(null);
@@ -49,31 +49,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const loadSession = async () => {
-    // 🧪 MOCK SESSION - Descomentar para testear sin login
+    // 🧪 MOCK SESSION - Uncomment to test without backend
     // const mockUser: User = {
     //   id: 999,
     //   email: "test@brigada.com",
     //   name: "Test User",
-    //   role: "ADMIN", // 🔧 Cambiar aquí: "ADMIN" | "ENCARGADO" | "BRIGADISTA"
+    //   role: "ADMIN", // Change: "ADMIN" | "ENCARGADO" | "BRIGADISTA"
     //   state: "ACTIVE",
     //   created_at: Date.now(),
     //   updated_at: Date.now(),
     // };
     // setUser(mockUser);
     // setToken("mock-token-999");
+    // await setAccessToken("mock-token-999");
     // setLoading(false);
-    // console.log("🧪 MOCK SESSION loaded for testing:", mockUser.role);
+    // console.log("🧪 MOCK SESSION loaded:", mockUser.role);
     // return;
     // 🧪 END MOCK SESSION
 
     try {
-      const [storedUser, storedToken, storedExpiry, storedPendingEmail] =
-        await Promise.all([
-          AsyncStorage.getItem(STORAGE_KEYS.USER),
-          AsyncStorage.getItem(STORAGE_KEYS.TOKEN),
-          AsyncStorage.getItem(STORAGE_KEYS.TOKEN_EXPIRY),
-          AsyncStorage.getItem(STORAGE_KEYS.PENDING_EMAIL),
-        ]);
+      const [storedUser, storedToken, storedPendingEmail] = await Promise.all([
+        AsyncStorage.getItem(STORAGE_KEYS.USER),
+        getAccessToken(), // Get JWT from API client
+        AsyncStorage.getItem(STORAGE_KEYS.PENDING_EMAIL),
+      ]);
 
       // Restore pending email if exists
       if (storedPendingEmail) {
@@ -81,20 +80,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       // Check if token exists and is valid
-      if (storedUser && storedToken && storedExpiry) {
-        const expiryTime = parseInt(storedExpiry, 10);
-        const now = Date.now();
-
-        // Token expired?
-        if (now >= expiryTime) {
-          console.log("Token expired, clearing session");
+      if (storedUser && storedToken) {
+        // Check if token is expired
+        if (isTokenExpired(storedToken)) {
+          console.log("⏰ JWT token expired, clearing session");
           await clearSession();
         } else {
           // Valid session, restore state
           const parsedUser = JSON.parse(storedUser) as User;
-          setUser(parsedUser);
-          setToken(storedToken);
-          console.log("Session restored for user:", parsedUser.email);
+
+          // Verify user is still active
+          if (parsedUser.state === "DISABLED") {
+            console.log("❌ User is deactivated, clearing session");
+            await clearSession();
+          } else {
+            setUser(parsedUser);
+            setToken(storedToken);
+            console.log(
+              "✅ Session restored:",
+              parsedUser.email,
+              parsedUser.role,
+            );
+          }
         }
       }
     } catch (error) {
@@ -110,35 +117,50 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     loadSession();
   }, []);
 
-  const login = async (user: User, token: string) => {
+  const login = async (email: string, password: string) => {
     try {
-      // Calculate token expiry (7 days)
-      const expiryTime = Date.now() + 7 * 24 * 60 * 60 * 1000;
+      console.log("🔐 Attempting login for:", email);
 
-      // Store in AsyncStorage
-      await Promise.all([
-        AsyncStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user)),
-        AsyncStorage.setItem(STORAGE_KEYS.TOKEN, token),
-        AsyncStorage.setItem(STORAGE_KEYS.TOKEN_EXPIRY, expiryTime.toString()),
-      ]);
+      // Call backend API
+      const { user, token } = await authAPI.login(email, password);
+
+      // Verify user is active
+      if (user.state === "DISABLED") {
+        throw new Error(
+          "Tu cuenta ha sido desactivada. Contacta al administrador.",
+        );
+      }
+
+      // Store user data
+      await AsyncStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
 
       // Update state
       setUser(user);
       setToken(token);
 
-      console.log("User logged in:", user.email, "Role:", user.role);
-    } catch (error) {
-      console.error("Error saving session:", error);
+      console.log("✅ Login successful:", user.email, "Role:", user.role);
+    } catch (error: any) {
+      console.error("❌ Login error:", error);
+      await clearSession();
       throw error;
     }
   };
 
   const logout = async () => {
     try {
+      console.log("🚪 Logging out user:", user?.email);
+
+      // Call backend logout (if needed)
+      await authAPI.logout();
+
+      // Clear local session
       await clearSession();
-      console.log("User logged out");
+
+      console.log("✅ Logout successful");
     } catch (error) {
-      console.error("Error during logout:", error);
+      console.error("❌ Logout error:", error);
+      // Force clear session even if API call fails
+      await clearSession();
       throw error;
     }
   };
@@ -153,6 +175,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log("User updated:", updatedUser.email);
     } catch (error) {
       console.error("Error updating user:", error);
+      throw error;
+    }
+  };
+
+  const refreshUser = async () => {
+    try {
+      console.log("🔄 Refreshing user data from backend");
+      const updatedUser = await authAPI.getCurrentUser();
+
+      // Verify user is still active
+      if (updatedUser.state === "DISABLED") {
+        console.log("❌ User deactivated, logging out");
+        await logout();
+        throw new Error("Tu cuenta ha sido desactivada");
+      }
+
+      await updateUser(updatedUser);
+      console.log("✅ User data refreshed");
+    } catch (error) {
+      console.error("❌ Error refreshing user:", error);
       throw error;
     }
   };
@@ -180,6 +222,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     login,
     logout,
     updateUser,
+    refreshUser,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
