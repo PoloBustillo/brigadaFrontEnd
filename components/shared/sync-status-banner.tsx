@@ -4,14 +4,14 @@
  * REGLA 6: Sincronización automática
  */
 
-import React from "react";
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useSync } from "@/contexts/sync-context";
 import { useThemeColors } from "@/contexts/theme-context";
+import { Ionicons } from "@expo/vector-icons";
+import React from "react";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import Animated, {
-  useSharedValue,
   useAnimatedStyle,
+  useSharedValue,
   withRepeat,
   withTiming,
 } from "react-native-reanimated";
@@ -35,7 +35,7 @@ export function SyncStatusBanner() {
       rotation.value = withRepeat(
         withTiming(360, { duration: 1000 }),
         -1,
-        false
+        false,
       );
     } else {
       rotation.value = 0;
@@ -54,7 +54,7 @@ export function SyncStatusBanner() {
   // Determine banner state
   const hasErrors = errorCount > 0;
   const hasPartialErrors = pendingItems.some(
-    (item) => item.status === "partial_error"
+    (item) => item.status === "partial_error",
   );
 
   const getBannerConfig = () => {

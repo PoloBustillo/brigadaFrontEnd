@@ -7,17 +7,20 @@ Sistema de sincronización automática con detección de conectividad, reintento
 ## 🎯 Características Principales
 
 ### 1. **Detección de Conectividad**
+
 - Monitoreo continuo del estado de red usando `@react-native-community/netinfo`
 - Detección de conexión a internet (no solo WiFi/datos activados)
 - Estados: `online` / `offline`
 
 ### 2. **Sincronización Automática**
+
 - ✅ Sync automático cuando vuelve la conexión
 - ✅ Sync automático al agregar nuevo item (si hay conexión)
 - ✅ Delay de estabilización de 1 segundo tras restaurar conexión
 - ✅ Límite de concurrencia: 3 items simultáneos
 
 ### 3. **Reintentos Exponenciales**
+
 - **Estrategia**: Exponential backoff con multiplicador 2x
 - **Delay base**: 1 segundo
 - **Delay máximo**: 60 segundos (1 minuto)
@@ -25,14 +28,15 @@ Sistema de sincronización automática con detección de conectividad, reintento
 - **Fórmula**: `delay = min(baseDelay * (2 ^ retryCount), maxDelay)`
 
 | Reintento | Delay |
-|-----------|-------|
-| 1 | 1s |
-| 2 | 2s |
-| 3 | 4s |
-| 4 | 8s |
-| 5 | 16s |
+| --------- | ----- |
+| 1         | 1s    |
+| 2         | 2s    |
+| 3         | 4s    |
+| 4         | 8s    |
+| 5         | 16s   |
 
 ### 4. **Errores Parciales**
+
 - Detección de errores en documentos individuales dentro de un lote
 - Estado `partial_error` para items parcialmente sincronizados
 - Permite reintentos selectivos de solo los documentos que fallaron
@@ -43,10 +47,10 @@ Sistema de sincronización automática con detección de conectividad, reintento
 ### Estados de Sincronización
 
 ```typescript
-type SyncStatus = 
-  | "pending"        // Esperando sincronización
-  | "syncing"        // Sincronizando actualmente
-  | "error"          // Error completo
+type SyncStatus =
+  | "pending" // Esperando sincronización
+  | "syncing" // Sincronizando actualmente
+  | "error" // Error completo
   | "partial_error"; // Algunos documentos fallaron
 ```
 
@@ -54,13 +58,13 @@ type SyncStatus =
 
 ```typescript
 interface SyncItem {
-  id: string;                    // Identificador único
+  id: string; // Identificador único
   type: "survey" | "response" | "user"; // Tipo de recurso
-  timestamp: number;             // Timestamp de creación
-  retryCount: number;            // Intentos realizados
-  lastAttempt?: number;          // Timestamp del último intento
-  error?: string;                // Mensaje de error
-  status: SyncStatus;            // Estado actual
+  timestamp: number; // Timestamp de creación
+  retryCount: number; // Intentos realizados
+  lastAttempt?: number; // Timestamp del último intento
+  error?: string; // Mensaje de error
+  status: SyncStatus; // Estado actual
 }
 ```
 
@@ -71,24 +75,24 @@ graph TD
     A[Item Agregado] --> B{¿Hay Conexión?}
     B -->|Sí| C[Sync Inmediato]
     B -->|No| D[Esperar Conexión]
-    
+
     D --> E[Conexión Restaurada]
     E --> F[Delay 1s Estabilización]
     F --> C
-    
+
     C --> G{¿Éxito?}
     G -->|Sí| H[Remover de Cola]
     G -->|No| I{¿Error Parcial?}
-    
+
     I -->|Sí| J[Marcar partial_error]
     I -->|No| K[Incrementar retryCount]
-    
+
     J --> L{¿retryCount < 5?}
     K --> L
-    
+
     L -->|Sí| M[Calcular Delay Exponencial]
     L -->|No| N[Marcar error Permanente]
-    
+
     M --> O[Esperar Delay]
     O --> C
 ```
@@ -99,13 +103,13 @@ Banner visual que muestra el estado de sincronización en la app.
 
 ### Estados Visuales
 
-| Estado | Color | Ícono | Acción |
-|--------|-------|-------|--------|
-| **Sin conexión** | Naranja | `cloud-offline` | ❌ No clickeable |
-| **Sincronizando** | Azul | `sync` (rotando) | ❌ No clickeable |
-| **Error completo** | Rojo | `alert-circle` | ✅ Click para reintentar |
-| **Error parcial** | Rojo | `warning` | ✅ Click para reintentar |
-| **Pendiente** | Naranja | `cloud-upload` | ✅ Click para sincronizar |
+| Estado             | Color   | Ícono            | Acción                    |
+| ------------------ | ------- | ---------------- | ------------------------- |
+| **Sin conexión**   | Naranja | `cloud-offline`  | ❌ No clickeable          |
+| **Sincronizando**  | Azul    | `sync` (rotando) | ❌ No clickeable          |
+| **Error completo** | Rojo    | `alert-circle`   | ✅ Click para reintentar  |
+| **Error parcial**  | Rojo    | `warning`        | ✅ Click para reintentar  |
+| **Pendiente**      | Naranja | `cloud-upload`   | ✅ Click para sincronizar |
 
 ### Uso
 
@@ -147,12 +151,12 @@ addPendingItem({
 ### Monitorear Estado
 
 ```typescript
-const { 
-  pendingCount,    // Total de items pendientes
-  errorCount,      // Items con error
-  isOnline,        // Estado de conexión
-  isSyncing,       // Sincronización en progreso
-  pendingByType,   // Contador por tipo
+const {
+  pendingCount, // Total de items pendientes
+  errorCount, // Items con error
+  isOnline, // Estado de conexión
+  isSyncing, // Sincronización en progreso
+  pendingByType, // Contador por tipo
 } = useSync();
 
 console.log(`${pendingCount} items pendientes`);
@@ -185,10 +189,10 @@ markItemError("response_456", "2 de 5 documentos fallaron", true);
 
 ```typescript
 const RETRY_CONFIG = {
-  maxRetries: 5,           // Máximo de reintentos
-  baseDelay: 1000,         // Delay base en ms
-  maxDelay: 60000,         // Delay máximo en ms
-  backoffMultiplier: 2,    // Multiplicador exponencial
+  maxRetries: 5, // Máximo de reintentos
+  baseDelay: 1000, // Delay base en ms
+  maxDelay: 60000, // Delay máximo en ms
+  backoffMultiplier: 2, // Multiplicador exponencial
 };
 ```
 
@@ -219,6 +223,7 @@ const RETRY_CONFIG = {
 ### ¿Qué es un Error Parcial?
 
 Ocurre cuando:
+
 - Se envían múltiples documentos en un batch
 - Algunos documentos se sincronizan exitosamente
 - Otros documentos fallan
@@ -245,10 +250,9 @@ try {
   const response = await syncAPI(item);
   return true;
 } catch (error: any) {
-  const isPartialError = 
-    error.message?.includes("partial") || 
-    error.code === "PARTIAL_SYNC_ERROR";
-  
+  const isPartialError =
+    error.message?.includes("partial") || error.code === "PARTIAL_SYNC_ERROR";
+
   markItemError(item.id, error.message, isPartialError);
   return false;
 }
@@ -364,7 +368,7 @@ export default function MySurveysScreen() {
   const handleCompleteSurvey = async (responseData) => {
     // Guardar localmente
     await saveToLocalDB(responseData);
-    
+
     // Agregar a cola de sincronización
     addPendingItem({
       id: `response_${responseData.id}`,
