@@ -1,3 +1,4 @@
+import { useThemeColors } from "@/contexts/theme-context";
 import React from "react";
 import {
   ActivityIndicator,
@@ -34,13 +35,44 @@ export function Button({
   style,
   textStyle,
 }: ButtonProps) {
+  const colors = useThemeColors();
   const isDisabled = disabled || loading;
+  const getContrastTextColor = (hexColor: string): string => {
+    const hex = hexColor.replace("#", "");
+    if (hex.length !== 6) {
+      return "#FFFFFF";
+    }
+    const r = parseInt(hex.slice(0, 2), 16);
+    const g = parseInt(hex.slice(2, 4), 16);
+    const b = parseInt(hex.slice(4, 6), 16);
+    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    return luminance > 0.6 ? "#111827" : "#FFFFFF";
+  };
+  const onPrimary = getContrastTextColor(colors.primary);
+  const onSecondary = getContrastTextColor(colors.textSecondary);
+  const onDanger = getContrastTextColor(colors.error);
+  const variantStyles = {
+    primaryButton: { backgroundColor: colors.primary },
+    secondaryButton: { backgroundColor: colors.textSecondary },
+    outlineButton: {
+      backgroundColor: "transparent",
+      borderWidth: 1.5,
+      borderColor: colors.primary,
+    },
+    dangerButton: { backgroundColor: colors.error },
+  };
+  const variantTextStyles = {
+    primaryText: { color: onPrimary },
+    secondaryText: { color: onSecondary },
+    outlineText: { color: colors.primary },
+    dangerText: { color: onDanger },
+  };
 
   return (
     <TouchableOpacity
       style={[
         styles.base,
-        styles[`${variant}Button`],
+        variantStyles[`${variant}Button`],
         styles[`${size}Button`],
         fullWidth && styles.fullWidth,
         isDisabled && styles.disabled,
@@ -52,14 +84,22 @@ export function Button({
     >
       {loading ? (
         <ActivityIndicator
-          color={variant === "outline" ? "#2563eb" : "#ffffff"}
+          color={
+            variant === "outline"
+              ? colors.primary
+              : variant === "secondary"
+                ? onSecondary
+                : variant === "danger"
+                  ? onDanger
+                  : onPrimary
+          }
           size={size === "small" ? "small" : "small"}
         />
       ) : (
         <Text
           style={[
             styles.text,
-            styles[`${variant}Text`],
+            variantTextStyles[`${variant}Text`],
             styles[`${size}Text`],
             textStyle,
           ]}
@@ -85,22 +125,6 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
 
-  // Variants
-  primaryButton: {
-    backgroundColor: "#2563eb",
-  },
-  secondaryButton: {
-    backgroundColor: "#6b7280",
-  },
-  outlineButton: {
-    backgroundColor: "transparent",
-    borderWidth: 1.5,
-    borderColor: "#2563eb",
-  },
-  dangerButton: {
-    backgroundColor: "#ef4444",
-  },
-
   // Sizes
   smallButton: {
     paddingVertical: 8,
@@ -118,18 +142,6 @@ const styles = StyleSheet.create({
   // Text styles
   text: {
     fontWeight: "600",
-  },
-  primaryText: {
-    color: "#ffffff",
-  },
-  secondaryText: {
-    color: "#ffffff",
-  },
-  outlineText: {
-    color: "#2563eb",
-  },
-  dangerText: {
-    color: "#ffffff",
   },
 
   // Text sizes

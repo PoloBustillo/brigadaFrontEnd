@@ -10,6 +10,7 @@
 
 import { AppHeader } from "@/components/shared";
 import { useThemeColors } from "@/contexts/theme-context";
+import { useTabBarHeight } from "@/hooks/use-tab-bar-height";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
@@ -60,6 +61,7 @@ const mockAssignedSurveys: AssignedSurvey[] = [
 
 export default function BrigadistaSurveys() {
   const colors = useThemeColors();
+  const { contentPadding } = useTabBarHeight();
   const router = useRouter();
   const [surveys, setSurveys] = useState<AssignedSurvey[]>(mockAssignedSurveys);
   const [refreshing, setRefreshing] = useState(false);
@@ -155,7 +157,10 @@ export default function BrigadistaSurveys() {
       <AppHeader title="Mis Encuestas" />
 
       <ScrollView
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[
+          styles.content,
+          { paddingBottom: contentPadding },
+        ]}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
@@ -408,9 +413,14 @@ export default function BrigadistaSurveys() {
                         isComplete ? "checkmark-done" : "add-circle-outline"
                       }
                       size={20}
-                      color="#FFFFFF"
+                      color={colors.background}
                     />
-                    <Text style={styles.actionButtonText}>
+                    <Text
+                      style={[
+                        styles.actionButtonText,
+                        { color: colors.background },
+                      ]}
+                    >
                       {isComplete ? "Ver Respuestas" : "Nueva Respuesta"}
                     </Text>
                   </TouchableOpacity>
@@ -594,6 +604,5 @@ const styles = StyleSheet.create({
   actionButtonText: {
     fontSize: 15,
     fontWeight: "600",
-    color: "#FFFFFF",
   },
 });

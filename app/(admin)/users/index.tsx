@@ -6,6 +6,7 @@
 
 import { AppHeader } from "@/components/shared";
 import { useThemeColors } from "@/contexts/theme-context";
+import { useTabBarHeight } from "@/hooks/use-tab-bar-height";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
@@ -71,6 +72,7 @@ const mockUsers: User[] = [
 
 export default function AdminUsers() {
   const colors = useThemeColors();
+  const { contentPadding } = useTabBarHeight();
   const router = useRouter();
   const [users, setUsers] = useState<User[]>(mockUsers);
   const [refreshing, setRefreshing] = useState(false);
@@ -118,7 +120,10 @@ export default function AdminUsers() {
       <AppHeader title="Usuarios" />
 
       <ScrollView
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[
+          styles.content,
+          { paddingBottom: contentPadding },
+        ]}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
@@ -179,8 +184,14 @@ export default function AdminUsers() {
           onPress={handleCreateUser}
           activeOpacity={0.8}
         >
-          <Ionicons name="person-add-outline" size={24} color="#FFFFFF" />
-          <Text style={styles.createButtonText}>Nuevo Usuario</Text>
+          <Ionicons
+            name="person-add-outline"
+            size={24}
+            color={colors.background}
+          />
+          <Text style={[styles.createButtonText, { color: colors.background }]}>
+            Nuevo Usuario
+          </Text>
         </TouchableOpacity>
 
         {/* Users List */}
@@ -393,7 +404,6 @@ const styles = StyleSheet.create({
   createButtonText: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#FFFFFF",
   },
   listContainer: {
     gap: 12,

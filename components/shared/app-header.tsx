@@ -17,12 +17,16 @@ interface AppHeaderProps {
   title: string;
   subtitle?: string;
   showLogout?: boolean;
+  showProfile?: boolean;
+  profileRoute?: string;
 }
 
 export function AppHeader({
   title,
   subtitle,
   showLogout = true,
+  showProfile = true,
+  profileRoute,
 }: AppHeaderProps) {
   const colors = useThemeColors();
   const { user, logout } = useAuth();
@@ -63,6 +67,23 @@ export function AppHeader({
     );
   };
 
+  const handleProfile = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (profileRoute) {
+      router.push(profileRoute as any);
+    } else {
+      // Auto-detect based on user role
+      const role = user?.role?.toLowerCase();
+      if (role === "admin") {
+        router.push("/(admin)/profile" as any);
+      } else if (role === "encargado") {
+        router.push("/(encargado)/profile" as any);
+      } else {
+        router.push("/(brigadista)/profile" as any);
+      }
+    }
+  };
+
   return (
     <View style={styles.header}>
       <View style={styles.headerLeft}>
@@ -94,6 +115,19 @@ export function AppHeader({
         </View>
         {/* Theme Toggle */}
         <ThemeToggleIcon />
+        {/* Profile */}
+        {showProfile && (
+          <TouchableOpacity
+            style={[
+              styles.profileButton,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+            ]}
+            onPress={handleProfile}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="person-outline" size={20} color={colors.primary} />
+          </TouchableOpacity>
+        )}
         {/* Logout */}
         {showLogout && (
           <TouchableOpacity
@@ -138,6 +172,14 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   statusIndicator: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  profileButton: {
     width: 44,
     height: 44,
     borderRadius: 22,

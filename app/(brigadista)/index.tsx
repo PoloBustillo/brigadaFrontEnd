@@ -12,6 +12,7 @@
 import { ThemeToggleIcon } from "@/components/ui/theme-toggle";
 import { useAuth } from "@/contexts/auth-context";
 import { useThemeColors } from "@/contexts/theme-context";
+import { useTabBarHeight } from "@/hooks/use-tab-bar-height";
 import { Ionicons } from "@expo/vector-icons";
 import NetInfo from "@react-native-community/netinfo";
 import * as Haptics from "expo-haptics";
@@ -197,6 +198,7 @@ function StatCard({ icon, value, label, color }: StatCardProps) {
 
 export default function BrigadistaHome() {
   const colors = useThemeColors();
+  const { contentPadding } = useTabBarHeight();
   const router = useRouter();
   const { user, logout } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
@@ -326,7 +328,10 @@ export default function BrigadistaHome() {
   return (
     <ScrollView
       style={[styles.container, { backgroundColor: colors.background }]}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[
+        styles.content,
+        { paddingBottom: contentPadding },
+      ]}
       refreshControl={
         <RefreshControl
           refreshing={refreshing}
@@ -367,6 +372,20 @@ export default function BrigadistaHome() {
           </View>
           {/* Theme Toggle */}
           <ThemeToggleIcon />
+          {/* Profile */}
+          <TouchableOpacity
+            style={[
+              styles.profileButton,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+            ]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              router.push("/(brigadista)/profile" as any);
+            }}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="person-outline" size={20} color={colors.primary} />
+          </TouchableOpacity>
           {/* Logout */}
           <TouchableOpacity
             style={[
@@ -527,7 +546,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    paddingBottom: 32,
+    // paddingBottom se aplica dinámicamente con useTabBarHeight
   },
   header: {
     paddingHorizontal: 20,
@@ -546,6 +565,14 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   statusIndicator: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  profileButton: {
     width: 44,
     height: 44,
     borderRadius: 22,

@@ -335,6 +335,20 @@ export default function EncargadoHome() {
           </View>
           {/* Theme Toggle */}
           <ThemeToggleIcon />
+          {/* Profile */}
+          <TouchableOpacity
+            style={[
+              styles.profileButton,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+            ]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              router.push("/(encargado)/profile" as any);
+            }}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="person-outline" size={20} color={colors.primary} />
+          </TouchableOpacity>
           {/* Logout */}
           <TouchableOpacity
             style={[
@@ -448,6 +462,14 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   statusIndicator: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  profileButton: {
     width: 44,
     height: 44,
     borderRadius: 22,

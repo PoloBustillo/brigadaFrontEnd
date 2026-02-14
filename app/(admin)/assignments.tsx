@@ -7,6 +7,7 @@
 import { AppHeader } from "@/components/shared";
 import { typography } from "@/constants/typography";
 import { useThemeColors } from "@/contexts/theme-context";
+import { useTabBarHeight } from "@/hooks/use-tab-bar-height";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useState } from "react";
@@ -78,6 +79,7 @@ const getStatusConfig = (colors: ReturnType<typeof useThemeColors>) => ({
 export default function AdminAssignmentsScreen() {
   const router = useRouter();
   const colors = useThemeColors();
+  const { contentPadding } = useTabBarHeight();
   const STATUS_CONFIG = getStatusConfig(colors);
 
   const [assignments, setAssignments] = useState<Assignment[]>(mockAssignments);
@@ -110,7 +112,10 @@ export default function AdminAssignmentsScreen() {
       <AppHeader title="Asignaciones" />
 
       <ScrollView
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[
+          styles.content,
+          { paddingBottom: contentPadding },
+        ]}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
@@ -120,21 +125,25 @@ export default function AdminAssignmentsScreen() {
           <View
             style={[styles.summaryCard, { backgroundColor: colors.success }]}
           >
-            <Text style={styles.summaryValue}>
+            <Text style={[styles.summaryValue, { color: colors.background }]}>
               {assignments.filter((a) => a.status === "ACTIVE").length}
             </Text>
-            <Text style={styles.summaryLabel}>Activas</Text>
+            <Text style={[styles.summaryLabel, { color: colors.background }]}>
+              Activas
+            </Text>
           </View>
           <View style={[styles.summaryCard, { backgroundColor: colors.info }]}>
-            <Text style={styles.summaryValue}>
+            <Text style={[styles.summaryValue, { color: colors.background }]}>
               {assignments.filter((a) => a.status === "COMPLETED").length}
             </Text>
-            <Text style={styles.summaryLabel}>Completadas</Text>
+            <Text style={[styles.summaryLabel, { color: colors.background }]}>
+              Completadas
+            </Text>
           </View>
           <View
             style={[styles.summaryCard, { backgroundColor: colors.warning }]}
           >
-            <Text style={styles.summaryValue}>
+            <Text style={[styles.summaryValue, { color: colors.background }]}>
               {assignments.reduce((acc, a) => acc + a.brigadistasCount, 0)}
             </Text>
             <Text style={styles.summaryLabel}>Brigadistas</Text>
@@ -147,8 +156,14 @@ export default function AdminAssignmentsScreen() {
           onPress={handleCreateAssignment}
           activeOpacity={0.8}
         >
-          <Ionicons name="add-circle-outline" size={24} color="#FFFFFF" />
-          <Text style={styles.createButtonText}>Nueva Asignación</Text>
+          <Ionicons
+            name="add-circle-outline"
+            size={24}
+            color={colors.background}
+          />
+          <Text style={[styles.createButtonText, { color: colors.background }]}>
+            Nueva Asignación
+          </Text>
         </TouchableOpacity>
 
         {/* Assignments List */}
@@ -207,9 +222,14 @@ export default function AdminAssignmentsScreen() {
                         <Ionicons
                           name={statusConfig.icon}
                           size={14}
-                          color="#FFFFFF"
+                          color={colors.background}
                         />
-                        <Text style={styles.statusText}>
+                        <Text
+                          style={[
+                            styles.statusText,
+                            { color: colors.background },
+                          ]}
+                        >
                           {statusConfig.label}
                         </Text>
                       </View>
@@ -330,13 +350,11 @@ const styles = StyleSheet.create({
   summaryValue: {
     fontSize: 28,
     fontWeight: "700",
-    color: "#FFFFFF",
     marginBottom: 4,
   },
   summaryLabel: {
     fontSize: 12,
     fontWeight: "600",
-    color: "#FFFFFF",
     opacity: 0.9,
   },
   createButton: {
@@ -350,7 +368,6 @@ const styles = StyleSheet.create({
   },
   createButtonText: {
     ...typography.button,
-    color: "#FFFFFF",
   },
   section: {
     marginBottom: 24,
@@ -403,7 +420,6 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: 12,
     fontWeight: "600",
-    color: "#FFFFFF",
   },
   infoRow: {
     flexDirection: "row",

@@ -60,10 +60,25 @@ export default function EncargadoLayout() {
         <Tabs.Screen
           name="profile"
           options={{
-            title: "Perfil",
-            tabBarIcon: ({ color }) => (
-              <Ionicons name="person" size={24} color={color} />
-            ),
+            href: null, // Hidden from tabs - accessible via navigation
+          }}
+        />
+        <Tabs.Screen
+          name="edit-profile"
+          options={{
+            href: null, // Hidden from tabs
+          }}
+        />
+        <Tabs.Screen
+          name="change-avatar"
+          options={{
+            href: null, // Hidden from tabs
+          }}
+        />
+        <Tabs.Screen
+          name="change-password"
+          options={{
+            href: null, // Hidden from tabs
           }}
         />
       </Tabs>

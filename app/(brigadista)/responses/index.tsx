@@ -6,6 +6,7 @@
 
 import { AppHeader } from "@/components/shared";
 import { useThemeColors } from "@/contexts/theme-context";
+import { useTabBarHeight } from "@/hooks/use-tab-bar-height";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
@@ -62,6 +63,7 @@ const mockMyResponses: MyResponse[] = [
 
 export default function BrigadistaResponses() {
   const colors = useThemeColors();
+  const { contentPadding } = useTabBarHeight();
   const router = useRouter();
   const [responses, setResponses] = useState<MyResponse[]>(mockMyResponses);
   const [refreshing, setRefreshing] = useState(false);
@@ -106,7 +108,10 @@ export default function BrigadistaResponses() {
       <AppHeader title="Mis Respuestas" />
 
       <ScrollView
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[
+          styles.content,
+          { paddingBottom: contentPadding },
+        ]}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }

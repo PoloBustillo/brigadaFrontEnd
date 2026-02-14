@@ -17,6 +17,7 @@ import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
+  Modal,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -26,6 +27,20 @@ import {
 } from "react-native";
 
 type FilterTab = "all" | "active" | "completed" | "pending";
+
+type SortOption =
+  | "date-desc"
+  | "date-asc"
+  | "name-asc"
+  | "name-desc"
+  | "responses-desc"
+  | "responses-asc";
+
+interface FilterOptions {
+  categories: string[];
+  dateRange: { start: string | null; end: string | null };
+  responseRange: { min: number | null; max: number | null };
+}
 
 interface SurveyCardProps {
   id: number;
@@ -138,22 +153,6 @@ function SurveyCard({
             ]}
           />
         </View>
-        <View
-          style={[
-            styles.progressBackground,
-            { backgroundColor: colors.border, marginLeft: 8 },
-          ]}
-        >
-          <View
-            style={[
-              styles.progressFill,
-              {
-                backgroundColor: colors.border,
-                width: `${100 - progress}%`,
-              },
-            ]}
-          />
-        </View>
       </View>
     </TouchableOpacity>
   );
@@ -194,6 +193,33 @@ export default function AdminDashboard() {
   const [refreshing, setRefreshing] = useState(false);
   const [activeFilter, setActiveFilter] = useState<FilterTab>("all");
 
+  // Filter & Sort State
+  const [showFiltersModal, setShowFiltersModal] = useState(false);
+  const [showSortModal, setShowSortModal] = useState(false);
+  const [selectedSort, setSelectedSort] = useState<SortOption>("date-desc");
+  const [filters, setFilters] = useState<FilterOptions>({
+    categories: [],
+    dateRange: { start: null, end: null },
+    responseRange: { min: null, max: null },
+  });
+
+  const availableCategories = [
+    "Salud Comunitaria",
+    "Desarrollo Social",
+    "Educación",
+    "Seguridad",
+    "Infraestructura",
+  ];
+
+  const sortOptions = [
+    { value: "date-desc" as SortOption, label: "Más recientes primero" },
+    { value: "date-asc" as SortOption, label: "Más antiguos primero" },
+    { value: "name-asc" as SortOption, label: "Nombre (A-Z)" },
+    { value: "name-desc" as SortOption, label: "Nombre (Z-A)" },
+    { value: "responses-desc" as SortOption, label: "Más respuestas" },
+    { value: "responses-asc" as SortOption, label: "Menos respuestas" },
+  ];
+
   const onRefresh = async () => {
     setRefreshing(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -206,6 +232,36 @@ export default function AdminDashboard() {
   const handleFilterChange = (filter: FilterTab) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setActiveFilter(filter);
+  };
+
+  const toggleCategory = (category: string) => {
+    setFilters((prev) => ({
+      ...prev,
+      categories: prev.categories.includes(category)
+        ? prev.categories.filter((c) => c !== category)
+        : [...prev.categories, category],
+    }));
+  };
+
+  const handleSortSelect = (option: SortOption) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setSelectedSort(option);
+    setShowSortModal(false);
+    // TODO: Implement actual sorting logic here
+  };
+
+  const handleApplyFilters = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setShowFiltersModal(false);
+    // TODO: Implement actual filtering logic here
+  };
+
+  const handleClearFilters = () => {
+    setFilters({
+      categories: [],
+      dateRange: { start: null, end: null },
+      responseRange: { min: null, max: null },
+    });
   };
 
   // 🧪 MOCK DATA
@@ -283,6 +339,19 @@ export default function AdminDashboard() {
             s.status === activeFilter.replace("ed", "") ||
             (activeFilter === "active" && s.status === "active"),
         );
+
+  // TODO: Apply advanced filters from FilterOptions
+  // - Filter by categories: filters.categories
+  // - Filter by date range: filters.dateRange.start and filters.dateRange.end
+  // - Filter by response range: filters.responseRange.min and filters.responseRange.max
+
+  // TODO: Apply sorting based on selectedSort
+  // - "date-desc": Sort by date, newest first
+  // - "date-asc": Sort by date, oldest first
+  // - "name-asc": Sort alphabetically A-Z
+  // - "name-desc": Sort alphabetically Z-A
+  // - "responses-desc": Sort by responses, highest first
+  // - "responses-asc": Sort by responses, lowest first
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -419,19 +488,25 @@ export default function AdminDashboard() {
             style={styles.actionButton}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              // TODO: Show filters modal
+              setShowFiltersModal(true);
             }}
           >
             <Ionicons name="funnel-outline" size={18} color={colors.text} />
             <Text style={[styles.actionButtonText, { color: colors.text }]}>
               Filtros
+              {filters.categories.length > 0 && (
+                <Text style={{ color: colors.primary }}>
+                  {" "}
+                  ({filters.categories.length})
+                </Text>
+              )}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.actionButton}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              // TODO: Show sort options
+              setShowSortModal(true);
             }}
           >
             <Ionicons
@@ -452,6 +527,218 @@ export default function AdminDashboard() {
           ))}
         </View>
       </ScrollView>
+
+      {/* Filters Modal */}
+      <Modal
+        visible={showFiltersModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowFiltersModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View
+            style={[
+              styles.modalContent,
+              { backgroundColor: colors.background },
+            ]}
+          >
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>
+                Filtros
+              </Text>
+              <TouchableOpacity onPress={() => setShowFiltersModal(false)}>
+                <Ionicons name="close" size={24} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView
+              style={styles.modalBody}
+              showsVerticalScrollIndicator={false}
+            >
+              {/* Categories Section */}
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                Categorías
+              </Text>
+              <View style={styles.chipContainer}>
+                {availableCategories.map((category) => (
+                  <TouchableOpacity
+                    key={category}
+                    style={[
+                      styles.chip,
+                      {
+                        backgroundColor: filters.categories.includes(category)
+                          ? colors.primary
+                          : colors.surface,
+                        borderColor: colors.border,
+                      },
+                    ]}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      toggleCategory(category);
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.chipText,
+                        {
+                          color: filters.categories.includes(category)
+                            ? colors.background
+                            : colors.text,
+                        },
+                      ]}
+                    >
+                      {category}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* Date Range Section - Placeholder */}
+              <Text
+                style={[
+                  styles.sectionTitle,
+                  { color: colors.text, marginTop: 24 },
+                ]}
+              >
+                Rango de fechas
+              </Text>
+              <Text
+                style={[
+                  styles.placeholderText,
+                  { color: colors.textSecondary },
+                ]}
+              >
+                🚧 Por implementar - selector de fechas
+              </Text>
+
+              {/* Response Range Section - Placeholder */}
+              <Text
+                style={[
+                  styles.sectionTitle,
+                  { color: colors.text, marginTop: 24 },
+                ]}
+              >
+                Número de respuestas
+              </Text>
+              <Text
+                style={[
+                  styles.placeholderText,
+                  { color: colors.textSecondary },
+                ]}
+              >
+                🚧 Por implementar - rango de respuestas (min-max)
+              </Text>
+            </ScrollView>
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={[
+                  styles.secondaryButton,
+                  {
+                    backgroundColor: colors.surface,
+                    borderColor: colors.border,
+                  },
+                ]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  handleClearFilters();
+                }}
+              >
+                <Text
+                  style={[styles.secondaryButtonText, { color: colors.text }]}
+                >
+                  Limpiar
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.primaryButton,
+                  { backgroundColor: colors.primary },
+                ]}
+                onPress={handleApplyFilters}
+              >
+                <Text
+                  style={[
+                    styles.primaryButtonText,
+                    { color: colors.background },
+                  ]}
+                >
+                  Aplicar filtros
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Sort Modal */}
+      <Modal
+        visible={showSortModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowSortModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View
+            style={[
+              styles.modalContent,
+              styles.sortModalContent,
+              { backgroundColor: colors.background },
+            ]}
+          >
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>
+                Ordenar por
+              </Text>
+              <TouchableOpacity onPress={() => setShowSortModal(false)}>
+                <Ionicons name="close" size={24} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.sortOptions}>
+              {sortOptions.map((option) => (
+                <TouchableOpacity
+                  key={option.value}
+                  style={[
+                    styles.sortOption,
+                    {
+                      backgroundColor:
+                        selectedSort === option.value
+                          ? colors.primary + "20"
+                          : "transparent",
+                      borderColor: colors.border,
+                    },
+                  ]}
+                  onPress={() => handleSortSelect(option.value)}
+                >
+                  <Text
+                    style={[
+                      styles.sortOptionText,
+                      {
+                        color:
+                          selectedSort === option.value
+                            ? colors.primary
+                            : colors.text,
+                        fontWeight:
+                          selectedSort === option.value ? "700" : "500",
+                      },
+                    ]}
+                  >
+                    {option.label}
+                  </Text>
+                  {selectedSort === option.value && (
+                    <Ionicons
+                      name="checkmark-circle"
+                      size={20}
+                      color={colors.primary}
+                    />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -600,5 +887,110 @@ const styles = StyleSheet.create({
   progressFill: {
     height: "100%",
     borderRadius: 3,
+  },
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "flex-end",
+  },
+  modalContent: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: "80%",
+    paddingBottom: 20,
+  },
+  sortModalContent: {
+    maxHeight: "60%",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(0, 0, 0, 0.1)",
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+  },
+  modalBody: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+  },
+  modalFooter: {
+    flexDirection: "row",
+    gap: 12,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    marginBottom: 12,
+  },
+  chipContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  chip: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  chipText: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  placeholderText: {
+    fontSize: 14,
+    fontStyle: "italic",
+    paddingVertical: 12,
+  },
+  primaryButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  primaryButtonText: {
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  secondaryButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+  },
+  secondaryButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  sortOptions: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 20,
+    gap: 8,
+  },
+  sortOption: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  sortOptionText: {
+    fontSize: 15,
   },
 });

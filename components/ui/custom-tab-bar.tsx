@@ -249,22 +249,28 @@ export function CustomTabBar({
       ]}
     >
       <View style={styles.content}>
-        {state.routes.map((route, index) => {
-          const { options } = descriptors[route.key];
-          const isFocused = state.index === index;
+        {state.routes
+          .filter((route) => {
+            const { options } = descriptors[route.key];
+            // Only show routes that have a tabBarIcon and href is not explicitly null
+            return options.tabBarIcon && options.href !== null;
+          })
+          .map((route, index) => {
+            const { options } = descriptors[route.key];
+            const isFocused = state.index === state.routes.indexOf(route);
 
-          return (
-            <TabButton
-              key={route.key}
-              route={route}
-              isFocused={isFocused}
-              options={options}
-              onPress={() => handleTabPress(route, isFocused)}
-              onLongPress={() => handleTabLongPress(route)}
-              badge={getRouteBadge(route.name)}
-            />
-          );
-        })}
+            return (
+              <TabButton
+                key={route.key}
+                route={route}
+                isFocused={isFocused}
+                options={options}
+                onPress={() => handleTabPress(route, isFocused)}
+                onLongPress={() => handleTabLongPress(route)}
+                badge={getRouteBadge(route.name)}
+              />
+            );
+          })}
       </View>
     </BlurView>
   );

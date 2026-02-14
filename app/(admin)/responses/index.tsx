@@ -6,6 +6,7 @@
 
 import { AppHeader } from "@/components/shared";
 import { useThemeColors } from "@/contexts/theme-context";
+import { useTabBarHeight } from "@/hooks/use-tab-bar-height";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
@@ -70,6 +71,7 @@ const mockResponses: Response[] = [
 
 export default function AdminResponses() {
   const colors = useThemeColors();
+  const { contentPadding } = useTabBarHeight();
   const router = useRouter();
   const [responses, setResponses] = useState<Response[]>(mockResponses);
   const [refreshing, setRefreshing] = useState(false);
@@ -124,7 +126,10 @@ export default function AdminResponses() {
       <AppHeader title="Respuestas" />
 
       <ScrollView
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[
+          styles.content,
+          { paddingBottom: contentPadding },
+        ]}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
@@ -189,7 +194,11 @@ export default function AdminResponses() {
             ]}
             activeOpacity={0.8}
           >
-            <Text style={styles.filterTextActive}>Todas</Text>
+            <Text
+              style={[styles.filterTextActive, { color: colors.background }]}
+            >
+              Todas
+            </Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[
@@ -465,7 +474,6 @@ const styles = StyleSheet.create({
   filterTextActive: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#FFFFFF",
   },
   listContainer: {
     gap: 12,

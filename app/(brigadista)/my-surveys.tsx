@@ -19,6 +19,7 @@
 import { AppHeader } from "@/components/shared";
 import { typography } from "@/constants/typography";
 import { useThemeColors } from "@/contexts/theme-context";
+import { useTabBarHeight } from "@/hooks/use-tab-bar-height";
 import { Ionicons } from "@expo/vector-icons";
 import { useMemo, useState } from "react";
 import {
@@ -275,6 +276,7 @@ const RESPONSE_STATUS_CONFIG = {
 
 export default function BrigadistaSurveysScreen() {
   const colors = useThemeColors();
+  const { contentPadding } = useTabBarHeight();
 
   const [surveys, setSurveys] = useState<MySurvey[]>(mockMySurveys);
   const [refreshing, setRefreshing] = useState(false);
@@ -503,7 +505,10 @@ export default function BrigadistaSurveysScreen() {
       <AppHeader title="Mis Encuestas" />
 
       <ScrollView
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[
+          styles.content,
+          { paddingBottom: contentPadding },
+        ]}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
@@ -724,9 +729,14 @@ export default function BrigadistaSurveysScreen() {
                               <Ionicons
                                 name={statusConfig.icon}
                                 size={14}
-                                color="#FFFFFF"
+                                color={colors.background}
                               />
-                              <Text style={styles.statusText}>
+                              <Text
+                                style={[
+                                  styles.statusText,
+                                  { color: colors.background },
+                                ]}
+                              >
                                 {statusConfig.label}
                               </Text>
                             </View>
@@ -745,9 +755,14 @@ export default function BrigadistaSurveysScreen() {
                                 <Ionicons
                                   name="time-outline"
                                   size={14}
-                                  color="#FFFFFF"
+                                  color={colors.background}
                                 />
-                                <Text style={styles.deadlineText}>
+                                <Text
+                                  style={[
+                                    styles.deadlineText,
+                                    { color: colors.background },
+                                  ]}
+                                >
                                   {daysLeft > 0
                                     ? `${daysLeft} días`
                                     : daysLeft === 0
@@ -776,9 +791,14 @@ export default function BrigadistaSurveysScreen() {
                                     ].icon
                                   }
                                   size={14}
-                                  color="#FFFFFF"
+                                  color={colors.background}
                                 />
-                                <Text style={styles.responseStatusText}>
+                                <Text
+                                  style={[
+                                    styles.responseStatusText,
+                                    { color: colors.background },
+                                  ]}
+                                >
                                   {
                                     RESPONSE_STATUS_CONFIG[
                                       survey.responseStatus
@@ -934,12 +954,12 @@ export default function BrigadistaSurveysScreen() {
                                 return "add-circle";
                               })()}
                               size={20}
-                              color="#FFFFFF"
+                              color={colors.background}
                             />
                             <Text
                               style={[
                                 styles.actionButtonText,
-                                { color: "#FFFFFF" },
+                                { color: colors.background },
                               ]}
                             >
                               {(() => {
@@ -1054,9 +1074,14 @@ export default function BrigadistaSurveysScreen() {
                             <Ionicons
                               name={windowConfig.icon}
                               size={14}
-                              color="#FFFFFF"
+                              color={colors.background}
                             />
-                            <Text style={styles.timeWindowText}>
+                            <Text
+                              style={[
+                                styles.timeWindowText,
+                                { color: colors.background },
+                              ]}
+                            >
                               {windowConfig.label}
                             </Text>
                           </View>
@@ -1211,9 +1236,14 @@ export default function BrigadistaSurveysScreen() {
                             <Ionicons
                               name={windowConfig.icon}
                               size={14}
-                              color="#FFFFFF"
+                              color={colors.background}
                             />
-                            <Text style={styles.timeWindowText}>
+                            <Text
+                              style={[
+                                styles.timeWindowText,
+                                { color: colors.background },
+                              ]}
+                            >
                               {windowConfig.label}
                             </Text>
                           </View>
@@ -1470,7 +1500,6 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: 12,
     fontWeight: "600",
-    color: "#FFFFFF",
   },
   timeWindowBadge: {
     flexDirection: "row",
@@ -1485,7 +1514,6 @@ const styles = StyleSheet.create({
   timeWindowText: {
     fontSize: 12,
     fontWeight: "600",
-    color: "#FFFFFF",
   },
   deadlineBadge: {
     flexDirection: "row",
@@ -1498,7 +1526,6 @@ const styles = StyleSheet.create({
   deadlineText: {
     fontSize: 12,
     fontWeight: "600",
-    color: "#FFFFFF",
   },
   responseStatusBadge: {
     flexDirection: "row",
@@ -1511,7 +1538,6 @@ const styles = StyleSheet.create({
   responseStatusText: {
     fontSize: 12,
     fontWeight: "600",
-    color: "#FFFFFF",
   },
   infoRow: {
     flexDirection: "row",
