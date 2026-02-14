@@ -5,6 +5,10 @@
  *   - Are ACTIVE
  *   - Are within deadline
  *   - Are assigned to their encargado
+ * Rule 2: Time window states:
+ *   - Not started → "Próximamente" (read-only preview)
+ *   - Active (started + not expired) → Editable
+ *   - Expired → Read-only
  */
 
 import { AppHeader } from "@/components/shared";
@@ -32,14 +36,19 @@ interface MySurvey {
   totalTarget: number;
   status: "ACTIVE" | "COMPLETED" | "PAUSED";
   assignedAt: string;
-  deadline?: string;
+  startDate?: string; // RULE 2: Survey starts from this date
+  deadline?: string; // RULE 2: Survey ends at this date
 }
 
-// Mock data
+// Time window status for surveys
+type TimeWindowStatus = "upcoming" | "active" | "expired";
+
+// Mock data - Includes all RULE 1 & RULE 2 scenarios
 const mockMySurveys: MySurvey[] = [
+  // ✅ ACTIVE + EDITABLE - Started, not expired
   {
     id: 1,
-    title: "Encuesta de Satisfacción Ciudadana 2024",
+    title: "Encuesta de Satisfacción Ciudadana 2026",
     description:
       "Evaluar la satisfacción de los ciudadanos con los servicios públicos",
     encargadoName: "María González",
@@ -48,21 +57,99 @@ const mockMySurveys: MySurvey[] = [
     totalResponses: 45,
     totalTarget: 100,
     status: "ACTIVE",
-    assignedAt: "2024-02-01",
-    deadline: "2024-03-01",
+    assignedAt: "2026-02-01",
+    startDate: "2026-02-05",
+    deadline: "2026-03-15",
   },
+  // 🔜 ACTIVE + UPCOMING - Not started yet
   {
     id: 2,
-    title: "Censo de Infraestructura",
-    description: "Relevamiento del estado de infraestructura urbana",
+    title: "Censo de Vivienda Marzo",
+    description: "Relevamiento integral de condiciones habitacionales",
+    encargadoName: "María González",
+    myResponses: 0,
+    myTarget: 25,
+    totalResponses: 0,
+    totalTarget: 100,
+    status: "ACTIVE",
+    assignedAt: "2026-02-10",
+    startDate: "2026-02-20",
+    deadline: "2026-03-20",
+  },
+  // ⏰ ACTIVE + EXPIRED - Deadline passed
+  {
+    id: 3,
+    title: "Encuesta Vencida de Enero",
+    description: "Encuesta de prueba que ya venció - solo lectura",
+    encargadoName: "María González",
+    myResponses: 5,
+    myTarget: 15,
+    totalResponses: 20,
+    totalTarget: 50,
+    status: "ACTIVE",
+    assignedAt: "2026-01-05",
+    startDate: "2026-01-10",
+    deadline: "2026-02-10",
+  },
+  // ✅ ACTIVE + EDITABLE - No deadline (always active)
+  {
+    id: 4,
+    title: "Registro Continuo de Incidencias",
+    description: "Encuesta sin fecha límite, siempre disponible",
     encargadoName: "María González",
     myResponses: 8,
     myTarget: 15,
     totalResponses: 30,
     totalTarget: 50,
     status: "ACTIVE",
-    assignedAt: "2024-01-20",
-    deadline: "2024-02-28",
+    assignedAt: "2026-02-01",
+    startDate: "2026-02-01",
+    // No deadline - always active
+  },
+  // ⏸️ PAUSED - Should not show (Rule 1)
+  {
+    id: 5,
+    title: "Encuesta Pausada",
+    description: "Esta encuesta fue pausada temporalmente",
+    encargadoName: "María González",
+    myResponses: 3,
+    myTarget: 10,
+    totalResponses: 15,
+    totalTarget: 40,
+    status: "PAUSED",
+    assignedAt: "2026-01-15",
+    startDate: "2026-01-20",
+    deadline: "2026-03-01",
+  },
+  // ✅ COMPLETED - Should not show (Rule 1)
+  {
+    id: 6,
+    title: "Encuesta Completada",
+    description: "Encuesta que ya fue completada por el equipo",
+    encargadoName: "María González",
+    myResponses: 20,
+    myTarget: 20,
+    totalResponses: 100,
+    totalTarget: 100,
+    status: "COMPLETED",
+    assignedAt: "2026-01-01",
+    startDate: "2026-01-05",
+    deadline: "2026-02-05",
+  },
+  // 🔜 UPCOMING + Will expire soon after starting
+  {
+    id: 7,
+    title: "Encuesta Express Próxima Semana",
+    description: "Ventana corta de 3 días",
+    encargadoName: "María González",
+    myResponses: 0,
+    myTarget: 10,
+    totalResponses: 0,
+    totalTarget: 30,
+    status: "ACTIVE",
+    assignedAt: "2026-02-12",
+    startDate: "2026-02-18",
+    deadline: "2026-02-21",
   },
 ];
 
@@ -84,24 +171,77 @@ const STATUS_CONFIG = {
   },
 };
 
+// RULE 2: Time window status configuration
+const TIME_WINDOW_CONFIG = {
+  upcoming: {
+    label: "Próximamente",
+    color: "#6366F1", // Indigo
+    icon: "time-outline" as const,
+    description: "Aún no inicia",
+  },
+  active: {
+    label: "Disponible",
+    color: "#06D6A0", // Green
+    icon: "checkbox-outline" as const,
+    description: "Puedes responder",
+  },
+  expired: {
+    label: "Vencida",
+    color: "#EF4444", // Red
+    icon: "close-circle-outline" as const,
+    description: "Solo lectura",
+  },
+};
+
 export default function BrigadistaSurveysScreen() {
   const colors = useThemeColors();
 
   const [surveys, setSurveys] = useState<MySurvey[]>(mockMySurveys);
   const [refreshing, setRefreshing] = useState(false);
 
-  // 🔒 RULE 1: Filter surveys - Only ACTIVE, within deadline, assigned to encargado
-  const activeSurveys = useMemo(() => {
-    return surveys.filter((survey) => {
-      // Rule 1.1: Must be ACTIVE
-      if (survey.status !== "ACTIVE") return false;
+  // Estado para controlar secciones expandidas/colapsadas
+  const [expandedSections, setExpandedSections] = useState({
+    active: true, // Disponibles - expandidas por defecto
+    upcoming: false, // Próximamente - colapsadas por defecto
+    expired: false, // Vencidas - colapsadas por defecto
+  });
 
-      // Rule 1.2: Must be within deadline (if deadline exists)
-      if (survey.deadline) {
-        const now = new Date();
-        const deadlineDate = new Date(survey.deadline);
-        if (deadlineDate < now) return false;
+  const toggleSection = (section: keyof typeof expandedSections) => {
+    setExpandedSections((prev) => ({
+      ...prev,
+      [section]: !prev[section],
+    }));
+  };
+
+  // 🔒 RULE 2: Determine time window status
+  const getTimeWindowStatus = (survey: MySurvey): TimeWindowStatus => {
+    const now = new Date();
+
+    // Check if survey has started
+    if (survey.startDate) {
+      const startDate = new Date(survey.startDate);
+      if (startDate > now) {
+        return "upcoming"; // Not started yet
       }
+    }
+
+    // Check if survey has expired
+    if (survey.deadline) {
+      const deadlineDate = new Date(survey.deadline);
+      if (deadlineDate < now) {
+        return "expired"; // Past deadline
+      }
+    }
+
+    // Survey is active (started and not expired)
+    return "active";
+  };
+
+  // 🔒 RULE 1 + RULE 2: Filter surveys - Only ACTIVE status, show all time windows
+  const visibleSurveys = useMemo(() => {
+    return surveys.filter((survey) => {
+      // Rule 1.1: Must be ACTIVE status
+      if (survey.status !== "ACTIVE") return false;
 
       // Rule 1.3: Must be assigned by encargado (implicitly true in mockData)
       // In real implementation: survey.encargadoId === brigadista.encargadoId
@@ -109,6 +249,19 @@ export default function BrigadistaSurveysScreen() {
       return true;
     });
   }, [surveys]);
+
+  // Separate surveys by time window
+  const surveysByTimeWindow = useMemo(() => {
+    return {
+      upcoming: visibleSurveys.filter(
+        (s) => getTimeWindowStatus(s) === "upcoming",
+      ),
+      active: visibleSurveys.filter((s) => getTimeWindowStatus(s) === "active"),
+      expired: visibleSurveys.filter(
+        (s) => getTimeWindowStatus(s) === "expired",
+      ),
+    };
+  }, [visibleSurveys]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -119,9 +272,27 @@ export default function BrigadistaSurveysScreen() {
     }, 1000);
   };
 
-  const handleStartSurvey = (survey: MySurvey) => {
-    // TODO: Navigate to survey filling screen
+  const handleStartSurvey = (
+    survey: MySurvey,
+    timeWindow: TimeWindowStatus,
+  ) => {
+    const windowConfig = TIME_WINDOW_CONFIG[timeWindow];
+
+    if (timeWindow === "upcoming") {
+      // TODO: Show preview or notification
+      console.log("Survey not started yet:", survey.id);
+      return;
+    }
+
+    if (timeWindow === "expired") {
+      // TODO: Navigate to read-only view
+      console.log("Survey expired - read only:", survey.id);
+      return;
+    }
+
+    // Active survey - navigate to edit/fill
     console.log("Start survey:", survey.id);
+    // TODO: Navigate to survey filling screen
   };
 
   const calculateMyProgress = (responses: number, target: number) => {
@@ -137,11 +308,24 @@ export default function BrigadistaSurveysScreen() {
     return diffDays;
   };
 
-  const totalMyResponses = activeSurveys.reduce(
+  const getDaysUntilStart = (startDate?: string) => {
+    if (!startDate) return null;
+    const now = new Date();
+    const start = new Date(startDate);
+    const diffTime = start.getTime() - now.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
+  };
+
+  // Calculate totals only for active (editable) surveys
+  const totalMyResponses = surveysByTimeWindow.active.reduce(
     (acc, s) => acc + s.myResponses,
     0,
   );
-  const totalMyTarget = activeSurveys.reduce((acc, s) => acc + s.myTarget, 0);
+  const totalMyTarget = surveysByTimeWindow.active.reduce(
+    (acc, s) => acc + s.myTarget,
+    0,
+  );
 
   // Empty state logic
   const getEmptyStateInfo = () => {
@@ -154,37 +338,26 @@ export default function BrigadistaSurveysScreen() {
       };
     }
 
-    const expiredCount = surveys.filter((s) => {
-      if (!s.deadline) return false;
-      return new Date(s.deadline) < new Date();
-    }).length;
-
     const inactiveCount = surveys.filter((s) => s.status !== "ACTIVE").length;
 
-    if (expiredCount > 0 && inactiveCount > 0) {
-      return {
-        icon: "alert-circle-outline" as const,
-        title: "No hay encuestas activas disponibles",
-        subtitle: `${expiredCount} encuesta(s) vencida(s) • ${inactiveCount} pausada(s) o completada(s)`,
-        color: colors.warning,
-      };
-    }
-
-    if (expiredCount > 0) {
-      return {
-        icon: "time-outline" as const,
-        title: "Todas las encuestas han vencido",
-        subtitle: `${expiredCount} encuesta(s) fuera de fecha. Consulta con tu encargado.`,
-        color: colors.error,
-      };
-    }
-
-    if (inactiveCount > 0) {
+    if (visibleSurveys.length === 0) {
       return {
         icon: "pause-circle-outline" as const,
-        title: "Las encuestas no están activas",
+        title: "No hay encuestas activas",
         subtitle: `${inactiveCount} encuesta(s) pausada(s) o completada(s)`,
         color: colors.info,
+      };
+    }
+
+    // If we have visible surveys, show appropriate message
+    const { upcoming, active, expired } = surveysByTimeWindow;
+
+    if (active.length === 0 && upcoming.length === 0 && expired.length === 0) {
+      return {
+        icon: "alert-circle-outline" as const,
+        title: "No hay encuestas disponibles",
+        subtitle: "Las encuestas aparecerán aquí cuando sean asignadas",
+        color: colors.warning,
       };
     }
 
@@ -229,7 +402,7 @@ export default function BrigadistaSurveysScreen() {
                   { color: colors.textSecondary },
                 ]}
               >
-                {activeSurveys.length} encuestas activas
+                {surveysByTimeWindow.active.length} encuestas disponibles
               </Text>
             </View>
             <View
@@ -261,19 +434,22 @@ export default function BrigadistaSurveysScreen() {
               ]}
             />
           </View>
-          <Text style={[styles.summaryFooter, { color: colors.text }]}>
-            {calculateMyProgress(totalMyResponses, totalMyTarget).toFixed(0)}%
-            completado
-          </Text>
+          <View style={styles.summaryFooterRow}>
+            <Text style={[styles.summaryFooter, { color: colors.text }]}>
+              {calculateMyProgress(totalMyResponses, totalMyTarget).toFixed(0)}%
+              completado
+            </Text>
+            {surveysByTimeWindow.upcoming.length > 0 && (
+              <Text style={[styles.summaryFooter, { color: colors.info }]}>
+                {surveysByTimeWindow.upcoming.length} próxima(s)
+              </Text>
+            )}
+          </View>
         </View>
 
         {/* Surveys List */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            Encuestas Activas
-          </Text>
-
-          {activeSurveys.length === 0 ? (
+          {visibleSurveys.length === 0 ? (
             <View
               style={[
                 styles.emptyState,
@@ -313,205 +489,616 @@ export default function BrigadistaSurveysScreen() {
                     color={colors.info}
                   />
                   <Text style={[styles.emptyHintText, { color: colors.info }]}>
-                    Solo se muestran encuestas activas y dentro de fecha
+                    Solo se muestran encuestas activas
                   </Text>
                 </View>
               )}
             </View>
           ) : (
-            activeSurveys.map((survey) => {
-              const statusConfig = STATUS_CONFIG[survey.status];
-              const myProgress = calculateMyProgress(
-                survey.myResponses,
-                survey.myTarget,
-              );
-              const daysLeft = getDaysUntilDeadline(survey.deadline);
-              const isCompleted = survey.myResponses >= survey.myTarget;
-
-              return (
-                <View
-                  key={survey.id}
-                  style={[
-                    styles.surveyCard,
-                    {
-                      backgroundColor: colors.surface,
-                      borderColor: colors.border,
-                    },
-                  ]}
-                >
-                  {/* Header */}
-                  <View style={styles.cardHeader}>
-                    <Text
-                      style={[styles.cardTitle, { color: colors.text }]}
-                      numberOfLines={2}
-                    >
-                      {survey.title}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.cardDescription,
-                        { color: colors.textSecondary },
-                      ]}
-                      numberOfLines={2}
-                    >
-                      {survey.description}
-                    </Text>
-                  </View>
-
-                  {/* Badges */}
-                  <View style={styles.badgesRow}>
-                    <View
-                      style={[
-                        styles.statusBadge,
-                        { backgroundColor: statusConfig.color },
-                      ]}
-                    >
-                      <Ionicons
-                        name={statusConfig.icon}
-                        size={14}
-                        color="#FFFFFF"
-                      />
-                      <Text style={styles.statusText}>
-                        {statusConfig.label}
-                      </Text>
-                    </View>
-                    {daysLeft !== null && (
-                      <View
-                        style={[
-                          styles.deadlineBadge,
-                          {
-                            backgroundColor:
-                              daysLeft < 7 ? colors.error : colors.warning,
-                          },
-                        ]}
-                      >
-                        <Ionicons
-                          name="time-outline"
-                          size={14}
-                          color="#FFFFFF"
-                        />
-                        <Text style={styles.deadlineText}>
-                          {daysLeft > 0
-                            ? `${daysLeft} días`
-                            : daysLeft === 0
-                              ? "Hoy"
-                              : "Vencida"}
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-
-                  {/* Encargado */}
-                  <View style={styles.infoRow}>
-                    <Ionicons
-                      name="person-outline"
-                      size={16}
-                      color={colors.textSecondary}
-                    />
-                    <Text
-                      style={[styles.infoText, { color: colors.textSecondary }]}
-                    >
-                      Encargado: {survey.encargadoName}
-                    </Text>
-                  </View>
-
-                  {/* My Progress */}
-                  <View style={styles.progressContainer}>
-                    <View style={styles.progressHeader}>
-                      <Text
-                        style={[styles.progressText, { color: colors.text }]}
-                      >
-                        Mi progreso
-                      </Text>
-                      <Text
-                        style={[
-                          styles.progressStats,
-                          {
-                            color: isCompleted
-                              ? colors.success
-                              : colors.textSecondary,
-                          },
-                        ]}
-                      >
-                        {survey.myResponses} / {survey.myTarget}
-                        {isCompleted && " ✓"}
-                      </Text>
-                    </View>
-                    <View
-                      style={[
-                        styles.progressBar,
-                        { backgroundColor: colors.surfaceVariant },
-                      ]}
-                    >
-                      <View
-                        style={[
-                          styles.progressFill,
-                          {
-                            width: `${myProgress}%`,
-                            backgroundColor: isCompleted
-                              ? colors.success
-                              : colors.info,
-                          },
-                        ]}
-                      />
-                    </View>
-                  </View>
-
-                  {/* Team Progress */}
-                  <View
-                    style={[
-                      styles.teamProgressRow,
-                      { borderTopColor: colors.border },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.teamProgressLabel,
-                        { color: colors.textSecondary },
-                      ]}
-                    >
-                      Progreso del equipo:
-                    </Text>
-                    <Text
-                      style={[styles.teamProgressValue, { color: colors.text }]}
-                    >
-                      {survey.totalResponses} / {survey.totalTarget}
-                    </Text>
-                  </View>
-
-                  {/* Action Button */}
+            <>
+              {/* 1️⃣ Active Surveys Section - Expandida por defecto */}
+              {surveysByTimeWindow.active.length > 0 && (
+                <>
                   <TouchableOpacity
                     style={[
-                      styles.actionButton,
+                      styles.sectionHeader,
                       {
-                        backgroundColor: isCompleted
-                          ? colors.border
-                          : colors.success,
+                        backgroundColor: colors.success + "15",
+                        borderColor: colors.success + "30",
                       },
                     ]}
-                    onPress={() => handleStartSurvey(survey)}
-                    activeOpacity={0.8}
-                    disabled={isCompleted}
+                    onPress={() => toggleSection("active")}
+                    activeOpacity={0.7}
                   >
+                    <View style={styles.sectionHeaderLeft}>
+                      <Ionicons
+                        name="checkbox-outline"
+                        size={24}
+                        color={colors.success}
+                      />
+                      <View>
+                        <Text
+                          style={[
+                            styles.sectionTitle,
+                            { color: colors.text, marginBottom: 2 },
+                          ]}
+                        >
+                          Disponibles para Responder
+                        </Text>
+                        <Text
+                          style={[
+                            styles.sectionSubtitle,
+                            { color: colors.textSecondary },
+                          ]}
+                        >
+                          {surveysByTimeWindow.active.length} encuesta(s)
+                        </Text>
+                      </View>
+                    </View>
                     <Ionicons
-                      name={isCompleted ? "checkmark-circle" : "add-circle"}
-                      size={20}
-                      color={isCompleted ? colors.textSecondary : "#FFFFFF"}
+                      name={
+                        expandedSections.active ? "chevron-up" : "chevron-down"
+                      }
+                      size={24}
+                      color={colors.textSecondary}
                     />
-                    <Text
-                      style={[
-                        styles.actionButtonText,
-                        {
-                          color: isCompleted ? colors.textSecondary : "#FFFFFF",
-                        },
-                      ]}
-                    >
-                      {isCompleted ? "Meta Completada" : "Llenar Encuesta"}
-                    </Text>
                   </TouchableOpacity>
-                </View>
-              );
-            })
+
+                  {expandedSections.active &&
+                    surveysByTimeWindow.active.map((survey) => {
+                      const timeWindow = getTimeWindowStatus(survey);
+                      const windowConfig = TIME_WINDOW_CONFIG[timeWindow];
+                      const statusConfig = STATUS_CONFIG[survey.status];
+                      const myProgress = calculateMyProgress(
+                        survey.myResponses,
+                        survey.myTarget,
+                      );
+                      const daysLeft = getDaysUntilDeadline(survey.deadline);
+                      const isCompleted = survey.myResponses >= survey.myTarget;
+
+                      return (
+                        <View
+                          key={survey.id}
+                          style={[
+                            styles.surveyCard,
+                            {
+                              backgroundColor: colors.surface,
+                              borderColor: colors.border,
+                            },
+                          ]}
+                        >
+                          {/* Header */}
+                          <View style={styles.cardHeader}>
+                            <Text
+                              style={[styles.cardTitle, { color: colors.text }]}
+                              numberOfLines={2}
+                            >
+                              {survey.title}
+                            </Text>
+                            <Text
+                              style={[
+                                styles.cardDescription,
+                                { color: colors.textSecondary },
+                              ]}
+                              numberOfLines={2}
+                            >
+                              {survey.description}
+                            </Text>
+                          </View>
+
+                          {/* Badges */}
+                          <View style={styles.badgesRow}>
+                            <View
+                              style={[
+                                styles.statusBadge,
+                                { backgroundColor: statusConfig.color },
+                              ]}
+                            >
+                              <Ionicons
+                                name={statusConfig.icon}
+                                size={14}
+                                color="#FFFFFF"
+                              />
+                              <Text style={styles.statusText}>
+                                {statusConfig.label}
+                              </Text>
+                            </View>
+                            {daysLeft !== null && (
+                              <View
+                                style={[
+                                  styles.deadlineBadge,
+                                  {
+                                    backgroundColor:
+                                      daysLeft < 7
+                                        ? colors.error
+                                        : colors.warning,
+                                  },
+                                ]}
+                              >
+                                <Ionicons
+                                  name="time-outline"
+                                  size={14}
+                                  color="#FFFFFF"
+                                />
+                                <Text style={styles.deadlineText}>
+                                  {daysLeft > 0
+                                    ? `${daysLeft} días`
+                                    : daysLeft === 0
+                                      ? "Hoy"
+                                      : "Vencida"}
+                                </Text>
+                              </View>
+                            )}
+                          </View>
+
+                          {/* Encargado */}
+                          <View style={styles.infoRow}>
+                            <Ionicons
+                              name="person-outline"
+                              size={16}
+                              color={colors.textSecondary}
+                            />
+                            <Text
+                              style={[
+                                styles.infoText,
+                                { color: colors.textSecondary },
+                              ]}
+                            >
+                              Encargado: {survey.encargadoName}
+                            </Text>
+                          </View>
+
+                          {/* My Progress */}
+                          <View style={styles.progressContainer}>
+                            <View style={styles.progressHeader}>
+                              <Text
+                                style={[
+                                  styles.progressText,
+                                  { color: colors.text },
+                                ]}
+                              >
+                                Mi progreso
+                              </Text>
+                              <Text
+                                style={[
+                                  styles.progressStats,
+                                  {
+                                    color: isCompleted
+                                      ? colors.success
+                                      : colors.textSecondary,
+                                  },
+                                ]}
+                              >
+                                {survey.myResponses} / {survey.myTarget}
+                                {isCompleted && " ✓"}
+                              </Text>
+                            </View>
+                            <View
+                              style={[
+                                styles.progressBar,
+                                { backgroundColor: colors.surfaceVariant },
+                              ]}
+                            >
+                              <View
+                                style={[
+                                  styles.progressFill,
+                                  {
+                                    width: `${myProgress}%`,
+                                    backgroundColor: isCompleted
+                                      ? colors.success
+                                      : colors.info,
+                                  },
+                                ]}
+                              />
+                            </View>
+                          </View>
+
+                          {/* Team Progress */}
+                          <View
+                            style={[
+                              styles.teamProgressRow,
+                              { borderTopColor: colors.border },
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.teamProgressLabel,
+                                { color: colors.textSecondary },
+                              ]}
+                            >
+                              Progreso del equipo:
+                            </Text>
+                            <Text
+                              style={[
+                                styles.teamProgressValue,
+                                { color: colors.text },
+                              ]}
+                            >
+                              {survey.totalResponses} / {survey.totalTarget}
+                            </Text>
+                          </View>
+
+                          {/* Action Button */}
+                          <TouchableOpacity
+                            style={[
+                              styles.actionButton,
+                              {
+                                backgroundColor: isCompleted
+                                  ? colors.border
+                                  : colors.success,
+                              },
+                            ]}
+                            onPress={() =>
+                              handleStartSurvey(survey, timeWindow)
+                            }
+                            activeOpacity={0.8}
+                            disabled={isCompleted}
+                          >
+                            <Ionicons
+                              name={
+                                isCompleted ? "checkmark-circle" : "add-circle"
+                              }
+                              size={20}
+                              color={
+                                isCompleted ? colors.textSecondary : "#FFFFFF"
+                              }
+                            />
+                            <Text
+                              style={[
+                                styles.actionButtonText,
+                                {
+                                  color: isCompleted
+                                    ? colors.textSecondary
+                                    : "#FFFFFF",
+                                },
+                              ]}
+                            >
+                              {isCompleted
+                                ? "Meta Completada"
+                                : "Llenar Encuesta"}
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
+                      );
+                    })}
+                </>
+              )}
+
+              {/* 2️⃣ Upcoming Surveys Section - Colapsada por defecto */}
+              {surveysByTimeWindow.upcoming.length > 0 && (
+                <>
+                  <TouchableOpacity
+                    style={[
+                      styles.sectionHeader,
+                      {
+                        backgroundColor: colors.info + "15",
+                        borderColor: colors.info + "30",
+                      },
+                    ]}
+                    onPress={() => toggleSection("upcoming")}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.sectionHeaderLeft}>
+                      <Ionicons
+                        name="calendar-outline"
+                        size={24}
+                        color={colors.info}
+                      />
+                      <View>
+                        <Text
+                          style={[
+                            styles.sectionTitle,
+                            { color: colors.text, marginBottom: 2 },
+                          ]}
+                        >
+                          Próximamente
+                        </Text>
+                        <Text
+                          style={[
+                            styles.sectionSubtitle,
+                            { color: colors.textSecondary },
+                          ]}
+                        >
+                          {surveysByTimeWindow.upcoming.length} encuesta(s) por
+                          comenzar
+                        </Text>
+                      </View>
+                    </View>
+                    <Ionicons
+                      name={
+                        expandedSections.upcoming
+                          ? "chevron-up"
+                          : "chevron-down"
+                      }
+                      size={24}
+                      color={colors.textSecondary}
+                    />
+                  </TouchableOpacity>
+
+                  {expandedSections.upcoming &&
+                    surveysByTimeWindow.upcoming.map((survey) => {
+                      const timeWindow = getTimeWindowStatus(survey);
+                      const windowConfig = TIME_WINDOW_CONFIG[timeWindow];
+                      const daysUntilStart = getDaysUntilStart(
+                        survey.startDate,
+                      );
+
+                      return (
+                        <TouchableOpacity
+                          key={survey.id}
+                          style={[
+                            styles.surveyCard,
+                            {
+                              backgroundColor: colors.surface,
+                              borderColor: windowConfig.color + "50",
+                              borderWidth: 2,
+                            },
+                          ]}
+                          onPress={() => handleStartSurvey(survey, timeWindow)}
+                          activeOpacity={0.8}
+                        >
+                          {/* Time Window Badge */}
+                          <View
+                            style={[
+                              styles.timeWindowBadge,
+                              { backgroundColor: windowConfig.color },
+                            ]}
+                          >
+                            <Ionicons
+                              name={windowConfig.icon}
+                              size={14}
+                              color="#FFFFFF"
+                            />
+                            <Text style={styles.timeWindowText}>
+                              {windowConfig.label}
+                            </Text>
+                          </View>
+
+                          {/* Header */}
+                          <View style={styles.cardHeader}>
+                            <Text
+                              style={[styles.cardTitle, { color: colors.text }]}
+                              numberOfLines={2}
+                            >
+                              {survey.title}
+                            </Text>
+                            <Text
+                              style={[
+                                styles.cardDescription,
+                                { color: colors.textSecondary },
+                              ]}
+                              numberOfLines={2}
+                            >
+                              {survey.description}
+                            </Text>
+                          </View>
+
+                          {/* Start Date Info */}
+                          <View style={styles.infoRow}>
+                            <Ionicons
+                              name="calendar-outline"
+                              size={16}
+                              color={windowConfig.color}
+                            />
+                            <Text
+                              style={[
+                                styles.infoText,
+                                {
+                                  color: windowConfig.color,
+                                  fontWeight: "600",
+                                },
+                              ]}
+                            >
+                              Inicia{" "}
+                              {daysUntilStart !== null
+                                ? daysUntilStart === 0
+                                  ? "hoy"
+                                  : daysUntilStart === 1
+                                    ? "mañana"
+                                    : `en ${daysUntilStart} días`
+                                : "pronto"}
+                            </Text>
+                          </View>
+
+                          {/* Encargado */}
+                          <View style={styles.infoRow}>
+                            <Ionicons
+                              name="person-outline"
+                              size={16}
+                              color={colors.textSecondary}
+                            />
+                            <Text
+                              style={[
+                                styles.infoText,
+                                { color: colors.textSecondary },
+                              ]}
+                            >
+                              Encargado: {survey.encargadoName}
+                            </Text>
+                          </View>
+                        </TouchableOpacity>
+                      );
+                    })}
+                </>
+              )}
+
+              {/* 3️⃣ Expired Surveys Section - Colapsada por defecto */}
+              {surveysByTimeWindow.expired.length > 0 && (
+                <>
+                  <TouchableOpacity
+                    style={[
+                      styles.sectionHeader,
+                      {
+                        backgroundColor: colors.error + "15",
+                        borderColor: colors.error + "30",
+                      },
+                    ]}
+                    onPress={() => toggleSection("expired")}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.sectionHeaderLeft}>
+                      <Ionicons
+                        name="time-outline"
+                        size={24}
+                        color={colors.error}
+                      />
+                      <View>
+                        <Text
+                          style={[
+                            styles.sectionTitle,
+                            { color: colors.text, marginBottom: 2 },
+                          ]}
+                        >
+                          Vencidas (Solo Lectura)
+                        </Text>
+                        <Text
+                          style={[
+                            styles.sectionSubtitle,
+                            { color: colors.textSecondary },
+                          ]}
+                        >
+                          {surveysByTimeWindow.expired.length} encuesta(s)
+                          finalizadas
+                        </Text>
+                      </View>
+                    </View>
+                    <Ionicons
+                      name={
+                        expandedSections.expired ? "chevron-up" : "chevron-down"
+                      }
+                      size={24}
+                      color={colors.textSecondary}
+                    />
+                  </TouchableOpacity>
+
+                  {expandedSections.expired &&
+                    surveysByTimeWindow.expired.map((survey) => {
+                      const timeWindow = getTimeWindowStatus(survey);
+                      const windowConfig = TIME_WINDOW_CONFIG[timeWindow];
+                      const myProgress = calculateMyProgress(
+                        survey.myResponses,
+                        survey.myTarget,
+                      );
+
+                      return (
+                        <TouchableOpacity
+                          key={survey.id}
+                          style={[
+                            styles.surveyCard,
+                            {
+                              backgroundColor: colors.surface,
+                              borderColor: colors.border,
+                              opacity: 0.8,
+                            },
+                          ]}
+                          onPress={() => handleStartSurvey(survey, timeWindow)}
+                          activeOpacity={0.7}
+                        >
+                          {/* Expired Badge */}
+                          <View
+                            style={[
+                              styles.timeWindowBadge,
+                              { backgroundColor: windowConfig.color },
+                            ]}
+                          >
+                            <Ionicons
+                              name={windowConfig.icon}
+                              size={14}
+                              color="#FFFFFF"
+                            />
+                            <Text style={styles.timeWindowText}>
+                              {windowConfig.label}
+                            </Text>
+                          </View>
+
+                          {/* Header */}
+                          <View style={styles.cardHeader}>
+                            <Text
+                              style={[styles.cardTitle, { color: colors.text }]}
+                              numberOfLines={2}
+                            >
+                              {survey.title}
+                            </Text>
+                            <Text
+                              style={[
+                                styles.cardDescription,
+                                { color: colors.textSecondary },
+                              ]}
+                              numberOfLines={2}
+                            >
+                              {survey.description}
+                            </Text>
+                          </View>
+
+                          {/* My Progress */}
+                          <View style={styles.progressContainer}>
+                            <View style={styles.progressHeader}>
+                              <Text
+                                style={[
+                                  styles.progressText,
+                                  { color: colors.text },
+                                ]}
+                              >
+                                Tu progreso final
+                              </Text>
+                              <Text
+                                style={[
+                                  styles.progressStats,
+                                  { color: colors.textSecondary },
+                                ]}
+                              >
+                                {survey.myResponses} / {survey.myTarget}
+                              </Text>
+                            </View>
+                            <View
+                              style={[
+                                styles.progressBar,
+                                { backgroundColor: colors.surfaceVariant },
+                              ]}
+                            >
+                              <View
+                                style={[
+                                  styles.progressFill,
+                                  {
+                                    width: `${myProgress}%`,
+                                    backgroundColor: colors.textSecondary,
+                                  },
+                                ]}
+                              />
+                            </View>
+                          </View>
+
+                          {/* View Only Button */}
+                          <TouchableOpacity
+                            style={[
+                              styles.actionButton,
+                              { backgroundColor: colors.border },
+                            ]}
+                            onPress={() =>
+                              handleStartSurvey(survey, timeWindow)
+                            }
+                            activeOpacity={0.8}
+                          >
+                            <Ionicons
+                              name="eye-outline"
+                              size={20}
+                              color={colors.textSecondary}
+                            />
+                            <Text
+                              style={[
+                                styles.actionButtonText,
+                                { color: colors.textSecondary },
+                              ]}
+                            >
+                              Ver Respuestas
+                            </Text>
+                          </TouchableOpacity>
+                        </TouchableOpacity>
+                      );
+                    })}
+                </>
+              )}
+            </>
           )}
         </View>
       </ScrollView>
@@ -569,14 +1156,38 @@ const styles = StyleSheet.create({
   summaryFooter: {
     fontSize: 14,
     fontWeight: "600",
-    textAlign: "right",
+  },
+  summaryFooterRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   section: {
     marginBottom: 24,
   },
+  sectionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 12,
+    marginTop: 8,
+  },
+  sectionHeaderLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    flex: 1,
+  },
   sectionTitle: {
     ...typography.h3,
-    marginBottom: 16,
+    marginBottom: 0,
+  },
+  sectionSubtitle: {
+    fontSize: 13,
+    fontWeight: "500",
   },
   emptyState: {
     alignItems: "center",
@@ -650,6 +1261,21 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   statusText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#FFFFFF",
+  },
+  timeWindowBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    gap: 6,
+    marginBottom: 12,
+  },
+  timeWindowText: {
     fontSize: 12,
     fontWeight: "600",
     color: "#FFFFFF",
