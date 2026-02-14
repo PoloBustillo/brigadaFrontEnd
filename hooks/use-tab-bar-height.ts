@@ -12,8 +12,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 export function useTabBarHeight() {
   const insets = useSafeAreaInsets();
 
-  // Altura base de la tab bar: 56px (minHeight del content) + padding
-  const baseHeight = 56;
+  // Altura base de la tab bar: 52px (minHeight del content optimizado)
+  const baseHeight = 52;
 
   // Padding bottom del BlurView (respeta safe area)
   const bottomPadding = Math.max(insets.bottom, 4);
@@ -21,8 +21,8 @@ export function useTabBarHeight() {
   // Total de espacio que ocupa la tab bar
   const tabBarHeight = baseHeight + bottomPadding;
 
-  // Espacio recomendado para padding (con margen extra de seguridad)
-  const contentPadding = tabBarHeight + 40;
+  // Espacio recomendado para padding (margen optimizado de 16px)
+  const contentPadding = tabBarHeight + 16;
 
   return {
     tabBarHeight,

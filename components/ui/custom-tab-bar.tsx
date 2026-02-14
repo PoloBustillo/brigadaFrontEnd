@@ -7,6 +7,7 @@ import { useSync } from "@/contexts/sync-context";
 import { useTheme, useThemeColors } from "@/contexts/theme-context";
 import { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { BlurView } from "expo-blur";
+import * as Haptics from "expo-haptics";
 import React from "react";
 import {
   Animated,
@@ -38,11 +39,16 @@ function TabButton({
 }: TabButtonProps) {
   const colors = useThemeColors();
   const scaleAnim = React.useRef(
-    new Animated.Value(isFocused ? 1 : 0.95),
+    new Animated.Value(isFocused ? 1 : 0.97),
   ).current;
 
   // Animación de pulso para badge
   const pulseAnim = React.useRef(new Animated.Value(1)).current;
+
+  // Animación de opacidad para feedback visual
+  const opacityAnim = React.useRef(
+    new Animated.Value(isFocused ? 1 : 0.7),
+  ).current;
 
   const label =
     options.tabBarLabel !== undefined
@@ -52,27 +58,36 @@ function TabButton({
         : route.name;
 
   React.useEffect(() => {
-    Animated.spring(scaleAnim, {
-      toValue: isFocused ? 1 : 0.95,
-      useNativeDriver: true,
-      friction: 8,
-    }).start();
-  }, [isFocused, scaleAnim]);
+    Animated.parallel([
+      Animated.spring(scaleAnim, {
+        toValue: isFocused ? 1 : 0.97,
+        useNativeDriver: true,
+        friction: 9,
+        tension: 100,
+      }),
+      Animated.timing(opacityAnim, {
+        toValue: isFocused ? 1 : 0.7,
+        duration: 200,
+        easing: Easing.inOut(Easing.ease),
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [isFocused, scaleAnim, opacityAnim]);
 
-  // Animación de pulso cuando hay badge
+  // Animación de pulso cuando hay badge (más sutil y rápida)
   React.useEffect(() => {
     if (badge && badge > 0) {
       const pulseAnimation = Animated.loop(
         Animated.sequence([
           Animated.timing(pulseAnim, {
-            toValue: 1.2,
-            duration: 1000,
+            toValue: 1.15,
+            duration: 800,
             easing: Easing.inOut(Easing.ease),
             useNativeDriver: true,
           }),
           Animated.timing(pulseAnim, {
             toValue: 1,
-            duration: 1000,
+            duration: 800,
             easing: Easing.inOut(Easing.ease),
             useNativeDriver: true,
           }),
@@ -102,6 +117,7 @@ function TabButton({
           {
             backgroundColor: isFocused ? colors.primary + "15" : "transparent",
             transform: [{ scale: scaleAnim }],
+            opacity: opacityAnim,
           },
         ]}
       >
@@ -137,6 +153,7 @@ function TabButton({
                   styles.badge,
                   {
                     backgroundColor: colors.error,
+                    borderColor: colors.surface,
                     transform: [{ scale: pulseAnim }],
                   },
                 ]}
@@ -190,19 +207,44 @@ export function CustomTabBar({
     return 0;
   };
 
+  const handleTabPress = (route: any, isFocused: boolean) => {
+    // Feedback háptico diferenciado
+    if (!isFocused) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+
+    const event = navigation.emit({
+      type: "tabPress",
+      target: route.key,
+      canPreventDefault: true,
+    });
+
+    if (!isFocused && !event.defaultPrevented) {
+      navigation.navigate(route.name);
+    }
+  };
+
+  const handleTabLongPress = (route: any) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    navigation.emit({
+      type: "tabLongPress",
+      target: route.key,
+    });
+  };
+
   return (
     <BlurView
-      intensity={theme === "dark" ? 70 : 85}
+      intensity={theme === "dark" ? 75 : 90}
       tint={theme === "dark" ? "dark" : "light"}
       style={[
         styles.container,
         {
           paddingBottom: Math.max(insets.bottom, 4),
-          borderTopColor: colors.border + "30",
+          borderTopColor: colors.border + "20",
           backgroundColor:
             theme === "dark"
-              ? "rgba(0, 0, 0, 0.3)"
-              : "rgba(255, 255, 255, 0.4)",
+              ? "rgba(0, 0, 0, 0.35)"
+              : "rgba(255, 255, 255, 0.45)",
         },
       ]}
     >
@@ -211,33 +253,14 @@ export function CustomTabBar({
           const { options } = descriptors[route.key];
           const isFocused = state.index === index;
 
-          const onPress = () => {
-            const event = navigation.emit({
-              type: "tabPress",
-              target: route.key,
-              canPreventDefault: true,
-            });
-
-            if (!isFocused && !event.defaultPrevented) {
-              navigation.navigate(route.name);
-            }
-          };
-
-          const onLongPress = () => {
-            navigation.emit({
-              type: "tabLongPress",
-              target: route.key,
-            });
-          };
-
           return (
             <TabButton
               key={route.key}
               route={route}
               isFocused={isFocused}
               options={options}
-              onPress={onPress}
-              onLongPress={onLongPress}
+              onPress={() => handleTabPress(route, isFocused)}
+              onLongPress={() => handleTabLongPress(route)}
               badge={getRouteBadge(route.name)}
             />
           );
@@ -271,10 +294,11 @@ const styles = StyleSheet.create({
   },
   content: {
     flexDirection: "row",
-    paddingTop: 6,
+    paddingTop: 8,
     paddingBottom: 4,
     paddingHorizontal: 8,
-    minHeight: 56,
+    minHeight: 52,
+    gap: 4,
   },
   tab: {
     flex: 1,
@@ -285,11 +309,11 @@ const styles = StyleSheet.create({
   tabContent: {
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    borderRadius: 14,
-    minWidth: 56,
-    minHeight: 48,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    minWidth: 60,
+    minHeight: 44,
     position: "relative",
   },
   contentWrapper: {
@@ -302,39 +326,43 @@ const styles = StyleSheet.create({
   iconContainer: {
     alignItems: "center",
     justifyContent: "center",
-    height: 24,
-    width: 24,
+    height: 26,
+    width: 26,
   },
   label: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: "600",
-    marginTop: 2,
-    letterSpacing: 0.1,
+    marginTop: 3,
+    letterSpacing: 0.2,
   },
   activeIndicator: {
     position: "absolute",
     top: 0,
-    left: 16,
-    right: 16,
-    height: 3,
+    left: 20,
+    right: 20,
+    height: 2.5,
     borderRadius: 2,
   },
   badge: {
     position: "absolute",
-    top: -4,
-    right: -8,
-    minWidth: 16,
-    height: 16,
-    borderRadius: 8,
+    top: -6,
+    right: -10,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 4,
-    borderWidth: 2,
-    borderColor: "#fff",
+    paddingHorizontal: 5,
+    borderWidth: 2.5,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3,
+    elevation: 5,
   },
   badgeText: {
     color: "#fff",
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: "700",
   },
 });
