@@ -3,7 +3,7 @@ import React from "react";
 
 import { ProtectedRoute } from "@/components/auth";
 import { HapticTab } from "@/components/haptic-tab";
-import { useThemeColors } from "@/contexts/theme-context";
+import { CustomTabBar } from "@/components/ui/custom-tab-bar";
 import { Ionicons } from "@expo/vector-icons";
 
 /**
@@ -12,21 +12,13 @@ import { Ionicons } from "@expo/vector-icons";
  * Tabs: Dashboard, Surveys, Users, Responses
  */
 export default function AdminLayout() {
-  const colors = useThemeColors();
-
   return (
     <ProtectedRoute allowedRoles={["ADMIN"]}>
       <Tabs
+        tabBar={(props) => <CustomTabBar {...props} />}
         screenOptions={{
-          tabBarActiveTintColor: colors.primary,
-          tabBarInactiveTintColor: colors.textSecondary,
           headerShown: false,
           tabBarButton: HapticTab,
-          tabBarStyle: {
-            backgroundColor: colors.surface,
-            borderTopColor: colors.border,
-            borderTopWidth: 1,
-          },
         }}
         initialRouteName="index"
       >
