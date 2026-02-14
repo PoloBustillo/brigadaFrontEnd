@@ -9,6 +9,11 @@
  *   - Not started → "Próximamente" (read-only preview)
  *   - Active (started + not expired) → Editable
  *   - Expired → Read-only
+ * Rule 3: Response status:
+ *   - draft: Local draft, can edit
+ *   - completed: Ready to send, can edit before syncing
+ *   - synced: Already sent, read-only
+ *   - rejected: Requires correction, can edit if supervisor allows
  */
 
 import { AppHeader } from "@/components/shared";
@@ -38,14 +43,19 @@ interface MySurvey {
   assignedAt: string;
   startDate?: string; // RULE 2: Survey starts from this date
   deadline?: string; // RULE 2: Survey ends at this date
+  responseStatus?: ResponseStatus; // RULE 3: Current response status
+  allowRejectedEdit?: boolean; // RULE 3: Supervisor allows editing rejected response
 }
 
 // Time window status for surveys
 type TimeWindowStatus = "upcoming" | "active" | "expired";
 
-// Mock data - Includes all RULE 1 & RULE 2 scenarios
+// RULE 3: Response status types
+type ResponseStatus = "draft" | "completed" | "synced" | "rejected";
+
+// Mock data - Includes all RULE 1, RULE 2, and RULE 3 scenarios
 const mockMySurveys: MySurvey[] = [
-  // ✅ ACTIVE + EDITABLE - Started, not expired
+  // ✅ ACTIVE + EDITABLE - Started, not expired + DRAFT response
   {
     id: 1,
     title: "Encuesta de Satisfacción Ciudadana 2026",
@@ -60,8 +70,9 @@ const mockMySurveys: MySurvey[] = [
     assignedAt: "2026-02-01",
     startDate: "2026-02-05",
     deadline: "2026-03-15",
+    responseStatus: "draft", // RULE 3: Can edit
   },
-  // 🔜 ACTIVE + UPCOMING - Not started yet
+  // 🔜 ACTIVE + UPCOMING - Not started yet + NO response yet
   {
     id: 2,
     title: "Censo de Vivienda Marzo",
@@ -75,8 +86,9 @@ const mockMySurveys: MySurvey[] = [
     assignedAt: "2026-02-10",
     startDate: "2026-02-20",
     deadline: "2026-03-20",
+    // No responseStatus - not started yet
   },
-  // ⏰ ACTIVE + EXPIRED - Deadline passed
+  // ⏰ ACTIVE + EXPIRED - Deadline passed + SYNCED (read-only)
   {
     id: 3,
     title: "Encuesta Vencida de Enero",
@@ -90,8 +102,9 @@ const mockMySurveys: MySurvey[] = [
     assignedAt: "2026-01-05",
     startDate: "2026-01-10",
     deadline: "2026-02-10",
+    responseStatus: "synced", // RULE 3: Cannot edit, already sent
   },
-  // ✅ ACTIVE + EDITABLE - No deadline (always active)
+  // ✅ ACTIVE + EDITABLE - No deadline + COMPLETED (ready to send)
   {
     id: 4,
     title: "Registro Continuo de Incidencias",
@@ -105,6 +118,41 @@ const mockMySurveys: MySurvey[] = [
     assignedAt: "2026-02-01",
     startDate: "2026-02-01",
     // No deadline - always active
+    responseStatus: "completed", // RULE 3: Can still edit before syncing
+  },
+  // 🔴 ACTIVE + REJECTED - Requires correction (supervisor allows edit)
+  {
+    id: 8,
+    title: "Encuesta de Infraestructura (Corrección Requerida)",
+    description: "Respuesta rechazada por el supervisor - necesita corrección",
+    encargadoName: "María González",
+    myResponses: 3,
+    myTarget: 10,
+    totalResponses: 15,
+    totalTarget: 40,
+    status: "ACTIVE",
+    assignedAt: "2026-02-01",
+    startDate: "2026-02-05",
+    deadline: "2026-03-10",
+    responseStatus: "rejected", // RULE 3: Rejected
+    allowRejectedEdit: true, // RULE 3: Supervisor allows correction
+  },
+  // 🔴 ACTIVE + REJECTED - Requires correction (supervisor does NOT allow edit)
+  {
+    id: 9,
+    title: "Encuesta Rechazada Bloqueada",
+    description: "Respuesta rechazada - esperando decisión del supervisor",
+    encargadoName: "María González",
+    myResponses: 2,
+    myTarget: 8,
+    totalResponses: 10,
+    totalTarget: 30,
+    status: "ACTIVE",
+    assignedAt: "2026-02-03",
+    startDate: "2026-02-07",
+    deadline: "2026-03-05",
+    responseStatus: "rejected", // RULE 3: Rejected
+    allowRejectedEdit: false, // RULE 3: Cannot edit yet
   },
   // ⏸️ PAUSED - Should not show (Rule 1)
   {
@@ -193,6 +241,38 @@ const TIME_WINDOW_CONFIG = {
   },
 };
 
+// RULE 3: Response status configuration
+const RESPONSE_STATUS_CONFIG = {
+  draft: {
+    label: "Borrador",
+    color: "#94A3B8", // Gray
+    icon: "create-outline" as const,
+    description: "Borrador local",
+    editable: true,
+  },
+  completed: {
+    label: "Completada",
+    color: "#06D6A0", // Green
+    icon: "checkmark-done-outline" as const,
+    description: "Lista para enviar",
+    editable: true,
+  },
+  synced: {
+    label: "Sincronizada",
+    color: "#00B4D8", // Blue
+    icon: "cloud-done-outline" as const,
+    description: "Ya enviada",
+    editable: false,
+  },
+  rejected: {
+    label: "Rechazada",
+    color: "#EF4444", // Red
+    icon: "alert-circle-outline" as const,
+    description: "Requiere corrección",
+    editable: false, // Only if supervisor allows (check allowRejectedEdit)
+  },
+};
+
 export default function BrigadistaSurveysScreen() {
   const colors = useThemeColors();
 
@@ -237,6 +317,30 @@ export default function BrigadistaSurveysScreen() {
     return "active";
   };
 
+  // 🔒 RULE 3: Determine if response can be edited
+  const canEditResponse = (survey: MySurvey): boolean => {
+    // No response status = not started = can start new
+    if (!survey.responseStatus) return true;
+
+    const status = survey.responseStatus;
+
+    // Draft: Always editable
+    if (status === "draft") return true;
+
+    // Completed: Can still edit before syncing
+    if (status === "completed") return true;
+
+    // Synced: Never editable (already sent)
+    if (status === "synced") return false;
+
+    // Rejected: Only if supervisor allows
+    if (status === "rejected") {
+      return survey.allowRejectedEdit === true;
+    }
+
+    return false;
+  };
+
   // 🔒 RULE 1 + RULE 2: Filter surveys - Only ACTIVE status, show all time windows
   const visibleSurveys = useMemo(() => {
     return surveys.filter((survey) => {
@@ -277,6 +381,7 @@ export default function BrigadistaSurveysScreen() {
     timeWindow: TimeWindowStatus,
   ) => {
     const windowConfig = TIME_WINDOW_CONFIG[timeWindow];
+    const isEditable = canEditResponse(survey);
 
     if (timeWindow === "upcoming") {
       // TODO: Show preview or notification
@@ -290,8 +395,30 @@ export default function BrigadistaSurveysScreen() {
       return;
     }
 
-    // Active survey - navigate to edit/fill
-    console.log("Start survey:", survey.id);
+    // RULE 3: Check if response can be edited
+    if (!isEditable) {
+      if (survey.responseStatus === "synced") {
+        console.log("Response already synced - read only:", survey.id);
+        // TODO: Navigate to read-only view
+        return;
+      }
+      if (survey.responseStatus === "rejected" && !survey.allowRejectedEdit) {
+        console.log(
+          "Response rejected - waiting for supervisor approval:",
+          survey.id,
+        );
+        // TODO: Show message about waiting for approval
+        return;
+      }
+    }
+
+    // Active survey with editable response - navigate to edit/fill
+    console.log(
+      "Start/Edit survey:",
+      survey.id,
+      "Status:",
+      survey.responseStatus || "new",
+    );
     // TODO: Navigate to survey filling screen
   };
 
@@ -629,6 +756,37 @@ export default function BrigadistaSurveysScreen() {
                                 </Text>
                               </View>
                             )}
+                            {/* RULE 3: Response Status Badge */}
+                            {survey.responseStatus && (
+                              <View
+                                style={[
+                                  styles.responseStatusBadge,
+                                  {
+                                    backgroundColor:
+                                      RESPONSE_STATUS_CONFIG[
+                                        survey.responseStatus
+                                      ].color,
+                                  },
+                                ]}
+                              >
+                                <Ionicons
+                                  name={
+                                    RESPONSE_STATUS_CONFIG[
+                                      survey.responseStatus
+                                    ].icon
+                                  }
+                                  size={14}
+                                  color="#FFFFFF"
+                                />
+                                <Text style={styles.responseStatusText}>
+                                  {
+                                    RESPONSE_STATUS_CONFIG[
+                                      survey.responseStatus
+                                    ].label
+                                  }
+                                </Text>
+                              </View>
+                            )}
                           </View>
 
                           {/* Encargado */}
@@ -723,39 +881,88 @@ export default function BrigadistaSurveysScreen() {
                             style={[
                               styles.actionButton,
                               {
-                                backgroundColor: isCompleted
-                                  ? colors.border
-                                  : colors.success,
+                                backgroundColor: (() => {
+                                  // RULE 3: Button color based on response status
+                                  if (survey.responseStatus === "synced")
+                                    return colors.info;
+                                  if (
+                                    survey.responseStatus === "rejected" &&
+                                    !survey.allowRejectedEdit
+                                  )
+                                    return colors.border;
+                                  if (
+                                    survey.responseStatus === "rejected" &&
+                                    survey.allowRejectedEdit
+                                  )
+                                    return colors.warning;
+                                  if (isCompleted) return colors.border;
+                                  return colors.success;
+                                })(),
                               },
                             ]}
                             onPress={() =>
                               handleStartSurvey(survey, timeWindow)
                             }
                             activeOpacity={0.8}
-                            disabled={isCompleted}
+                            disabled={
+                              isCompleted ||
+                              survey.responseStatus === "synced" ||
+                              (survey.responseStatus === "rejected" &&
+                                !survey.allowRejectedEdit)
+                            }
                           >
                             <Ionicons
-                              name={
-                                isCompleted ? "checkmark-circle" : "add-circle"
-                              }
+                              name={(() => {
+                                // RULE 3: Icon based on response status
+                                if (survey.responseStatus === "synced")
+                                  return "eye-outline";
+                                if (
+                                  survey.responseStatus === "rejected" &&
+                                  !survey.allowRejectedEdit
+                                )
+                                  return "lock-closed-outline";
+                                if (
+                                  survey.responseStatus === "rejected" &&
+                                  survey.allowRejectedEdit
+                                )
+                                  return "hammer-outline";
+                                if (survey.responseStatus === "draft")
+                                  return "create-outline";
+                                if (survey.responseStatus === "completed")
+                                  return "checkmark-circle-outline";
+                                if (isCompleted) return "checkmark-circle";
+                                return "add-circle";
+                              })()}
                               size={20}
-                              color={
-                                isCompleted ? colors.textSecondary : "#FFFFFF"
-                              }
+                              color="#FFFFFF"
                             />
                             <Text
                               style={[
                                 styles.actionButtonText,
-                                {
-                                  color: isCompleted
-                                    ? colors.textSecondary
-                                    : "#FFFFFF",
-                                },
+                                { color: "#FFFFFF" },
                               ]}
                             >
-                              {isCompleted
-                                ? "Meta Completada"
-                                : "Llenar Encuesta"}
+                              {(() => {
+                                // RULE 3: Button text based on response status
+                                if (survey.responseStatus === "synced")
+                                  return "Ver Respuesta";
+                                if (
+                                  survey.responseStatus === "rejected" &&
+                                  !survey.allowRejectedEdit
+                                )
+                                  return "Esperando Aprobación";
+                                if (
+                                  survey.responseStatus === "rejected" &&
+                                  survey.allowRejectedEdit
+                                )
+                                  return "Corregir Respuesta";
+                                if (survey.responseStatus === "draft")
+                                  return "Continuar Borrador";
+                                if (survey.responseStatus === "completed")
+                                  return "Editar Respuesta";
+                                if (isCompleted) return "Meta Completada";
+                                return "Llenar Encuesta";
+                              })()}
                             </Text>
                           </TouchableOpacity>
                         </View>
@@ -1289,6 +1496,19 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   deadlineText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#FFFFFF",
+  },
+  responseStatusBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 4,
+  },
+  responseStatusText: {
     fontSize: 12,
     fontWeight: "600",
     color: "#FFFFFF",

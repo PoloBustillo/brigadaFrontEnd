@@ -1,5 +1,15 @@
 # 🔒 Reglas de Acceso a Encuestas - Brigadista
 
+Este documento describe las reglas implementadas para el acceso y gestión de encuestas por parte de los brigadistas.
+
+## 📚 Índice de Reglas
+
+- **Regla 1**: Solo Encuestas Asignadas (Filtrado de visibilidad)
+- **Regla 2**: Ventana de Tiempo (Estados: Próximamente, Activa, Vencida)
+- **Regla 3**: [Estado de Respuesta](./RESPONSE_STATUS_RULES.md) (draft, completed, synced, rejected)
+
+---
+
 ## Regla 1: Solo Encuestas Asignadas
 
 Un brigadista **solo puede ver y responder** encuestas que cumplan **todas** estas condiciones:
