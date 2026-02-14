@@ -1,6 +1,7 @@
 # 📋 Guía: Prevenir que la Tab Bar tape contenido
 
 ## ✅ Ya implementado en:
+
 - `app/(admin)/index.tsx` ← Ejemplo de referencia
 
 ## 🎯 Hook disponible
@@ -14,11 +15,9 @@ import { useTabBarHeight } from "@/hooks/use-tab-bar-height";
 
 export default function TuPantalla() {
   const { contentPadding } = useTabBarHeight();
-  
+
   return (
-    <ScrollView 
-      contentContainerStyle={{ paddingBottom: contentPadding }}
-    >
+    <ScrollView contentContainerStyle={{ paddingBottom: contentPadding }}>
       {/* Tu contenido */}
     </ScrollView>
   );
@@ -28,6 +27,7 @@ export default function TuPantalla() {
 ## 📝 Pantallas que necesitan esta actualización:
 
 ### Admin:
+
 - [x] `app/(admin)/index.tsx` ✅ Ya configurado
 - [ ] `app/(admin)/surveys/index.tsx`
 - [ ] `app/(admin)/users/index.tsx`
@@ -35,12 +35,14 @@ export default function TuPantalla() {
 - [ ] `app/(admin)/profile.tsx`
 
 ### Brigadista:
+
 - [ ] `app/(brigadista)/index.tsx`
 - [ ] `app/(brigadista)/my-surveys.tsx`
 - [ ] `app/(brigadista)/responses/index.tsx`
 - [ ] `app/(brigadista)/profile.tsx`
 
 ### Encargado:
+
 - [ ] `app/(encargado)/index.tsx`
 - [ ] `app/(encargado)/surveys/index.tsx`
 - [ ] `app/(encargado)/team.tsx`
@@ -50,11 +52,13 @@ export default function TuPantalla() {
 ## 🔧 Pasos para aplicar:
 
 ### 1. Importar el hook
+
 ```tsx
 import { useTabBarHeight } from "@/hooks/use-tab-bar-height";
 ```
 
 ### 2. Usar el hook en tu componente
+
 ```tsx
 const { contentPadding } = useTabBarHeight();
 ```
@@ -62,26 +66,31 @@ const { contentPadding } = useTabBarHeight();
 ### 3. Aplicar al ScrollView principal
 
 **Si ya tienes `contentContainerStyle`:**
+
 ```tsx
-<ScrollView 
+<ScrollView
   contentContainerStyle={[styles.content, { paddingBottom: contentPadding }]}
 >
 ```
 
 **Si no tienes estilos:**
+
 ```tsx
-<ScrollView 
+<ScrollView
   contentContainerStyle={{ paddingBottom: contentPadding }}
 >
 ```
 
 **Si usas `View` en lugar de `ScrollView`:**
+
 ```tsx
 <View style={[styles.container, { paddingBottom: contentPadding }]}>
 ```
 
 ### 4. Remover paddingBottom hardcodeado
+
 Si tu estilo tenía `paddingBottom: 100` o similar, puedes removerlo:
+
 ```tsx
 // Antes:
 content: {
@@ -98,6 +107,7 @@ content: {
 ## 🎨 Tab Bar mejorada
 
 La tab bar ahora es:
+
 - ✅ Más translúcida
 - ✅ Ocupa menos espacio vertical
 - ✅ Iconos perfectamente centrados
@@ -107,10 +117,10 @@ La tab bar ahora es:
 ## 📊 Hook: Valores disponibles
 
 ```tsx
-const { 
-  tabBarHeight,    // Altura total de la tab bar
-  contentPadding,  // Padding recomendado (con margen extra)
-  bottomInset      // Safe area bottom del dispositivo
+const {
+  tabBarHeight, // Altura total de la tab bar
+  contentPadding, // Padding recomendado (con margen extra)
+  bottomInset, // Safe area bottom del dispositivo
 } = useTabBarHeight();
 ```
 

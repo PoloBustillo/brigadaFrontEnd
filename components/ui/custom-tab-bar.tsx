@@ -82,7 +82,12 @@ function TabButton({
           />
         )}
 
-        <View style={[styles.contentWrapper, !isFocused && styles.contentWrapperCentered]}>
+        <View
+          style={[
+            styles.contentWrapper,
+            !isFocused && styles.contentWrapperCentered,
+          ]}
+        >
           {/* Icon */}
           <View style={styles.iconContainer}>
             {options.tabBarIcon?.({
@@ -130,7 +135,10 @@ export function CustomTabBar({
         {
           paddingBottom: Math.max(insets.bottom, 4),
           borderTopColor: colors.border + "30",
-          backgroundColor: theme === "dark" ? "rgba(0, 0, 0, 0.3)" : "rgba(255, 255, 255, 0.4)",
+          backgroundColor:
+            theme === "dark"
+              ? "rgba(0, 0, 0, 0.3)"
+              : "rgba(255, 255, 255, 0.4)",
         },
       ]}
     >

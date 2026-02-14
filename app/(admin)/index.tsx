@@ -289,7 +289,10 @@ export default function AdminDashboard() {
       <AppHeader title="Dashboard" />
 
       <ScrollView
-        contentContainerStyle={[styles.content, { paddingBottom: contentPadding }]}
+        contentContainerStyle={[
+          styles.content,
+          { paddingBottom: contentPadding },
+        ]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
