@@ -376,51 +376,14 @@ export default function LoginScreen() {
     try {
       // Wrap login logic in retry function
       await retryWithBackoff(async () => {
-        // 2. Check whitelist (Rule 5)
-        const isWhitelisted = await checkWhitelist(email);
-        if (!isWhitelisted) {
-          throw new Error(
-            "Email no autorizado. Debes estar en la whitelist para acceder.",
-          );
-        }
-
-        // 3. Authenticate user
-        const authResult = await authenticateUser(email, password);
-
-        if (!authResult.success || !authResult.user) {
-          throw new Error("Usuario o contraseña incorrectos");
-        }
-
-        const user = authResult.user;
-
-        // 4. Check user state (Rules 1-4)
-        handleUserState(user.state, user.email);
-
-        // If state is not ACTIVE, handleUserState will redirect
-        if (user.state !== "ACTIVE") {
-          return;
-        }
-
-        // 5. Generate offline token (Rule 22)
-        const token = await generateOfflineToken(user.id);
+        // Call real backend authentication
+        const loggedUser = await login(email, password);
 
         // Haptic feedback for success
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-        // 6. Store session in AuthContext (saves to AsyncStorage)
-        const userForContext = {
-          id: user.id,
-          email: user.email,
-          name: user.email.split("@")[0], // Temporary name from email
-          role: user.role,
-          state: user.state,
-          created_at: Date.now(),
-          updated_at: Date.now(),
-        };
-        await login(userForContext, token);
-
-        // 7. Navigate based on role
-        navigateByRole(user.role);
+        // Navigate based on role
+        navigateByRole(loggedUser.role);
       }, 3); // 3 retry attempts
     } catch (error) {
       let message = "Error al iniciar sesión";

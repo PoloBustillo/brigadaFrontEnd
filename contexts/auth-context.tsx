@@ -17,7 +17,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   pendingEmail: string | null;
   setPendingEmail: (email: string | null) => void;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<User>;
   logout: () => Promise<void>;
   updateUser: (user: User) => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -117,7 +117,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     loadSession();
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string): Promise<User> => {
     try {
       console.log("🔐 Attempting login for:", email);
 
@@ -139,6 +139,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setToken(token);
 
       console.log("✅ Login successful:", user.email, "Role:", user.role);
+      return user;
     } catch (error: any) {
       console.error("❌ Login error:", error);
       await clearSession();

@@ -22,10 +22,14 @@ export async function login(
   password: string,
 ): Promise<{ user: User; token: string }> {
   try {
-    const response = await api.post<LoginResponse>("/auth/login", {
-      email,
-      password,
-    } as LoginRequest);
+    // Backend uses OAuth2PasswordRequestForm: must send form-urlencoded with 'username' field
+    const formData = new URLSearchParams();
+    formData.append("username", email);
+    formData.append("password", password);
+
+    const response = await api.post<LoginResponse>("/auth/login", formData.toString(), {
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    });
 
     const { access_token } = response.data;
 
@@ -46,7 +50,7 @@ export async function login(
       name: userProfile.full_name,
       phone: userProfile.phone,
       avatar_url: userProfile.avatar_url,
-      role: userProfile.role,
+      role: (userProfile.role as string).toUpperCase() as User["role"],
       state: userProfile.is_active ? "ACTIVE" : "DISABLED",
       created_at: new Date(userProfile.created_at).getTime(),
       updated_at: userProfile.updated_at
@@ -87,7 +91,7 @@ export async function getCurrentUser(): Promise<User> {
       name: userProfile.full_name,
       phone: userProfile.phone,
       avatar_url: userProfile.avatar_url,
-      role: userProfile.role,
+      role: (userProfile.role as string).toUpperCase() as User["role"],
       state: userProfile.is_active ? "ACTIVE" : "DISABLED",
       created_at: new Date(userProfile.created_at).getTime(),
       updated_at: userProfile.updated_at
@@ -118,7 +122,7 @@ export async function updateProfile(
       name: userProfile.full_name,
       phone: userProfile.phone,
       avatar_url: userProfile.avatar_url,
-      role: userProfile.role,
+      role: (userProfile.role as string).toUpperCase() as User["role"],
       state: userProfile.is_active ? "ACTIVE" : "DISABLED",
       created_at: new Date(userProfile.created_at).getTime(),
       updated_at: userProfile.updated_at
