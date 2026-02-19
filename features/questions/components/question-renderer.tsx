@@ -1,12 +1,18 @@
-import React from "react";
+import { useThemeColors } from "@/contexts/theme-context";
+import { Ionicons } from "@expo/vector-icons";
 import { StyleSheet, Text, View } from "react-native";
-import { Question, QuestionAnswer } from "../types/question-base.types";
+import type { Question, QuestionAnswer } from "../types/question-base.types";
 import { QuestionType } from "../types/question-types.enum";
-
-// Importar componentes de preguntas (crearemos estos después)
-// import { TextQuestion } from "./text-question";
-// import { TextAreaQuestion } from "./textarea-question";
-// ... etc
+import { DateQuestion } from "./date-question";
+import { LocationQuestion } from "./location-question";
+import { MultiSelectQuestion } from "./multi-select-question";
+import { NumberQuestion } from "./number-question";
+import { PhotoQuestion } from "./photo-question";
+import { RatingQuestion, ScaleQuestion } from "./rating-question";
+import { SelectQuestion, YesNoQuestion } from "./select-question";
+import { SignatureQuestion } from "./signature-question";
+import { SliderQuestion } from "./slider-question";
+import { TextQuestion } from "./text-question";
 
 interface QuestionRendererProps {
   question: Question;
@@ -17,8 +23,8 @@ interface QuestionRendererProps {
 }
 
 /**
- * Renderizador principal de preguntas dinámicas
- * Factory pattern que selecciona el componente correcto según el tipo
+ * Renderizador principal de preguntas dinámicas.
+ * Factory pattern — selecciona el componente correcto según question.type.
  */
 export function QuestionRenderer({
   question,
@@ -27,130 +33,179 @@ export function QuestionRenderer({
   error,
   disabled = false,
 }: QuestionRendererProps) {
-  // TODO: Usar este handler cuando se implementen los componentes de preguntas
-  // const handleChange = (newValue: any) => {
-  //   onChange({
-  //     questionId: question.id,
-  //     value: newValue,
-  //     answeredAt: Date.now(),
-  //   });
-  // };
+  const colors = useThemeColors();
 
-  // Renderizar componente según tipo
   const renderQuestion = () => {
     switch (question.type) {
+      // ── Text / Email / Phone ──────────────────────────────────────────────
       case QuestionType.TEXT:
-        return (
-          <View>
-            <Text>TODO: TextQuestion component</Text>
-            <Text style={styles.placeholder}>Type: {question.type}</Text>
-          </View>
-        );
-      // return (
-      //   <TextQuestion
-      //     question={question}
-      //     value={value}
-      //     onChange={handleChange}
-      //     disabled={disabled}
-      //   />
-      // );
-
       case QuestionType.TEXTAREA:
+      case QuestionType.EMAIL:
+      case QuestionType.PHONE:
         return (
-          <View>
-            <Text>TODO: TextAreaQuestion component</Text>
-            <Text style={styles.placeholder}>Type: {question.type}</Text>
-          </View>
+          <TextQuestion
+            question={question as any}
+            value={value}
+            onChange={onChange}
+            disabled={disabled}
+          />
         );
 
+      // ── Number ────────────────────────────────────────────────────────────
       case QuestionType.NUMBER:
         return (
-          <View>
-            <Text>TODO: NumberQuestion component</Text>
-            <Text style={styles.placeholder}>Type: {question.type}</Text>
-          </View>
+          <NumberQuestion
+            question={question as any}
+            value={value}
+            onChange={onChange}
+            disabled={disabled}
+          />
         );
 
+      // ── Single select / Radio ─────────────────────────────────────────────
+      case QuestionType.SINGLE_CHOICE:
       case QuestionType.SELECT:
       case QuestionType.RADIO:
         return (
-          <View>
-            <Text>TODO: SelectQuestion component</Text>
-            <Text style={styles.placeholder}>Type: {question.type}</Text>
-          </View>
+          <SelectQuestion
+            question={question as any}
+            value={value}
+            onChange={onChange}
+            disabled={disabled}
+          />
         );
 
+      // ── Multi-select / Checkbox ────────────────────────────────────────────
+      case QuestionType.MULTIPLE_CHOICE:
       case QuestionType.MULTI_SELECT:
       case QuestionType.CHECKBOX:
         return (
-          <View>
-            <Text>TODO: MultiSelectQuestion component</Text>
-            <Text style={styles.placeholder}>Type: {question.type}</Text>
-          </View>
+          <MultiSelectQuestion
+            question={question as any}
+            value={value}
+            onChange={onChange}
+            disabled={disabled}
+          />
         );
 
+      // ── Yes / No ──────────────────────────────────────────────────────────
+      case QuestionType.YES_NO:
+        return (
+          <YesNoQuestion
+            questionId={question.id}
+            value={value}
+            onChange={onChange}
+            disabled={disabled}
+          />
+        );
+
+      // ── Date / Time / DateTime ─────────────────────────────────────────────
       case QuestionType.DATE:
       case QuestionType.TIME:
       case QuestionType.DATETIME:
         return (
-          <View>
-            <Text>TODO: DateTimeQuestion component</Text>
-            <Text style={styles.placeholder}>Type: {question.type}</Text>
-          </View>
+          <DateQuestion
+            question={question as any}
+            value={value}
+            onChange={onChange}
+            disabled={disabled}
+          />
         );
 
+      // ── Rating ────────────────────────────────────────────────────────────
       case QuestionType.RATING:
         return (
-          <View>
-            <Text>TODO: RatingQuestion component</Text>
-            <Text style={styles.placeholder}>Type: {question.type}</Text>
-          </View>
+          <RatingQuestion
+            question={question as any}
+            value={value}
+            onChange={onChange}
+            disabled={disabled}
+          />
         );
 
+      // ── Scale (numeric labeled scale) ─────────────────────────────────────
+      case QuestionType.SCALE:
+        return (
+          <ScaleQuestion
+            question={question as any}
+            value={value}
+            onChange={onChange}
+            disabled={disabled}
+          />
+        );
+
+      // ── Slider ────────────────────────────────────────────────────────────
       case QuestionType.SLIDER:
         return (
-          <View>
-            <Text>TODO: SliderQuestion component</Text>
-            <Text style={styles.placeholder}>Type: {question.type}</Text>
-          </View>
+          <SliderQuestion
+            question={question as any}
+            value={value}
+            onChange={onChange}
+            disabled={disabled}
+          />
         );
 
+      // ── Location ──────────────────────────────────────────────────────────
       case QuestionType.LOCATION:
         return (
-          <View>
-            <Text>TODO: LocationQuestion component</Text>
-            <Text style={styles.placeholder}>Type: {question.type}</Text>
-          </View>
+          <LocationQuestion
+            question={question as any}
+            value={value}
+            onChange={onChange}
+            disabled={disabled}
+          />
         );
 
+      // ── Photo ─────────────────────────────────────────────────────────────
       case QuestionType.PHOTO:
         return (
-          <View>
-            <Text>TODO: PhotoQuestion component</Text>
-            <Text style={styles.placeholder}>Type: {question.type}</Text>
-          </View>
+          <PhotoQuestion
+            question={question as any}
+            value={value}
+            onChange={onChange}
+            disabled={disabled}
+          />
         );
 
+      // ── Signature ─────────────────────────────────────────────────────────
       case QuestionType.SIGNATURE:
         return (
-          <View>
-            <Text>TODO: SignatureQuestion component</Text>
-            <Text style={styles.placeholder}>Type: {question.type}</Text>
+          <SignatureQuestion
+            question={question as any}
+            value={value}
+            onChange={onChange}
+            disabled={disabled}
+          />
+        );
+
+      // ── INE OCR (not supported — requires native OCR module) ─────────────
+      case QuestionType.INE_OCR:
+        return (
+          <View style={[styles.unsupported, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Ionicons name="card-outline" size={20} color={colors.textSecondary} />
+            <Text style={[styles.unsupportedText, { color: colors.textSecondary }]}>
+              La verificación de INE no está disponible en esta versión.
+            </Text>
           </View>
         );
 
+      // ── File (not supported — no document-picker package) ─────────────────
       case QuestionType.FILE:
         return (
-          <View>
-            <Text>TODO: FileQuestion component</Text>
-            <Text style={styles.placeholder}>Type: {question.type}</Text>
+          <View style={[styles.unsupported, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Ionicons name="document-outline" size={20} color={colors.textSecondary} />
+            <Text style={[styles.unsupportedText, { color: colors.textSecondary }]}>
+              La carga de archivos no está disponible en esta versión.
+            </Text>
           </View>
         );
 
       default:
         return (
-          <View>
-            <Text style={styles.error}>Tipo de pregunta no soportado</Text>
+          <View style={[styles.unsupported, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Text style={[styles.unsupportedText, { color: colors.error }]}>
+              Tipo de pregunta no soportado: {(question as any).type}
+            </Text>
           </View>
         );
     }
@@ -158,22 +213,29 @@ export function QuestionRenderer({
 
   return (
     <View style={styles.container}>
-      {/* Label de la pregunta */}
+      {/* Label */}
       <View style={styles.header}>
-        <Text style={styles.label}>
+        <Text style={[styles.label, { color: colors.text }]}>
           {question.label}
           {question.required && <Text style={styles.required}> *</Text>}
         </Text>
         {question.description && (
-          <Text style={styles.description}>{question.description}</Text>
+          <Text style={[styles.description, { color: colors.textSecondary }]}>
+            {question.description}
+          </Text>
         )}
       </View>
 
-      {/* Componente de pregunta */}
+      {/* Question component */}
       <View style={styles.questionContent}>{renderQuestion()}</View>
 
-      {/* Error de validación */}
-      {error && <Text style={styles.errorText}>{error}</Text>}
+      {/* Validation error */}
+      {error && (
+        <View style={styles.errorRow}>
+          <Ionicons name="alert-circle" size={14} color={colors.error} />
+          <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -183,38 +245,42 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   header: {
-    marginBottom: 12,
+    marginBottom: 10,
   },
   label: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "600",
-    color: "#1f2937",
-    marginBottom: 4,
+    marginBottom: 3,
   },
   required: {
     color: "#ef4444",
   },
   description: {
-    fontSize: 14,
-    color: "#6b7280",
-    marginTop: 4,
+    fontSize: 13,
+    marginTop: 2,
+    lineHeight: 18,
   },
-  questionContent: {
-    // Espacio para el componente de pregunta
+  questionContent: {},
+  errorRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    marginTop: 6,
   },
   errorText: {
-    fontSize: 14,
-    color: "#ef4444",
-    marginTop: 8,
+    fontSize: 13,
   },
-  placeholder: {
-    fontSize: 14,
-    color: "#9ca3af",
+  unsupported: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 14,
+    gap: 10,
+  },
+  unsupportedText: {
+    flex: 1,
+    fontSize: 13,
     fontStyle: "italic",
-  },
-  error: {
-    fontSize: 14,
-    color: "#ef4444",
-    fontWeight: "600",
   },
 });

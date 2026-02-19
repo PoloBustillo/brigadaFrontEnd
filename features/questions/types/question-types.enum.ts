@@ -1,26 +1,37 @@
 /**
  * Enum de tipos de preguntas soportadas en el sistema de encuestas dinámicas
- * Estos tipos se usan en el JSON schema de las encuestas
+ * Valores sincronizados con el backend/CMS (backend QuestionType enum)
  */
 export enum QuestionType {
+  // Text inputs
   TEXT = "text",
   TEXTAREA = "textarea",
+  EMAIL = "email",
+  PHONE = "phone",
+  // Numeric
   NUMBER = "number",
+  SLIDER = "slider",
+  SCALE = "scale",
+  RATING = "rating",
+  // Choice
+  SINGLE_CHOICE = "single_choice",
+  MULTIPLE_CHOICE = "multiple_choice",
+  YES_NO = "yes_no",
+  // Legacy aliases kept for backwards compat
   SELECT = "select",
-  MULTI_SELECT = "multi_select",
   RADIO = "radio",
+  MULTI_SELECT = "multi_select",
   CHECKBOX = "checkbox",
+  // Date/Time
   DATE = "date",
   TIME = "time",
   DATETIME = "datetime",
-  RATING = "rating",
-  SLIDER = "slider",
-  LOCATION = "location",
+  // Media & special
   PHOTO = "photo",
-  SIGNATURE = "signature",
   FILE = "file",
-  YES_NO = "yes_no",
-  SCALE = "scale",
+  SIGNATURE = "signature",
+  LOCATION = "location",
+  INE_OCR = "ine_ocr",
 }
 
 /**

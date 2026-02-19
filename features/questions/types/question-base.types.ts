@@ -72,19 +72,19 @@ export interface NumberQuestion extends QuestionBase {
 }
 
 /**
- * Pregunta de selección única
+ * Pregunta de selección única (backend: single_choice)
  */
 export interface SelectQuestion extends QuestionBase {
-  type: QuestionType.SELECT | QuestionType.RADIO;
+  type: QuestionType.SINGLE_CHOICE | QuestionType.SELECT | QuestionType.RADIO;
   options: QuestionOption[];
   allowOther?: boolean;
 }
 
 /**
- * Pregunta de selección múltiple
+ * Pregunta de selección múltiple (backend: multiple_choice)
  */
 export interface MultiSelectQuestion extends QuestionBase {
-  type: QuestionType.MULTI_SELECT | QuestionType.CHECKBOX;
+  type: QuestionType.MULTIPLE_CHOICE | QuestionType.MULTI_SELECT | QuestionType.CHECKBOX;
   options: QuestionOption[];
   minSelections?: number;
   maxSelections?: number;
@@ -148,6 +148,22 @@ export interface SignatureQuestion extends QuestionBase {
 }
 
 /**
+ * Pregunta de correo electrónico
+ */
+export interface EmailQuestion extends QuestionBase {
+  type: QuestionType.EMAIL;
+  maxLength?: number;
+}
+
+/**
+ * Pregunta de teléfono
+ */
+export interface PhoneQuestion extends QuestionBase {
+  type: QuestionType.PHONE;
+  maxLength?: number;
+}
+
+/**
  * Pregunta de archivo
  */
 export interface FileQuestion extends QuestionBase {
@@ -157,11 +173,20 @@ export interface FileQuestion extends QuestionBase {
 }
 
 /**
+ * Pregunta de captura INE (OCR)
+ */
+export interface IneOcrQuestion extends QuestionBase {
+  type: QuestionType.INE_OCR;
+}
+
+/**
  * Unión de todos los tipos de preguntas
  */
 export type Question =
   | TextQuestion
   | TextAreaQuestion
+  | EmailQuestion
+  | PhoneQuestion
   | NumberQuestion
   | SelectQuestion
   | MultiSelectQuestion
@@ -171,7 +196,8 @@ export type Question =
   | LocationQuestion
   | PhotoQuestion
   | SignatureQuestion
-  | FileQuestion;
+  | FileQuestion
+  | IneOcrQuestion;
 
 /**
  * Respuesta a una pregunta
