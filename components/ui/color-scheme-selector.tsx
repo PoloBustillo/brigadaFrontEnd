@@ -18,16 +18,12 @@ export function ColorSchemeSelector() {
   const { colorScheme, availableSchemes, setColorScheme } = useTheme();
   const colors = useThemeColors();
 
-  // Debug: Log available schemes count
-  console.log("📊 Available schemes:", availableSchemes.length);
-  console.log("📋 Schemes:", availableSchemes.map((s) => s.name).join(", "));
-
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <Ionicons name="color-palette" size={24} color={colors.text} />
         <Text style={[styles.title, { color: colors.text }]}>
-          Esquema de Colores ({availableSchemes.length} opciones)
+          Esquema de Colores
         </Text>
       </View>
 
@@ -54,27 +50,43 @@ export function ColorSchemeSelector() {
                 {
                   borderColor: isSelected ? colors.primary : colors.border,
                   backgroundColor: isSelected
-                    ? colors.primaryLight
+                    ? colors.overlay
                     : colors.surface,
                   borderWidth: isSelected ? 2 : 1,
                 },
               ]}
               onPress={() => setColorScheme(scheme.id)}
             >
-              {/* Color preview */}
+              {/* Color preview — 2×2 grid: light bg, light primary, dark bg, dark primary */}
               <View style={styles.colorPreview}>
-                <View
-                  style={[
-                    styles.colorBlock,
-                    { backgroundColor: scheme.light.primary },
-                  ]}
-                />
-                <View
-                  style={[
-                    styles.colorBlock,
-                    { backgroundColor: scheme.dark.background },
-                  ]}
-                />
+                <View style={styles.colorPreviewRow}>
+                  <View
+                    style={[
+                      styles.colorBlock,
+                      { backgroundColor: scheme.light.background },
+                    ]}
+                  />
+                  <View
+                    style={[
+                      styles.colorBlock,
+                      { backgroundColor: scheme.light.primary },
+                    ]}
+                  />
+                </View>
+                <View style={styles.colorPreviewRow}>
+                  <View
+                    style={[
+                      styles.colorBlock,
+                      { backgroundColor: scheme.dark.background },
+                    ]}
+                  />
+                  <View
+                    style={[
+                      styles.colorBlock,
+                      { backgroundColor: scheme.dark.primary },
+                    ]}
+                  />
+                </View>
               </View>
 
               {/* Scheme name */}
@@ -151,11 +163,15 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   colorPreview: {
-    flexDirection: "row",
+    flexDirection: "column",
     height: 40,
     borderRadius: 8,
     overflow: "hidden",
     marginBottom: 8,
+  },
+  colorPreviewRow: {
+    flexDirection: "row",
+    flex: 1,
   },
   colorBlock: {
     flex: 1,

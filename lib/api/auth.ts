@@ -140,6 +140,46 @@ export async function updateProfile(
 }
 
 /**
+ * Upload profile avatar to backend (server handles Cloudinary upload)
+ * POST /users/me/avatar
+ */
+export async function uploadAvatar(imageUri: string): Promise<User> {
+  try {
+    const filename = imageUri.split("/").pop() || "avatar.jpg";
+    const ext = (filename.split(".").pop() || "jpg").toLowerCase();
+    const type =
+      ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg";
+
+    const formData = new FormData();
+    formData.append("file", { uri: imageUri, name: filename, type } as any);
+
+    const response = await api.post<UserResponse>("/users/me/avatar", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+
+    const userProfile = response.data;
+    const user: User = {
+      id: userProfile.id,
+      email: userProfile.email,
+      name: userProfile.full_name,
+      phone: userProfile.phone,
+      avatar_url: userProfile.avatar_url,
+      role: (userProfile.role as string).toUpperCase() as User["role"],
+      state: userProfile.is_active ? "ACTIVE" : "DISABLED",
+      created_at: new Date(userProfile.created_at).getTime(),
+      updated_at: userProfile.updated_at
+        ? new Date(userProfile.updated_at).getTime()
+        : Date.now(),
+    };
+    return user;
+  } catch (error: any) {
+    const detail = error.response?.data?.detail;
+    if (typeof detail === "string") throw new Error(detail);
+    throw new Error("No se pudo subir la foto de perfil");
+  }
+}
+
+/**
  * Create new user (Admin only)
  */
 export async function createUser(

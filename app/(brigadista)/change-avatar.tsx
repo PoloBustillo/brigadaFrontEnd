@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/auth-context";
 import { useThemeColors } from "@/contexts/theme-context";
 import { useTabBarHeight } from "@/hooks/use-tab-bar-height";
+import { updateProfile, uploadAvatar } from "@/lib/api/auth";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
@@ -94,43 +95,7 @@ export default function ChangeAvatarScreen() {
     }
   };
 
-  // Upload image to Cloudinary
-  const uploadToCloudinary = async (uri: string): Promise<string> => {
-    const formData = new FormData();
-
-    // Get file extension
-    const filename = uri.split("/").pop() || "photo.jpg";
-    const match = /\.(\w+)$/.exec(filename);
-    const type = match ? `image/${match[1]}` : "image/jpeg";
-
-    formData.append("file", {
-      uri,
-      name: filename,
-      type,
-    } as any);
-
-    formData.append("upload_preset", "brigada_avatars"); // Configure in Cloudinary
-    formData.append("folder", "brigada/avatars");
-
-    const cloudName =
-      process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME || "your-cloud-name";
-    const response = await fetch(
-      `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
-      {
-        method: "POST",
-        body: formData,
-      },
-    );
-
-    if (!response.ok) {
-      throw new Error("Failed to upload image");
-    }
-
-    const data = await response.json();
-    return data.secure_url;
-  };
-
-  // Save avatar
+  // Save avatar — uploads via backend which handles Cloudinary
   const handleSave = async () => {
     if (!selectedImage) {
       Alert.alert("Error", "Por favor selecciona una imagen");
@@ -140,36 +105,15 @@ export default function ChangeAvatarScreen() {
     setUploading(true);
 
     try {
-      // Upload to Cloudinary
-      const avatarUrl = await uploadToCloudinary(selectedImage);
-
-      // TODO: Update user profile with avatar URL
-      // const response = await fetch(`${API_URL}/users/${user?.id}`, {
-      //   method: 'PATCH',
-      //   headers: {
-      //     'Content-Type': 'application/json',
-      //     'Authorization': `Bearer ${token}`
-      //   },
-      //   body: JSON.stringify({ avatar_url: avatarUrl })
-      // });
-
-      // Temporary: Update local state
-      if (user) {
-        await updateUser({
-          ...user,
-          // avatar_url: avatarUrl, // Add this field to User type
-        });
-      }
+      const updatedUser = await uploadAvatar(selectedImage);
+      await updateUser(updatedUser);
 
       Alert.alert("Éxito", "Foto de perfil actualizada correctamente", [
-        {
-          text: "OK",
-          onPress: () => router.back(),
-        },
+        { text: "OK", onPress: () => router.back() },
       ]);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error uploading avatar:", error);
-      Alert.alert("Error", "No se pudo subir la imagen");
+      Alert.alert("Error", error.message || "No se pudo subir la imagen");
     } finally {
       setUploading(false);
     }
@@ -186,13 +130,12 @@ export default function ChangeAvatarScreen() {
           text: "Eliminar",
           style: "destructive",
           onPress: async () => {
-            setSelectedImage(null);
-            // TODO: Update user profile to remove avatar
-            if (user) {
-              await updateUser({
-                ...user,
-                // avatar_url: null,
-              });
+            try {
+              const updatedUser = await updateProfile({ avatar_url: null });
+              await updateUser(updatedUser);
+              setSelectedImage(null);
+            } catch (error: any) {
+              Alert.alert("Error", error.message || "No se pudo eliminar la foto");
             }
           },
         },
@@ -200,7 +143,7 @@ export default function ChangeAvatarScreen() {
     );
   };
 
-  const currentAvatar = selectedImage || null; // user?.avatar_url
+  const currentAvatar = selectedImage || user?.avatar_url || null;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>

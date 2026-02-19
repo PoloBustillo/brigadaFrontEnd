@@ -68,7 +68,7 @@ export default function ThemeSettingsScreen() {
                     {
                       borderColor: isSelected ? colors.primary : colors.border,
                       backgroundColor: isSelected
-                        ? colors.primaryLight
+                        ? colors.overlay
                         : colors.surface,
                       borderWidth: isSelected ? 2 : 1,
                     },
