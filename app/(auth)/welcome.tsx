@@ -18,7 +18,7 @@ import Animated, {
 } from "react-native-reanimated";
 
 import { typography } from "@/constants/typography";
-import { useThemeColors } from "@/contexts/theme-context";
+import { useTheme, useThemeColors } from "@/contexts/theme-context";
 
 // Background decorative elements - Distribuidos estratégicamente con mayor presencia
 const DECORATIVE_ELEMENTS = [
@@ -217,6 +217,7 @@ function FeatureItem({ icon, text, iconColor, textColor }: FeatureItemProps) {
 export default function WelcomeScreen() {
   const router = useRouter();
   const colors = useThemeColors();
+  const { theme } = useTheme();
   const [buttonPressed, setButtonPressed] = useState(false);
 
   const buttonScale = useSharedValue(1);
@@ -330,25 +331,25 @@ export default function WelcomeScreen() {
               <FeatureItem
                 icon="clipboard-outline"
                 text="Digitaliza encuestas"
-                iconColor="#ffffff"
+                iconColor={theme === "dark" ? "#ffffff" : colors.primary}
                 textColor={colors.background}
               />
               <FeatureItem
                 icon="checkmark-circle-outline"
                 text="Valida información"
-                iconColor="#ffffff"
+                iconColor={theme === "dark" ? "#ffffff" : colors.primary}
                 textColor={colors.background}
               />
               <FeatureItem
                 icon="sync-outline"
                 text="Sincroniza en tiempo real"
-                iconColor="#ffffff"
+                iconColor={theme === "dark" ? "#ffffff" : colors.primary}
                 textColor={colors.background}
               />
               <FeatureItem
                 icon="cloud-offline-outline"
                 text="Funciona sin internet"
-                iconColor="#ffffff"
+                iconColor={theme === "dark" ? "#ffffff" : colors.primary}
                 textColor={colors.background}
               />
             </View>
