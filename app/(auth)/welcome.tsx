@@ -269,9 +269,7 @@ export default function WelcomeScreen() {
   // Crear gradiente dinámico desde el color primario
   const gradientColors = [colors.primary, colors.primaryDark, colors.primary];
 
-  // Los iconos decorativos siempre van sobre el gradiente (colorido en ambos temas)
-  // → siempre blanco con opacidad, nunca colors.background (negro en dark mode)
-  const decorativeColor = "rgba(255,255,255,0.55)";
+  const decorativeColor = `${colors.background}99`; // background con 60% opacity
 
   return (
     <View style={styles.container}>
@@ -306,7 +304,7 @@ export default function WelcomeScreen() {
               <View
                 style={[
                   styles.logoBadge,
-                  { backgroundColor: "#ffffff" },
+                  { backgroundColor: colors.background },
                 ]}
               >
                 <Ionicons
@@ -315,11 +313,11 @@ export default function WelcomeScreen() {
                   color={colors.primary}
                 />
               </View>
-              <Text style={[styles.brandName, { color: "#ffffff" }]}>
+              <Text style={[styles.brandName, { color: colors.background }]}>
                 Brigada
               </Text>
               <Text
-                style={[styles.brandSubtitle, { color: "#ffffff" }]}
+                style={[styles.brandSubtitle, { color: colors.background }]}
               >
                 Digital
               </Text>
@@ -333,25 +331,25 @@ export default function WelcomeScreen() {
                 icon="clipboard-outline"
                 text="Digitaliza encuestas"
                 iconColor="#ffffff"
-                textColor="#ffffff"
+                textColor={colors.background}
               />
               <FeatureItem
                 icon="checkmark-circle-outline"
                 text="Valida información"
                 iconColor="#ffffff"
-                textColor="#ffffff"
+                textColor={colors.background}
               />
               <FeatureItem
                 icon="sync-outline"
                 text="Sincroniza en tiempo real"
                 iconColor="#ffffff"
-                textColor="#ffffff"
+                textColor={colors.background}
               />
               <FeatureItem
                 icon="cloud-offline-outline"
                 text="Funciona sin internet"
                 iconColor="#ffffff"
-                textColor="#ffffff"
+                textColor={colors.background}
               />
             </View>
 
@@ -367,7 +365,7 @@ export default function WelcomeScreen() {
               <View
                 style={[
                   styles.ctaButton,
-                  { backgroundColor: "#ffffff" },
+                  { backgroundColor: colors.background },
                 ]}
               >
                 <Text style={[styles.ctaButtonText, { color: colors.primary }]}>
@@ -385,7 +383,7 @@ export default function WelcomeScreen() {
             <TouchableOpacity
               style={[
                 styles.activationButton,
-                { borderColor: "rgba(255,255,255,0.4)" },
+                { borderColor: `${colors.background}66` },
               ]}
               onPress={handleActivation}
               activeOpacity={0.8}
@@ -393,12 +391,12 @@ export default function WelcomeScreen() {
               <Ionicons
                 name="key-outline"
                 size={20}
-                color="#ffffff"
+                color={colors.background}
               />
               <Text
                 style={[
                   styles.activationButtonText,
-                  { color: "#ffffff" },
+                  { color: colors.background },
                 ]}
               >
                 Tengo un código de activación
