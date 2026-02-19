@@ -20,6 +20,7 @@ import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   RefreshControl,
   ScrollView,
@@ -206,13 +207,19 @@ export default function BrigadistaHome() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
   const [assignments, setAssignments] = useState<AssignedSurveyResponse[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(false);
 
   const fetchAssignments = async () => {
+    setFetchError(false);
     try {
       const data = await getAssignedSurveys("active");
       setAssignments(data);
     } catch (err) {
       console.error("Error fetching assignments:", err);
+      setFetchError(true);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -334,6 +341,33 @@ export default function BrigadistaHome() {
         />
       }
     >
+      {/* Loading overlay */}
+      {isLoading && (
+        <View style={styles.loadingOverlay}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
+            Cargando encuestas...
+          </Text>
+        </View>
+      )}
+
+      {/* Network error banner */}
+      {!isLoading && fetchError && (
+        <TouchableOpacity
+          style={[
+            styles.errorBanner,
+            { backgroundColor: colors.error + "15", borderColor: colors.error },
+          ]}
+          onPress={() => { setIsLoading(true); fetchAssignments(); }}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="cloud-offline-outline" size={20} color={colors.error} />
+          <Text style={[styles.errorBannerText, { color: colors.error }]}>
+            No se pudo cargar. Toca para reintentar.
+          </Text>
+          <Ionicons name="refresh-outline" size={18} color={colors.error} />
+        </TouchableOpacity>
+      )}
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
@@ -537,6 +571,29 @@ export default function BrigadistaHome() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  loadingOverlay: {
+    alignItems: "center",
+    paddingVertical: 60,
+    gap: 12,
+  },
+  loadingText: {
+    fontSize: 14,
+  },
+  errorBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginHorizontal: 20,
+    marginTop: 12,
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  errorBannerText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: "500",
   },
   content: {
     // paddingBottom se aplica dinámicamente con useTabBarHeight

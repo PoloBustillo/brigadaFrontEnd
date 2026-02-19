@@ -96,29 +96,16 @@ function RootNavigator() {
         }}
         initialRouteName={getInitialRoute()}
       >
-        {!hasSession ? (
-          // No session: Show auth flow (includes welcome + login)
-          <>
-            <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-            {/* Demo screen - remove in production */}
-            <Stack.Screen
-              name="components-demo"
-              options={{ headerShown: false }}
-            />
-          </>
-        ) : (
-          // Has session: Show main app (all role-based routes)
-          <>
-            <Stack.Screen name="(admin)" options={{ headerShown: false }} />
-            <Stack.Screen name="(encargado)" options={{ headerShown: false }} />
-            <Stack.Screen
-              name="(brigadista)"
-              options={{ headerShown: false }}
-            />
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            <Stack.Screen name="profile" options={{ headerShown: false }} />
-          </>
-        )}
+        {/* Auth screens */}
+        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+        {/* Role-based app screens */}
+        <Stack.Screen name="(admin)" options={{ headerShown: false }} />
+        <Stack.Screen name="(encargado)" options={{ headerShown: false }} />
+        <Stack.Screen name="(brigadista)" options={{ headerShown: false }} />
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="profile" options={{ headerShown: false }} />
+        {/* Misc */}
+        <Stack.Screen name="components-demo" options={{ headerShown: false }} />
       </Stack>
       <ToastContainer />
     </ThemeProvider>
