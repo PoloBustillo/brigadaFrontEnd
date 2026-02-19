@@ -240,11 +240,13 @@ export function CustomTabBar({
         styles.container,
         {
           paddingBottom: Math.max(insets.bottom, 4),
-          borderTopColor: colors.border + "20",
+          borderTopColor: colors.border,
+          // On Android BlurView has no blur, so use opaque surface color.
+          // On iOS surface with ~80% opacity lets the blur show through.
           backgroundColor:
-            theme === "dark"
-              ? "rgba(0, 0, 0, 0.35)"
-              : "rgba(255, 255, 255, 0.45)",
+            Platform.OS === "android"
+              ? colors.surface
+              : colors.surface + "CC",
         },
       ]}
     >

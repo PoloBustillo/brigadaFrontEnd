@@ -299,6 +299,13 @@ export default function BrigadistaHome() {
     },
   ];
 
+  // Sync status — placeholder until /mobile/sync-status endpoint is wired
+  const syncStatus = {
+    lastSync: "–",
+    pendingResponses: 0,
+    isSynced: true,
+  };
+
   // Map API assignments to card props
   const assignmentCards = assignments.map((a) => ({
     id: a.assignment_id,
