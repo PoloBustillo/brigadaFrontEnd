@@ -331,25 +331,25 @@ export default function WelcomeScreen() {
               <FeatureItem
                 icon="clipboard-outline"
                 text="Digitaliza encuestas"
-                iconColor={theme === "dark" ? "#ffffff" : colors.primary}
+                iconColor={theme === "dark" ? colors.primaryLight : colors.primary}
                 textColor={colors.background}
               />
               <FeatureItem
                 icon="checkmark-circle-outline"
                 text="Valida información"
-                iconColor={theme === "dark" ? "#ffffff" : colors.primary}
+                iconColor={theme === "dark" ? colors.primaryLight : colors.primary}
                 textColor={colors.background}
               />
               <FeatureItem
                 icon="sync-outline"
                 text="Sincroniza en tiempo real"
-                iconColor={theme === "dark" ? "#ffffff" : colors.primary}
+                iconColor={theme === "dark" ? colors.primaryLight : colors.primary}
                 textColor={colors.background}
               />
               <FeatureItem
                 icon="cloud-offline-outline"
                 text="Funciona sin internet"
-                iconColor={theme === "dark" ? "#ffffff" : colors.primary}
+                iconColor={theme === "dark" ? colors.primaryLight : colors.primary}
                 textColor={colors.background}
               />
             </View>
