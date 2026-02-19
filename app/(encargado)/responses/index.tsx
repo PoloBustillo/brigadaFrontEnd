@@ -6,11 +6,11 @@
 
 import { AppHeader } from "@/components/shared";
 import { useThemeColors } from "@/contexts/theme-context";
+import { getTeamResponses, type TeamResponse } from "@/lib/api/assignments";
 import { Ionicons } from "@expo/vector-icons";
-import * as Haptics from "expo-haptics";
-import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -19,106 +19,73 @@ import {
   View,
 } from "react-native";
 
-interface TeamResponse {
-  id: number;
-  surveyTitle: string;
-  brigadistaName: string;
-  completedAt: string;
-  questionsAnswered: number;
-  totalQuestions: number;
-  location: string;
-  syncStatus: "synced" | "pending";
-}
-
-// Mock data
-const mockTeamResponses: TeamResponse[] = [
-  {
-    id: 1,
-    surveyTitle: "Encuesta de Satisfacción Ciudadana 2024",
-    brigadistaName: "Juan Pérez",
-    completedAt: "2024-02-13T10:30:00",
-    questionsAnswered: 15,
-    totalQuestions: 15,
-    location: "Zona Norte",
-    syncStatus: "synced",
-  },
-  {
-    id: 2,
-    surveyTitle: "Censo de Infraestructura Urbana",
-    brigadistaName: "María López",
-    completedAt: "2024-02-13T09:15:00",
-    questionsAnswered: 22,
-    totalQuestions: 22,
-    location: "Zona Sur",
-    syncStatus: "synced",
-  },
-  {
-    id: 3,
-    surveyTitle: "Encuesta de Satisfacción Ciudadana 2024",
-    brigadistaName: "Carlos García",
-    completedAt: "2024-02-12T16:45:00",
-    questionsAnswered: 14,
-    totalQuestions: 15,
-    location: "Zona Este",
-    syncStatus: "pending",
-  },
-  {
-    id: 4,
-    surveyTitle: "Evaluación de Programas Sociales",
-    brigadistaName: "Ana Martínez",
-    completedAt: "2024-02-12T14:20:00",
-    questionsAnswered: 18,
-    totalQuestions: 18,
-    location: "Zona Oeste",
-    syncStatus: "synced",
-  },
-];
-
 export default function EncargadoResponses() {
   const colors = useThemeColors();
-  const router = useRouter();
-  const [responses, setResponses] = useState<TeamResponse[]>(mockTeamResponses);
+  const [responses, setResponses] = useState<TeamResponse[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  const onRefresh = async () => {
-    setRefreshing(true);
-    // TODO: Fetch team responses from database
-    setTimeout(() => {
+  const fetchResponses = async () => {
+    setFetchError(false);
+    try {
+      const data = await getTeamResponses();
+      setResponses(data);
+    } catch {
+      setFetchError(true);
+    } finally {
+      setIsLoading(false);
       setRefreshing(false);
-    }, 1000);
+    }
+  };
+
+  useEffect(() => { fetchResponses(); }, []);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchResponses();
   };
 
   const handleResponsePress = (response: TeamResponse) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    // TODO: Navigate to response detail
     console.log("View response:", response.id);
   };
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return "—";
     const date = new Date(dateString);
     const today = new Date();
     const diffTime = Math.abs(today.getTime() - date.getTime());
     const diffHours = Math.floor(diffTime / (1000 * 60 * 60));
-
-    if (diffHours < 24) {
-      return `Hace ${diffHours}h`;
-    } else {
-      const diffDays = Math.floor(diffHours / 24);
-      return `Hace ${diffDays}d`;
-    }
+    if (diffHours < 24) return `Hace ${diffHours}h`;
+    const diffDays = Math.floor(diffHours / 24);
+    return `Hace ${diffDays}d`;
   };
 
-  const completedResponses = responses.filter(
-    (r) => r.questionsAnswered === r.totalQuestions,
-  ).length;
-  const pendingSync = responses.filter(
-    (r) => r.syncStatus === "pending",
-  ).length;
+  const formatLocation = (loc: object | null) => {
+    if (!loc) return null;
+    const l = loc as Record<string, unknown>;
+    if (l.address) return String(l.address);
+    if (l.latitude && l.longitude) return `${l.latitude}, ${l.longitude}`;
+    return null;
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <AppHeader title="Respuestas del Equipo" />
 
+      {fetchError && (
+        <TouchableOpacity style={styles.errorBanner} onPress={fetchResponses}>
+          <Text style={styles.errorBannerText}>
+            No se pudo cargar. Toca para reintentar.
+          </Text>
+        </TouchableOpacity>
+      )}
+
+      {isLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      ) : (
       <ScrollView
         contentContainerStyle={styles.content}
         refreshControl={
@@ -153,28 +120,10 @@ export default function EncargadoResponses() {
               color={colors.success}
             />
             <Text style={[styles.statValue, { color: colors.text }]}>
-              {completedResponses}
+              {responses.length}
             </Text>
             <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-              Completas
-            </Text>
-          </View>
-          <View
-            style={[
-              styles.statCard,
-              { backgroundColor: colors.surface, borderColor: colors.border },
-            ]}
-          >
-            <Ionicons
-              name="cloud-upload"
-              size={24}
-              color={pendingSync > 0 ? colors.warning : colors.info}
-            />
-            <Text style={[styles.statValue, { color: colors.text }]}>
-              {pendingSync}
-            </Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-              Pendientes
+              Sincronizadas
             </Text>
           </View>
         </View>
@@ -199,10 +148,6 @@ export default function EncargadoResponses() {
             </View>
           ) : (
             responses.map((response) => {
-              const isComplete =
-                response.questionsAnswered === response.totalQuestions;
-              const isSynced = response.syncStatus === "synced";
-
               return (
                 <TouchableOpacity
                   key={response.id}
@@ -222,30 +167,13 @@ export default function EncargadoResponses() {
                       style={[styles.surveyTitle, { color: colors.text }]}
                       numberOfLines={1}
                     >
-                      {response.surveyTitle}
+                      {response.survey_title}
                     </Text>
-                    <View style={styles.badges}>
-                      {isComplete ? (
-                        <Ionicons
-                          name="checkmark-circle"
-                          size={20}
-                          color={colors.success}
-                        />
-                      ) : (
-                        <Ionicons
-                          name="time"
-                          size={20}
-                          color={colors.warning}
-                        />
-                      )}
-                      {!isSynced && (
-                        <Ionicons
-                          name="cloud-upload-outline"
-                          size={20}
-                          color={colors.warning}
-                        />
-                      )}
-                    </View>
+                    <Ionicons
+                      name="checkmark-circle"
+                      size={20}
+                      color={colors.success}
+                    />
                   </View>
 
                   {/* Brigadista Info */}
@@ -274,50 +202,8 @@ export default function EncargadoResponses() {
                       <Text
                         style={[styles.brigadistaName, { color: colors.text }]}
                       >
-                        {response.brigadistaName}
+                        {response.brigadista_name}
                       </Text>
-                    </View>
-                  </View>
-
-                  {/* Progress */}
-                  <View style={styles.progressSection}>
-                    <View style={styles.progressHeader}>
-                      <Text
-                        style={[
-                          styles.progressText,
-                          { color: colors.textSecondary },
-                        ]}
-                      >
-                        Progreso
-                      </Text>
-                      <Text
-                        style={[
-                          styles.progressValue,
-                          {
-                            color: isComplete ? colors.success : colors.warning,
-                          },
-                        ]}
-                      >
-                        {response.questionsAnswered}/{response.totalQuestions}
-                      </Text>
-                    </View>
-                    <View
-                      style={[
-                        styles.progressBar,
-                        { backgroundColor: colors.border },
-                      ]}
-                    >
-                      <View
-                        style={[
-                          styles.progressFill,
-                          {
-                            backgroundColor: isComplete
-                              ? colors.success
-                              : colors.warning,
-                            width: `${(response.questionsAnswered / response.totalQuestions) * 100}%`,
-                          },
-                        ]}
-                      />
                     </View>
                   </View>
 
@@ -329,21 +215,23 @@ export default function EncargadoResponses() {
                     ]}
                   >
                     <View style={styles.footerInfo}>
-                      <View style={styles.footerItem}>
-                        <Ionicons
-                          name="location-outline"
-                          size={14}
-                          color={colors.textSecondary}
-                        />
-                        <Text
-                          style={[
-                            styles.footerText,
-                            { color: colors.textSecondary },
-                          ]}
-                        >
-                          {response.location}
-                        </Text>
-                      </View>
+                      {formatLocation(response.location) && (
+                        <View style={styles.footerItem}>
+                          <Ionicons
+                            name="location-outline"
+                            size={14}
+                            color={colors.textSecondary}
+                          />
+                          <Text
+                            style={[
+                              styles.footerText,
+                              { color: colors.textSecondary },
+                            ]}
+                          >
+                            {formatLocation(response.location)}
+                          </Text>
+                        </View>
+                      )}
                       <View style={styles.footerItem}>
                         <Ionicons
                           name="time-outline"
@@ -356,7 +244,22 @@ export default function EncargadoResponses() {
                             { color: colors.textSecondary },
                           ]}
                         >
-                          {formatDate(response.completedAt)}
+                          {formatDate(response.completed_at)}
+                        </Text>
+                      </View>
+                      <View style={styles.footerItem}>
+                        <Ionicons
+                          name="list-outline"
+                          size={14}
+                          color={colors.textSecondary}
+                        />
+                        <Text
+                          style={[
+                            styles.footerText,
+                            { color: colors.textSecondary },
+                          ]}
+                        >
+                          {response.answer_count} respuestas
                         </Text>
                       </View>
                     </View>
@@ -372,6 +275,7 @@ export default function EncargadoResponses() {
           )}
         </View>
       </ScrollView>
+      )}
     </View>
   );
 }
@@ -402,6 +306,21 @@ const styles = StyleSheet.create({
   },
   statLabel: {
     fontSize: 12,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  errorBanner: {
+    backgroundColor: "#FF3B30",
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+  },
+  errorBannerText: {
+    color: "#fff",
+    textAlign: "center",
+    fontWeight: "600",
   },
   listContainer: {
     gap: 12,

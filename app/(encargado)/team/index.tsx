@@ -6,11 +6,12 @@
 
 import { AppHeader } from "@/components/shared";
 import { useThemeColors } from "@/contexts/theme-context";
+import { getMyTeam, getMyCreatedAssignments } from "@/lib/api/assignments";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -19,65 +20,20 @@ import {
   View,
 } from "react-native";
 
-interface TeamMember {
+interface TeamMemberDisplay {
   id: number;
   name: string;
   email: string;
   surveysAssigned: number;
   responsesCompleted: number;
-  targetResponses: number;
-  lastActive: string;
-  status: "active" | "idle" | "offline";
+  status: "active" | "inactive";
 }
-
-// Mock data
-const mockTeamMembers: TeamMember[] = [
-  {
-    id: 1,
-    name: "Juan Pérez",
-    email: "juan.perez@brigada.com",
-    surveysAssigned: 3,
-    responsesCompleted: 45,
-    targetResponses: 60,
-    lastActive: "Hace 1 hora",
-    status: "active",
-  },
-  {
-    id: 2,
-    name: "María López",
-    email: "maria.lopez@brigada.com",
-    surveysAssigned: 2,
-    responsesCompleted: 32,
-    targetResponses: 40,
-    lastActive: "Hace 3 horas",
-    status: "active",
-  },
-  {
-    id: 3,
-    name: "Carlos García",
-    email: "carlos.garcia@brigada.com",
-    surveysAssigned: 2,
-    responsesCompleted: 28,
-    targetResponses: 40,
-    lastActive: "Hace 5 horas",
-    status: "idle",
-  },
-  {
-    id: 4,
-    name: "Ana Martínez",
-    email: "ana.martinez@brigada.com",
-    surveysAssigned: 1,
-    responsesCompleted: 15,
-    targetResponses: 20,
-    lastActive: "Hace 2 días",
-    status: "offline",
-  },
-];
 
 export default function EncargadoTeam() {
   const colors = useThemeColors();
-  const router = useRouter();
-  const [teamMembers, setTeamMembers] = useState<TeamMember[]>(mockTeamMembers);
+  const [teamMembers, setTeamMembers] = useState<TeamMemberDisplay[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   const statusConfig = {
@@ -86,29 +42,52 @@ export default function EncargadoTeam() {
       color: colors.success,
       icon: "checkmark-circle" as const,
     },
-    idle: {
+    inactive: {
       label: "Inactivo",
-      color: colors.warning,
-      icon: "time" as const,
-    },
-    offline: {
-      label: "Sin conexión",
       color: colors.textSecondary,
-      icon: "cloud-offline" as const,
+      icon: "ellipse-outline" as const,
     },
   };
 
-  const onRefresh = async () => {
-    setRefreshing(true);
-    // TODO: Fetch team members from database
-    setTimeout(() => {
+  const fetchTeam = async () => {
+    setFetchError(false);
+    try {
+      const [members, assignments] = await Promise.all([
+        getMyTeam(),
+        getMyCreatedAssignments(),
+      ]);
+      const display: TeamMemberDisplay[] = members.map((m) => {
+        const userAssignments = assignments.filter((a) => a.user_id === m.id);
+        const uniqueSurveys = new Set(userAssignments.map((a) => a.survey_id)).size;
+        const totalResponses = userAssignments.reduce((acc, a) => acc + a.response_count, 0);
+        const hasActive = userAssignments.some((a) => a.status === "active");
+        return {
+          id: m.id,
+          name: m.full_name,
+          email: m.email,
+          surveysAssigned: uniqueSurveys,
+          responsesCompleted: totalResponses,
+          status: hasActive ? "active" : "inactive",
+        };
+      });
+      setTeamMembers(display);
+    } catch {
+      setFetchError(true);
+    } finally {
+      setIsLoading(false);
       setRefreshing(false);
-    }, 1000);
+    }
   };
 
-  const handleMemberPress = (member: TeamMember) => {
+  useEffect(() => { fetchTeam(); }, []);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchTeam();
+  };
+
+  const handleMemberPress = (member: TeamMemberDisplay) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    // TODO: Navigate to member detail
     console.log("View member:", member.id);
   };
 
@@ -122,6 +101,19 @@ export default function EncargadoTeam() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <AppHeader title="Mi Equipo" />
 
+      {fetchError && (
+        <TouchableOpacity style={styles.errorBanner} onPress={fetchTeam}>
+          <Text style={styles.errorBannerText}>
+            No se pudo cargar. Toca para reintentar.
+          </Text>
+        </TouchableOpacity>
+      )}
+
+      {isLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      ) : (
       <ScrollView
         contentContainerStyle={styles.content}
         refreshControl={
@@ -198,9 +190,7 @@ export default function EncargadoTeam() {
             </View>
           ) : (
             teamMembers.map((member) => {
-              const config = statusConfig[member.status];
-              const progress =
-                (member.responsesCompleted / member.targetResponses) * 100;
+              const config = statusConfig[member.status] ?? statusConfig.inactive;
 
               return (
                 <TouchableOpacity
@@ -295,43 +285,7 @@ export default function EncargadoTeam() {
                     </View>
                   </View>
 
-                  {/* Progress */}
-                  <View style={styles.progressSection}>
-                    <View style={styles.progressHeader}>
-                      <Text
-                        style={[
-                          styles.progressText,
-                          { color: colors.textSecondary },
-                        ]}
-                      >
-                        Progreso
-                      </Text>
-                      <Text
-                        style={[
-                          styles.progressValue,
-                          { color: colors.primary },
-                        ]}
-                      >
-                        {member.responsesCompleted}/{member.targetResponses}
-                      </Text>
-                    </View>
-                    <View
-                      style={[
-                        styles.progressBar,
-                        { backgroundColor: colors.border },
-                      ]}
-                    >
-                      <View
-                        style={[
-                          styles.progressFill,
-                          {
-                            backgroundColor: colors.primary,
-                            width: `${Math.min(progress, 100)}%`,
-                          },
-                        ]}
-                      />
-                    </View>
-                  </View>
+                  {/* Progress section removed — no target available */}
 
                   {/* Footer */}
                   <View
@@ -342,7 +296,7 @@ export default function EncargadoTeam() {
                   >
                     <View style={styles.footerItem}>
                       <Ionicons
-                        name="time-outline"
+                        name="person-outline"
                         size={14}
                         color={colors.textSecondary}
                       />
@@ -352,7 +306,7 @@ export default function EncargadoTeam() {
                           { color: colors.textSecondary },
                         ]}
                       >
-                        {member.lastActive}
+                        {config.label}
                       </Text>
                     </View>
                     <Ionicons
@@ -367,6 +321,7 @@ export default function EncargadoTeam() {
           )}
         </View>
       </ScrollView>
+      )}
     </View>
   );
 }
@@ -377,6 +332,21 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 20,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  errorBanner: {
+    backgroundColor: "#FF3B30",
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+  },
+  errorBannerText: {
+    color: "#fff",
+    textAlign: "center",
+    fontWeight: "600",
   },
   statsContainer: {
     flexDirection: "row",

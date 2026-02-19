@@ -6,11 +6,12 @@
 
 import { UserHeader } from "@/components/shared";
 import { typography } from "@/constants/typography";
-import { useAuth } from "@/contexts/auth-context";
+import { getMyCreatedAssignments, type AssignmentDetail } from "@/lib/api/assignments";
 import { useThemeColors } from "@/contexts/theme-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -19,102 +20,104 @@ import {
   View,
 } from "react-native";
 
-interface MyAssignment {
-  id: number;
+/** Assignments grouped by survey for the management view */
+interface SurveyGroup {
+  surveyId: number;
   surveyTitle: string;
-  surveyDescription: string;
-  brigadistasAssigned: number;
+  brigadistas: { id: number; name: string }[];
   responsesCount: number;
-  targetCount: number;
-  status: "ACTIVE" | "COMPLETED" | "PAUSED";
-  assignedAt: string;
-  deadline?: string;
+  status: "active" | "inactive";
+  createdAt: string;
 }
 
-// Mock data
-const mockMyAssignments: MyAssignment[] = [
-  {
-    id: 1,
-    surveyTitle: "Encuesta de Satisfacción Ciudadana 2024",
-    surveyDescription:
-      "Evaluar la satisfacción de los ciudadanos con los servicios públicos",
-    brigadistasAssigned: 5,
-    responsesCount: 45,
-    targetCount: 100,
-    status: "ACTIVE",
-    assignedAt: "2024-02-01",
-    deadline: "2024-03-01",
-  },
-  {
-    id: 2,
-    surveyTitle: "Censo de Infraestructura",
-    surveyDescription: "Relevamiento del estado de infraestructura urbana",
-    brigadistasAssigned: 3,
-    responsesCount: 30,
-    targetCount: 50,
-    status: "ACTIVE",
-    assignedAt: "2024-01-20",
-    deadline: "2024-02-28",
-  },
-];
-
-const STATUS_CONFIG = {
-  ACTIVE: {
+const STATUS_CONFIG: Record<string, { label: string; color: string; icon: string }> = {
+  active: {
     label: "Activa",
     color: "#06D6A0",
-    icon: "play-circle" as const,
+    icon: "play-circle",
   },
-  COMPLETED: {
-    label: "Completada",
-    color: "#00B4D8",
-    icon: "checkmark-circle" as const,
-  },
-  PAUSED: {
-    label: "Pausada",
-    color: "#FF9F1C",
-    icon: "pause-circle" as const,
+  inactive: {
+    label: "Inactiva",
+    color: "#9CA3AF",
+    icon: "pause-circle",
   },
 };
 
+function groupBysurvey(assignments: AssignmentDetail[]): SurveyGroup[] {
+  const map = new Map<number, SurveyGroup>();
+  for (const a of assignments) {
+    if (!map.has(a.survey_id)) {
+      map.set(a.survey_id, {
+        surveyId: a.survey_id,
+        surveyTitle: a.survey.title,
+        brigadistas: [],
+        responsesCount: 0,
+        status: a.status,
+        createdAt: a.created_at,
+      });
+    }
+    const group = map.get(a.survey_id)!;
+    group.brigadistas.push({ id: a.user_id, name: a.user.full_name });
+    group.responsesCount += a.response_count;
+    // If any assignment is active, the group is active
+    if (a.status === "active") group.status = "active";
+  }
+  return Array.from(map.values());
+}
+
 export default function EncargadoAssignmentsScreen() {
-  const { user } = useAuth();
   const colors = useThemeColors();
 
-  const [assignments, setAssignments] =
-    useState<MyAssignment[]>(mockMyAssignments);
+  const [surveyGroups, setSurveyGroups] = useState<SurveyGroup[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  const onRefresh = async () => {
-    setRefreshing(true);
-    // TODO: Fetch my assignments from database
-    // Filter by encargado_id = user.id
-    setTimeout(() => {
+  const fetchAssignments = async () => {
+    setFetchError(false);
+    try {
+      const data = await getMyCreatedAssignments();
+      setSurveyGroups(groupBysurvey(data));
+    } catch {
+      setFetchError(true);
+    } finally {
+      setIsLoading(false);
       setRefreshing(false);
-    }, 1000);
+    }
   };
 
-  const handleViewAssignment = (assignment: MyAssignment) => {
-    // TODO: Navigate to assignment detail and team management
-    console.log("View assignment:", assignment.id);
+  useEffect(() => { fetchAssignments(); }, []);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchAssignments();
   };
 
-  const calculateProgress = (responses: number, target: number) => {
-    return Math.min((responses / target) * 100, 100);
+  const handleViewAssignment = (group: SurveyGroup) => {
+    console.log("View survey group:", group.surveyId);
   };
 
-  const getDaysUntilDeadline = (deadline?: string) => {
-    if (!deadline) return null;
-    const now = new Date();
-    const deadlineDate = new Date(deadline);
-    const diffTime = deadlineDate.getTime() - now.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays;
-  };
+  const totalBrigadistas = Array.from(
+    new Set(surveyGroups.flatMap((g) => g.brigadistas.map((b) => b.id)))
+  ).length;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <UserHeader title="Mis Asignaciones" />
 
+      {fetchError && (
+        <TouchableOpacity style={styles.errorBanner} onPress={fetchAssignments}>
+          <Text style={styles.errorBannerText}>
+            No se pudo cargar. Toca para reintentar.
+          </Text>
+        </TouchableOpacity>
+      )}
+
+      {isLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      ) : (
       <ScrollView
         contentContainerStyle={styles.content}
         refreshControl={
@@ -125,14 +128,12 @@ export default function EncargadoAssignmentsScreen() {
         <View style={styles.summaryContainer}>
           <View style={[styles.summaryCard, { backgroundColor: "#00B4D8" }]}>
             <Ionicons name="document-text-outline" size={32} color="#FFFFFF" />
-            <Text style={styles.summaryValue}>{assignments.length}</Text>
-            <Text style={styles.summaryLabel}>Encuestas Asignadas</Text>
+            <Text style={styles.summaryValue}>{surveyGroups.length}</Text>
+            <Text style={styles.summaryLabel}>Encuestas</Text>
           </View>
           <View style={[styles.summaryCard, { backgroundColor: "#06D6A0" }]}>
             <Ionicons name="people-outline" size={32} color="#FFFFFF" />
-            <Text style={styles.summaryValue}>
-              {assignments.reduce((acc, a) => acc + a.brigadistasAssigned, 0)}
-            </Text>
+            <Text style={styles.summaryValue}>{totalBrigadistas}</Text>
             <Text style={styles.summaryLabel}>Mi Equipo</Text>
           </View>
         </View>
@@ -143,7 +144,7 @@ export default function EncargadoAssignmentsScreen() {
             Encuestas Activas
           </Text>
 
-          {assignments.length === 0 ? (
+          {surveyGroups.length === 0 ? (
             <View style={styles.emptyState}>
               <Ionicons
                 name="folder-open-outline"
@@ -154,26 +155,21 @@ export default function EncargadoAssignmentsScreen() {
                 No tienes asignaciones
               </Text>
               <Text style={[styles.emptySubtext, { color: colors.icon }]}>
-                El administrador te asignará encuestas próximamente
+                Crea asignaciones desde el panel web
               </Text>
             </View>
           ) : (
-            assignments.map((assignment) => {
-              const statusConfig = STATUS_CONFIG[assignment.status];
-              const progress = calculateProgress(
-                assignment.responsesCount,
-                assignment.targetCount,
-              );
-              const daysLeft = getDaysUntilDeadline(assignment.deadline);
+            surveyGroups.map((group) => {
+              const statusConf = STATUS_CONFIG[group.status] ?? STATUS_CONFIG.inactive;
 
               return (
                 <TouchableOpacity
-                  key={assignment.id}
+                  key={group.surveyId}
                   style={[
                     styles.assignmentCard,
-                    { backgroundColor: "#FFFFFF" },
+                    { backgroundColor: colors.surface, borderColor: colors.border },
                   ]}
-                  onPress={() => handleViewAssignment(assignment)}
+                  onPress={() => handleViewAssignment(group)}
                   activeOpacity={0.7}
                 >
                   {/* Header */}
@@ -182,57 +178,27 @@ export default function EncargadoAssignmentsScreen() {
                       style={[styles.cardTitle, { color: colors.text }]}
                       numberOfLines={2}
                     >
-                      {assignment.surveyTitle}
-                    </Text>
-                    <Text
-                      style={[styles.cardDescription, { color: colors.icon }]}
-                      numberOfLines={2}
-                    >
-                      {assignment.surveyDescription}
+                      {group.surveyTitle}
                     </Text>
                   </View>
 
-                  {/* Status and Deadline */}
+                  {/* Status badge */}
                   <View style={styles.badgesRow}>
                     <View
                       style={[
                         styles.statusBadge,
-                        { backgroundColor: statusConfig.color },
+                        { backgroundColor: statusConf.color },
                       ]}
                     >
                       <Ionicons
-                        name={statusConfig.icon}
+                        name={statusConf.icon as any}
                         size={14}
                         color="#FFFFFF"
                       />
                       <Text style={styles.statusText}>
-                        {statusConfig.label}
+                        {statusConf.label}
                       </Text>
                     </View>
-                    {daysLeft !== null && (
-                      <View
-                        style={[
-                          styles.deadlineBadge,
-                          {
-                            backgroundColor:
-                              daysLeft < 7 ? "#FF6B6B" : "#FFB84D",
-                          },
-                        ]}
-                      >
-                        <Ionicons
-                          name="time-outline"
-                          size={14}
-                          color="#FFFFFF"
-                        />
-                        <Text style={styles.deadlineText}>
-                          {daysLeft > 0
-                            ? `${daysLeft} días`
-                            : daysLeft === 0
-                              ? "Hoy"
-                              : "Vencida"}
-                        </Text>
-                      </View>
-                    )}
                   </View>
 
                   {/* Team Info */}
@@ -243,56 +209,27 @@ export default function EncargadoAssignmentsScreen() {
                       color={colors.icon}
                     />
                     <Text style={[styles.infoText, { color: colors.text }]}>
-                      {assignment.brigadistasAssigned} brigadistas asignados
+                      {group.brigadistas.length} brigadista{group.brigadistas.length !== 1 ? "s" : ""} asignado{group.brigadistas.length !== 1 ? "s" : ""}
                     </Text>
                   </View>
 
-                  {/* Progress */}
-                  <View style={styles.progressContainer}>
-                    <View style={styles.progressHeader}>
-                      <Text
-                        style={[styles.progressText, { color: colors.text }]}
-                      >
-                        Progreso del equipo
-                      </Text>
-                      <Text
-                        style={[styles.progressStats, { color: colors.icon }]}
-                      >
-                        {assignment.responsesCount} / {assignment.targetCount}
-                      </Text>
-                    </View>
-                    <View
-                      style={[
-                        styles.progressBar,
-                        { backgroundColor: "#E5E7EB" },
-                      ]}
-                    >
-                      <View
-                        style={[
-                          styles.progressFill,
-                          {
-                            width: `${progress}%`,
-                            backgroundColor: statusConfig.color,
-                          },
-                        ]}
-                      />
-                    </View>
-                    <Text
-                      style={[
-                        styles.progressPercentage,
-                        { color: colors.icon },
-                      ]}
-                    >
-                      {progress.toFixed(0)}% completado
+                  {/* Response count */}
+                  <View style={styles.infoRow}>
+                    <Ionicons
+                      name="chatbox-outline"
+                      size={18}
+                      color={colors.icon}
+                    />
+                    <Text style={[styles.infoText, { color: colors.text }]}>
+                      {group.responsesCount} respuesta{group.responsesCount !== 1 ? "s" : ""} del equipo
                     </Text>
                   </View>
 
                   {/* Footer */}
-                  <View style={styles.cardFooter}>
-                    <TouchableOpacity style={styles.actionButton}>
-                      <Ionicons name="people" size={20} color="#00B4D8" />
-                      <Text style={styles.actionText}>Ver Equipo</Text>
-                    </TouchableOpacity>
+                  <View style={[styles.cardFooter, { borderTopColor: colors.border }]}>
+                    <Text style={[styles.progressStats, { color: colors.icon }]}>
+                      Asignada {new Date(group.createdAt).toLocaleDateString()}
+                    </Text>
                     <Ionicons
                       name="chevron-forward"
                       size={20}
@@ -305,6 +242,7 @@ export default function EncargadoAssignmentsScreen() {
           )}
         </View>
       </ScrollView>
+      )}
     </View>
   );
 }
@@ -360,13 +298,29 @@ const styles = StyleSheet.create({
     ...typography.body,
     textAlign: "center",
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  errorBanner: {
+    backgroundColor: "#FF3B30",
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+  },
+  errorBannerText: {
+    color: "#fff",
+    textAlign: "center",
+    fontWeight: "600",
+  },
   assignmentCard: {
     padding: 16,
     borderRadius: 12,
     marginBottom: 12,
+    borderWidth: 1,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.08,
     shadowRadius: 4,
     elevation: 3,
   },

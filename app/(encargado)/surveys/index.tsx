@@ -6,11 +6,13 @@
 
 import { AppHeader } from "@/components/shared";
 import { useThemeColors } from "@/contexts/theme-context";
+import { getMyCreatedAssignments } from "@/lib/api/assignments";
+import type { AssignmentDetail } from "@/lib/api/assignments";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -19,104 +21,101 @@ import {
   View,
 } from "react-native";
 
-interface MySurvey {
-  id: number;
+interface SurveyGroup {
+  surveyId: number;
   title: string;
-  category: string;
-  questionsCount: number;
-  myTeamResponses: number;
-  targetCount: number;
   brigadistasAssigned: number;
-  status: "ACTIVE" | "COMPLETED" | "PAUSED";
-  assignedAt: string;
-  deadline?: string;
+  totalResponses: number;
+  status: "active" | "inactive";
+  createdAt: string;
 }
 
-// Mock data
-const mockMySurveys: MySurvey[] = [
-  {
-    id: 1,
-    title: "Encuesta de Satisfacción Ciudadana 2024",
-    category: "Servicios Públicos",
-    questionsCount: 15,
-    myTeamResponses: 45,
-    targetCount: 100,
-    brigadistasAssigned: 5,
-    status: "ACTIVE",
-    assignedAt: "2024-02-01",
-    deadline: "2024-03-01",
-  },
-  {
-    id: 2,
-    title: "Censo de Infraestructura Urbana",
-    category: "Infraestructura",
-    questionsCount: 22,
-    myTeamResponses: 80,
-    targetCount: 80,
-    brigadistasAssigned: 4,
-    status: "COMPLETED",
-    assignedAt: "2024-01-15",
-    deadline: "2024-02-15",
-  },
-  {
-    id: 3,
-    title: "Evaluación de Programas Sociales",
-    category: "Programas Sociales",
-    questionsCount: 18,
-    myTeamResponses: 32,
-    targetCount: 60,
-    brigadistasAssigned: 3,
-    status: "ACTIVE",
-    assignedAt: "2024-02-05",
-    deadline: "2024-03-10",
-  },
-];
+function groupBySurvey(assignments: AssignmentDetail[]): SurveyGroup[] {
+  const map = new Map<number, SurveyGroup>();
+  for (const a of assignments) {
+    if (!map.has(a.survey_id)) {
+      map.set(a.survey_id, {
+        surveyId: a.survey_id,
+        title: a.survey.title,
+        brigadistasAssigned: 0,
+        totalResponses: 0,
+        status: a.status,
+        createdAt: a.created_at,
+      });
+    }
+    const g = map.get(a.survey_id)!;
+    g.brigadistasAssigned++;
+    g.totalResponses += a.response_count;
+    if (a.status === "active") g.status = "active";
+  }
+  return Array.from(map.values());
+}
 
 export default function EncargadoSurveys() {
   const colors = useThemeColors();
-  const router = useRouter();
-  const [surveys, setSurveys] = useState<MySurvey[]>(mockMySurveys);
+  const [surveys, setSurveys] = useState<SurveyGroup[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   const statusConfig = {
-    ACTIVE: {
+    active: {
       label: "Activa",
       color: colors.success,
       icon: "checkmark-circle" as const,
     },
-    COMPLETED: {
-      label: "Completada",
-      color: colors.info,
-      icon: "checkmark-done-circle" as const,
-    },
-    PAUSED: {
-      label: "Pausada",
-      color: colors.warning,
+    inactive: {
+      label: "Inactiva",
+      color: colors.textSecondary,
       icon: "pause-circle" as const,
     },
   };
 
-  const onRefresh = async () => {
-    setRefreshing(true);
-    // TODO: Fetch my surveys from database
-    setTimeout(() => {
+  const fetchSurveys = async () => {
+    setFetchError(false);
+    try {
+      const data = await getMyCreatedAssignments();
+      setSurveys(groupBySurvey(data));
+    } catch {
+      setFetchError(true);
+    } finally {
+      setIsLoading(false);
       setRefreshing(false);
-    }, 1000);
+    }
   };
 
-  const handleSurveyPress = (survey: MySurvey) => {
+  useEffect(() => { fetchSurveys(); }, []);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchSurveys();
+  };
+
+  const handleSurveyPress = (survey: SurveyGroup) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    // TODO: Navigate to survey detail
-    console.log("View survey:", survey.id);
+    console.log("View survey:", survey.surveyId);
   };
 
-  const totalResponses = surveys.reduce((acc, s) => acc + s.myTeamResponses, 0);
-  const activeSurveys = surveys.filter((s) => s.status === "ACTIVE").length;
+  const totalResponses = surveys.reduce((acc, s) => acc + s.totalResponses, 0);
+  const activeSurveys = surveys.filter((s) => s.status === "active").length;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <AppHeader title="Mis Encuestas" />
 
+      {fetchError && (
+        <TouchableOpacity style={styles.errorBanner} onPress={fetchSurveys}>
+          <Text style={styles.errorBannerText}>
+            No se pudo cargar. Toca para reintentar.
+          </Text>
+        </TouchableOpacity>
+      )}
+
+      {isLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      ) : (
       <ScrollView
         contentContainerStyle={styles.content}
         refreshControl={
@@ -189,14 +188,11 @@ export default function EncargadoSurveys() {
             </View>
           ) : (
             surveys.map((survey) => {
-              const config = statusConfig[survey.status];
-              const progress =
-                (survey.myTeamResponses / survey.targetCount) * 100;
-              const isComplete = survey.myTeamResponses >= survey.targetCount;
+              const config = statusConfig[survey.status] ?? statusConfig.inactive;
 
               return (
                 <TouchableOpacity
-                  key={survey.id}
+                  key={survey.surveyId}
                   style={[
                     styles.surveyCard,
                     {
@@ -215,14 +211,6 @@ export default function EncargadoSurveys() {
                         numberOfLines={2}
                       >
                         {survey.title}
-                      </Text>
-                      <Text
-                        style={[
-                          styles.cardCategory,
-                          { color: colors.textSecondary },
-                        ]}
-                      >
-                        {survey.category}
                       </Text>
                     </View>
                     <View
@@ -258,12 +246,12 @@ export default function EncargadoSurveys() {
                           { color: colors.textSecondary },
                         ]}
                       >
-                        {survey.brigadistasAssigned} brigadistas
+                        {survey.brigadistasAssigned} brigadista{survey.brigadistasAssigned !== 1 ? "s" : ""}
                       </Text>
                     </View>
                     <View style={styles.infoItem}>
                       <Ionicons
-                        name="help-circle-outline"
+                        name="chatbox-outline"
                         size={16}
                         color={colors.textSecondary}
                       />
@@ -273,50 +261,8 @@ export default function EncargadoSurveys() {
                           { color: colors.textSecondary },
                         ]}
                       >
-                        {survey.questionsCount} preguntas
+                        {survey.totalResponses} respuesta{survey.totalResponses !== 1 ? "s" : ""}
                       </Text>
-                    </View>
-                  </View>
-
-                  {/* Progress */}
-                  <View style={styles.progressSection}>
-                    <View style={styles.progressHeader}>
-                      <Text
-                        style={[
-                          styles.progressText,
-                          { color: colors.textSecondary },
-                        ]}
-                      >
-                        Progreso del equipo
-                      </Text>
-                      <Text
-                        style={[
-                          styles.progressValue,
-                          {
-                            color: isComplete ? colors.success : colors.primary,
-                          },
-                        ]}
-                      >
-                        {survey.myTeamResponses}/{survey.targetCount}
-                      </Text>
-                    </View>
-                    <View
-                      style={[
-                        styles.progressBar,
-                        { backgroundColor: colors.border },
-                      ]}
-                    >
-                      <View
-                        style={[
-                          styles.progressFill,
-                          {
-                            backgroundColor: isComplete
-                              ? colors.success
-                              : colors.primary,
-                            width: `${Math.min(progress, 100)}%`,
-                          },
-                        ]}
-                      />
                     </View>
                   </View>
 
@@ -328,24 +274,21 @@ export default function EncargadoSurveys() {
                     ]}
                   >
                     <View style={styles.footerInfo}>
-                      {survey.deadline && (
-                        <View style={styles.footerItem}>
-                          <Ionicons
-                            name="calendar-outline"
-                            size={14}
-                            color={colors.textSecondary}
-                          />
-                          <Text
-                            style={[
-                              styles.footerText,
-                              { color: colors.textSecondary },
-                            ]}
-                          >
-                            Vence:{" "}
-                            {new Date(survey.deadline).toLocaleDateString()}
-                          </Text>
-                        </View>
-                      )}
+                      <View style={styles.footerItem}>
+                        <Ionicons
+                          name="calendar-outline"
+                          size={14}
+                          color={colors.textSecondary}
+                        />
+                        <Text
+                          style={[
+                            styles.footerText,
+                            { color: colors.textSecondary },
+                          ]}
+                        >
+                          Asignada {new Date(survey.createdAt).toLocaleDateString()}
+                        </Text>
+                      </View>
                     </View>
                     <Ionicons
                       name="chevron-forward"
@@ -359,6 +302,7 @@ export default function EncargadoSurveys() {
           )}
         </View>
       </ScrollView>
+      )}
     </View>
   );
 }
@@ -389,6 +333,21 @@ const styles = StyleSheet.create({
   },
   statLabel: {
     fontSize: 12,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  errorBanner: {
+    backgroundColor: "#FF3B30",
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+  },
+  errorBannerText: {
+    color: "#fff",
+    textAlign: "center",
+    fontWeight: "600",
   },
   listContainer: {
     gap: 12,
