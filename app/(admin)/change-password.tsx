@@ -3,6 +3,7 @@
  * Cambiar contraseña del usuario
  */
 
+import { changePassword } from "@/lib/api/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/contexts/auth-context";
@@ -93,23 +94,8 @@ export default function ChangePasswordScreen() {
     setLoading(true);
 
     try {
-      // TODO: Implement API call to change password
-      // const response = await fetch(`${API_URL}/users/${user?.id}/password`, {
-      //   method: 'POST',
-      //   headers: {
-      //     'Content-Type': 'application/json',
-      //     'Authorization': `Bearer ${token}`
-      //   },
-      //   body: JSON.stringify({
-      //     current_password: currentPassword,
-      //     new_password: newPassword
-      //   })
-      // });
-
-      // if (!response.ok) {
-      //   const error = await response.json();
-      //   throw new Error(error.message || 'Failed to change password');
-      // }
+      // Call real API
+      await changePassword(currentPassword, newPassword);
 
       Alert.alert(
         "Éxito",

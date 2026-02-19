@@ -284,3 +284,24 @@ export async function completeActivation(data: {
     throw new Error("Error al completar la activación");
   }
 }
+
+/**
+ * POST /users/me/change-password
+ * Change the currently authenticated user's password.
+ * Throws an Error with a Spanish message on failure.
+ */
+export async function changePassword(
+  currentPassword: string,
+  newPassword: string
+): Promise<void> {
+  try {
+    await api.post("/users/me/change-password", {
+      current_password: currentPassword,
+      new_password: newPassword,
+    });
+  } catch (error: any) {
+    const detail = error.response?.data?.detail;
+    if (typeof detail === "string") throw new Error(detail);
+    throw new Error("No se pudo cambiar la contraseña");
+  }
+}
