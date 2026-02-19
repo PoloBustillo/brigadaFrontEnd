@@ -4,9 +4,8 @@
  */
 
 import { useSync } from "@/contexts/sync-context";
-import { useTheme, useThemeColors } from "@/contexts/theme-context";
+import { useThemeColors } from "@/contexts/theme-context";
 import { BottomTabBarProps } from "@react-navigation/bottom-tabs";
-import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
 import React from "react";
 import {
@@ -189,7 +188,6 @@ export function CustomTabBar({
 }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const colors = useThemeColors();
-  const { theme } = useTheme();
   const { pendingByType } = useSync();
 
   // Mapear rutas a tipos de sync para mostrar badges
@@ -232,18 +230,13 @@ export function CustomTabBar({
   };
 
   return (
-    <BlurView
-      intensity={theme === "dark" ? 75 : 90}
-      tint={theme === "dark" ? "dark" : "light"}
+    <View
       style={[
         styles.container,
         {
           paddingBottom: Math.max(insets.bottom, 4),
           borderTopColor: colors.border,
-          // Fully opaque surface color on all platforms so the theme color
-          // is always faithfully reflected. The BlurView still provides the
-          // frosted-glass texture on iOS as a subtle background layer.
-          backgroundColor: colors.surface,
+          backgroundColor: colors.backgroundSecondary,
         },
       ]}
     >
@@ -271,7 +264,7 @@ export function CustomTabBar({
             );
           })}
       </View>
-    </BlurView>
+    </View>
   );
 }
 
