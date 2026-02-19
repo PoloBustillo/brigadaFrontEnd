@@ -8,8 +8,8 @@ import { Ionicons } from "@expo/vector-icons";
 
 /**
  * Admin Layout - Tabs for Administrator Role
- * Access: Full system access (Rule 6)
- * Tabs: Dashboard, Surveys, Users, Responses
+ * Read-only view. All write operations are handled by the web CMS.
+ * Tabs: Resumen, Encuestas, Usuarios, Perfil
  */
 export default function AdminLayout() {
   return (
@@ -25,9 +25,9 @@ export default function AdminLayout() {
         <Tabs.Screen
           name="index"
           options={{
-            title: "Dashboard",
+            title: "Resumen",
             tabBarIcon: ({ color }) => (
-              <Ionicons name="grid" size={24} color={color} />
+              <Ionicons name="grid-outline" size={24} color={color} />
             ),
           }}
         />
@@ -36,7 +36,7 @@ export default function AdminLayout() {
           options={{
             title: "Encuestas",
             tabBarIcon: ({ color }) => (
-              <Ionicons name="document-text" size={24} color={color} />
+              <Ionicons name="document-text-outline" size={24} color={color} />
             ),
           }}
         />
@@ -45,49 +45,25 @@ export default function AdminLayout() {
           options={{
             title: "Usuarios",
             tabBarIcon: ({ color }) => (
-              <Ionicons name="people" size={24} color={color} />
-            ),
-          }}
-        />
-        <Tabs.Screen
-          name="responses/index"
-          options={{
-            title: "Respuestas",
-            tabBarIcon: ({ color }) => (
-              <Ionicons name="clipboard" size={24} color={color} />
+              <Ionicons name="people-outline" size={24} color={color} />
             ),
           }}
         />
         <Tabs.Screen
           name="profile"
           options={{
-            href: null, // Hidden from tabs - accessible via navigation
+            title: "Perfil",
+            tabBarIcon: ({ color }) => (
+              <Ionicons name="person-outline" size={24} color={color} />
+            ),
           }}
         />
-        <Tabs.Screen
-          name="edit-profile"
-          options={{
-            href: null, // Hidden from tabs
-          }}
-        />
-        <Tabs.Screen
-          name="change-avatar"
-          options={{
-            href: null, // Hidden from tabs
-          }}
-        />
-        <Tabs.Screen
-          name="change-password"
-          options={{
-            href: null, // Hidden from tabs
-          }}
-        />
-        <Tabs.Screen
-          name="assignments"
-          options={{
-            href: null, // Hidden from tabs
-          }}
-        />
+        {/* Hidden screens - not visible as tabs */}
+        <Tabs.Screen name="edit-profile" options={{ href: null }} />
+        <Tabs.Screen name="change-avatar" options={{ href: null }} />
+        <Tabs.Screen name="change-password" options={{ href: null }} />
+        <Tabs.Screen name="assignments" options={{ href: null }} />
+        <Tabs.Screen name="responses/index" options={{ href: null }} />
       </Tabs>
     </ProtectedRoute>
   );

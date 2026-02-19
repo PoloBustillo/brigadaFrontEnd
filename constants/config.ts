@@ -1,22 +1,6 @@
 /**
  * Configuración general de la aplicación
  */
-import Constants from "expo-constants";
-
-/**
- * En desarrollo, Expo expone la IP del host en Constants.expoConfig.hostUri
- * (e.g. "192.168.1.10:8081"). Usamos esa IP para llegar al backend desde el
- * dispositivo físico o emulador sin depender de "localhost".
- */
-const getDevApiUrl = (): string => {
-  const hostUri = Constants.expoConfig?.hostUri ?? Constants.manifest?.debuggerHost;
-  if (hostUri) {
-    const host = hostUri.split(":")[0]; // strip port
-    return `http://${host}:8000`;
-  }
-  return "http://localhost:8000"; // fallback para simulador iOS
-};
-
 export const APP_CONFIG = {
   // Información de la app
   name: "Brigada Surveys",
@@ -39,9 +23,7 @@ export const APP_CONFIG = {
 
   // API
   api: {
-    baseUrl: __DEV__
-      ? getDevApiUrl()
-      : "https://api.brigada.com",
+    baseUrl: "https://backend-g4c7.onrender.com",
     timeout: 30000, // 30 seconds
   },
 

@@ -1,17 +1,18 @@
 /**
- * Admin Surveys - Survey Management
- * Shows: All surveys, create/edit, assignments overview
- * Access: Administrators only (Rule 6)
+ * Admin Surveys - Read-only survey list
+ * Fetches from GET /admin/surveys.
+ * All write operations are handled by the web CMS.
  */
 
 import { AppHeader } from "@/components/shared";
 import { useThemeColors } from "@/contexts/theme-context";
 import { useTabBarHeight } from "@/hooks/use-tab-bar-height";
+import { getAdminSurveys, AdminSurvey } from "@/lib/api/admin";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -20,762 +21,290 @@ import {
   View,
 } from "react-native";
 
-interface Survey {
-  id: number;
-  title: string;
-  category: string;
-  questionsCount: number;
-  responsesCount: number;
-  status: "ACTIVE" | "DRAFT" | "ARCHIVED";
-  createdAt: string;
-}
-
-// Mock data
-const mockSurveys: Survey[] = [
-  {
-    id: 1,
-    title: "Encuesta de Satisfacción Ciudadana 2024",
-    category: "Servicios Públicos",
-    questionsCount: 15,
-    responsesCount: 234,
-    status: "ACTIVE",
-    createdAt: "2024-01-15",
-  },
-  {
-    id: 2,
-    title: "Censo de Infraestructura Urbana",
-    category: "Infraestructura",
-    questionsCount: 22,
-    responsesCount: 156,
-    status: "ACTIVE",
-    createdAt: "2024-01-20",
-  },
-  {
-    id: 3,
-    title: "Evaluación de Programas Sociales",
-    category: "Programas Sociales",
-    questionsCount: 18,
-    responsesCount: 89,
-    status: "DRAFT",
-    createdAt: "2024-02-01",
-  },
-];
-
 export default function AdminSurveys() {
   const colors = useThemeColors();
   const { contentPadding } = useTabBarHeight();
-  const router = useRouter();
-  const [surveys, setSurveys] = useState<Survey[]>(mockSurveys);
-  const [refreshing, setRefreshing] = useState(false);
 
-  // Estado para controlar secciones expandidas/colapsadas
+  const [surveys, setSurveys] = useState<AdminSurvey[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [expandedSections, setExpandedSections] = useState({
-    active: true, // Activas - expandidas por defecto
-    draft: false, // Borradores - colapsadas por defecto
-    archived: false, // Archivadas - colapsadas por defecto
+    active: true,
+    inactive: false,
   });
+
+  const fetchSurveys = async (silent = false) => {
+    if (!silent) setLoading(true);
+    setError(null);
+    try {
+      const data = await getAdminSurveys();
+      setSurveys(data);
+    } catch {
+      setError("No se pudieron cargar las encuestas.");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => { fetchSurveys(); }, []);
+
+  const onRefresh = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setRefreshing(true);
+    fetchSurveys(true);
+  };
 
   const toggleSection = (section: keyof typeof expandedSections) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setExpandedSections((prev) => ({
-      ...prev,
-      [section]: !prev[section],
-    }));
+    setExpandedSections((prev) => ({ ...prev, [section]: !prev[section] }));
   };
 
-  // Agrupar encuestas por estado
-  const surveysByStatus = {
-    active: surveys.filter((s) => s.status === "ACTIVE"),
-    draft: surveys.filter((s) => s.status === "DRAFT"),
-    archived: surveys.filter((s) => s.status === "ARCHIVED"),
-  };
+  const active = surveys.filter((s) => s.is_active);
+  const inactive = surveys.filter((s) => !s.is_active);
 
-  const statusConfig = {
-    ACTIVE: {
-      label: "Activa",
-      color: colors.success,
-      icon: "checkmark-circle" as const,
-    },
-    DRAFT: {
-      label: "Borrador",
-      color: colors.warning,
-      icon: "create-outline" as const,
-    },
-    ARCHIVED: {
-      label: "Archivada",
-      color: colors.textSecondary,
-      icon: "archive-outline" as const,
-    },
-  };
+  const SurveyCard = ({ survey }: { survey: AdminSurvey }) => (
+    <View
+      style={[
+        styles.surveyCard,
+        { backgroundColor: colors.surface, borderColor: colors.border },
+      ]}
+    >
+      {/* Header */}
+      <View style={styles.cardHeader}>
+        <View style={styles.cardTitleSection}>
+          <Text style={[styles.cardTitle, { color: colors.text }]} numberOfLines={2}>
+            {survey.title}
+          </Text>
+          {survey.description ? (
+            <Text
+              style={[styles.cardDescription, { color: colors.textSecondary }]}
+              numberOfLines={2}
+            >
+              {survey.description}
+            </Text>
+          ) : null}
+        </View>
+        <View
+          style={[
+            styles.statusBadge,
+            {
+              backgroundColor: survey.is_active
+                ? colors.success + "20"
+                : colors.textSecondary + "20",
+            },
+          ]}
+        >
+          <Ionicons
+            name={survey.is_active ? "checkmark-circle" : "pause-circle-outline"}
+            size={14}
+            color={survey.is_active ? colors.success : colors.textSecondary}
+          />
+          <Text
+            style={[
+              styles.statusText,
+              { color: survey.is_active ? colors.success : colors.textSecondary },
+            ]}
+          >
+            {survey.is_active ? "Activa" : "Inactiva"}
+          </Text>
+        </View>
+      </View>
 
-  const onRefresh = async () => {
-    setRefreshing(true);
-    // TODO: Fetch surveys from database
-    setTimeout(() => {
-      setRefreshing(false);
-    }, 1000);
-  };
+      {/* Info */}
+      <View style={styles.cardInfo}>
+        <View style={styles.infoItem}>
+          <Ionicons name="layers-outline" size={15} color={colors.textSecondary} />
+          <Text style={[styles.infoText, { color: colors.textSecondary }]}>
+            {survey.versions.length} {survey.versions.length === 1 ? "versión" : "versiones"}
+          </Text>
+        </View>
+        <View style={styles.infoItem}>
+          <Ionicons name="calendar-outline" size={15} color={colors.textSecondary} />
+          <Text style={[styles.infoText, { color: colors.textSecondary }]}>
+            {new Date(survey.created_at).toLocaleDateString()}
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
 
-  const handleCreateSurvey = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    // TODO: Navigate to create survey screen
-    console.log("Create new survey");
-  };
-
-  const handleSurveyPress = (survey: Survey) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    // TODO: Navigate to survey detail
-    console.log("View survey:", survey.id);
-  };
+  const SectionHeader = ({
+    label,
+    count,
+    accentColor,
+    icon,
+    expanded,
+    onToggle,
+  }: {
+    label: string;
+    count: number;
+    accentColor: string;
+    icon: keyof typeof Ionicons.glyphMap;
+    expanded: boolean;
+    onToggle: () => void;
+  }) => (
+    <TouchableOpacity
+      style={styles.sectionHeader}
+      onPress={onToggle}
+      activeOpacity={0.7}
+    >
+      <View style={styles.sectionHeaderLeft}>
+        <Ionicons name={icon} size={22} color={accentColor} />
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>{label}</Text>
+        <View style={[styles.badge, { backgroundColor: accentColor + "20" }]}>
+          <Text style={[styles.badgeText, { color: accentColor }]}>{count}</Text>
+        </View>
+      </View>
+      <Ionicons
+        name={expanded ? "chevron-up" : "chevron-down"}
+        size={20}
+        color={colors.textSecondary}
+      />
+    </TouchableOpacity>
+  );
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <AppHeader title="Encuestas" />
 
       <ScrollView
-        contentContainerStyle={[
-          styles.content,
-          { paddingBottom: contentPadding },
-        ]}
+        contentContainerStyle={[styles.content, { paddingBottom: contentPadding }]}
+        showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+          />
         }
       >
-        {/* Stats Cards */}
-        <View style={styles.statsContainer}>
-          <View
-            style={[
-              styles.statCard,
-              { backgroundColor: colors.surface, borderColor: colors.border },
-            ]}
-          >
-            <Ionicons name="document-text" size={24} color={colors.primary} />
-            <Text style={[styles.statValue, { color: colors.text }]}>
-              {surveys.length}
-            </Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-              Total
-            </Text>
-          </View>
-          <View
-            style={[
-              styles.statCard,
-              { backgroundColor: colors.surface, borderColor: colors.border },
-            ]}
-          >
-            <Ionicons name="pulse" size={24} color={colors.success} />
-            <Text style={[styles.statValue, { color: colors.text }]}>
-              {surveys.filter((s) => s.status === "ACTIVE").length}
-            </Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-              Activas
-            </Text>
-          </View>
-          <View
-            style={[
-              styles.statCard,
-              { backgroundColor: colors.surface, borderColor: colors.border },
-            ]}
-          >
-            <Ionicons name="chatbox" size={24} color={colors.info} />
-            <Text style={[styles.statValue, { color: colors.text }]}>
-              {surveys.reduce((acc, s) => acc + s.responsesCount, 0)}
-            </Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-              Respuestas
-            </Text>
-          </View>
-        </View>
-
-        {/* Create Button */}
-        <TouchableOpacity
-          style={[styles.createButton, { backgroundColor: colors.primary }]}
-          onPress={handleCreateSurvey}
-          activeOpacity={0.8}
+        {/* Read-only notice */}
+        <View
+          style={[
+            styles.noticeBanner,
+            { backgroundColor: colors.info + "18", borderColor: colors.info + "40" },
+          ]}
         >
-          <Ionicons
-            name="add-circle-outline"
-            size={24}
-            color={colors.background}
-          />
-          <Text style={[styles.createButtonText, { color: colors.background }]}>
-            Nueva Encuesta
+          <Ionicons name="eye-outline" size={16} color={colors.info} />
+          <Text style={[styles.noticeText, { color: colors.info }]}>
+            Vista de solo lectura. Gestiona encuestas desde el CMS web.
           </Text>
-        </TouchableOpacity>
-
-        {/* Surveys List */}
-        <View style={styles.listContainer}>
-          {surveys.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Ionicons
-                name="document-text-outline"
-                size={64}
-                color={colors.textSecondary}
-              />
-              <Text style={[styles.emptyText, { color: colors.text }]}>
-                No hay encuestas
-              </Text>
-              <Text
-                style={[styles.emptySubtext, { color: colors.textSecondary }]}
-              >
-                Crea tu primera encuesta para empezar
-              </Text>
-            </View>
-          ) : (
-            <>
-              {/* Activas */}
-              {surveysByStatus.active.length > 0 && (
-                <View style={styles.section}>
-                  <TouchableOpacity
-                    style={styles.sectionHeader}
-                    onPress={() => toggleSection("active")}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.sectionHeaderLeft}>
-                      <Ionicons
-                        name="checkmark-circle"
-                        size={24}
-                        color={colors.success}
-                      />
-                      <Text
-                        style={[styles.sectionTitle, { color: colors.text }]}
-                      >
-                        Activas
-                      </Text>
-                      <View
-                        style={[
-                          styles.badge,
-                          { backgroundColor: colors.success + "20" },
-                        ]}
-                      >
-                        <Text
-                          style={[styles.badgeText, { color: colors.success }]}
-                        >
-                          {surveysByStatus.active.length}
-                        </Text>
-                      </View>
-                    </View>
-                    <Ionicons
-                      name={
-                        expandedSections.active ? "chevron-up" : "chevron-down"
-                      }
-                      size={20}
-                      color={colors.textSecondary}
-                    />
-                  </TouchableOpacity>
-
-                  {expandedSections.active && (
-                    <View style={styles.sectionContent}>
-                      {surveysByStatus.active.map((survey) => {
-                        const config = statusConfig[survey.status];
-                        return (
-                          <TouchableOpacity
-                            key={survey.id}
-                            style={[
-                              styles.surveyCard,
-                              {
-                                backgroundColor: colors.surface,
-                                borderColor: colors.border,
-                              },
-                            ]}
-                            onPress={() => handleSurveyPress(survey)}
-                            activeOpacity={0.7}
-                          >
-                            {/* Header */}
-                            <View style={styles.cardHeader}>
-                              <View style={styles.cardTitleSection}>
-                                <Text
-                                  style={[
-                                    styles.cardTitle,
-                                    { color: colors.text },
-                                  ]}
-                                  numberOfLines={2}
-                                >
-                                  {survey.title}
-                                </Text>
-                                <Text
-                                  style={[
-                                    styles.cardCategory,
-                                    { color: colors.textSecondary },
-                                  ]}
-                                >
-                                  {survey.category}
-                                </Text>
-                              </View>
-                              <View
-                                style={[
-                                  styles.statusBadge,
-                                  { backgroundColor: config.color + "20" },
-                                ]}
-                              >
-                                <Ionicons
-                                  name={config.icon}
-                                  size={14}
-                                  color={config.color}
-                                />
-                                <Text
-                                  style={[
-                                    styles.statusText,
-                                    { color: config.color },
-                                  ]}
-                                >
-                                  {config.label}
-                                </Text>
-                              </View>
-                            </View>
-
-                            {/* Info */}
-                            <View style={styles.cardInfo}>
-                              <View style={styles.infoItem}>
-                                <Ionicons
-                                  name="help-circle-outline"
-                                  size={16}
-                                  color={colors.textSecondary}
-                                />
-                                <Text
-                                  style={[
-                                    styles.infoText,
-                                    { color: colors.textSecondary },
-                                  ]}
-                                >
-                                  {survey.questionsCount} preguntas
-                                </Text>
-                              </View>
-                              <View style={styles.infoItem}>
-                                <Ionicons
-                                  name="chatbox-outline"
-                                  size={16}
-                                  color={colors.textSecondary}
-                                />
-                                <Text
-                                  style={[
-                                    styles.infoText,
-                                    { color: colors.textSecondary },
-                                  ]}
-                                >
-                                  {survey.responsesCount} respuestas
-                                </Text>
-                              </View>
-                            </View>
-
-                            {/* Footer */}
-                            <View
-                              style={[
-                                styles.cardFooter,
-                                { borderTopColor: colors.border },
-                              ]}
-                            >
-                              <Text
-                                style={[
-                                  styles.dateText,
-                                  { color: colors.textSecondary },
-                                ]}
-                              >
-                                Creada:{" "}
-                                {new Date(
-                                  survey.createdAt,
-                                ).toLocaleDateString()}
-                              </Text>
-                              <Ionicons
-                                name="chevron-forward"
-                                size={20}
-                                color={colors.textSecondary}
-                              />
-                            </View>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </View>
-                  )}
-                </View>
-              )}
-
-              {/* Borradores */}
-              {surveysByStatus.draft.length > 0 && (
-                <View style={styles.section}>
-                  <TouchableOpacity
-                    style={styles.sectionHeader}
-                    onPress={() => toggleSection("draft")}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.sectionHeaderLeft}>
-                      <Ionicons
-                        name="create-outline"
-                        size={24}
-                        color={colors.warning}
-                      />
-                      <Text
-                        style={[styles.sectionTitle, { color: colors.text }]}
-                      >
-                        Borradores
-                      </Text>
-                      <View
-                        style={[
-                          styles.badge,
-                          { backgroundColor: colors.warning + "20" },
-                        ]}
-                      >
-                        <Text
-                          style={[styles.badgeText, { color: colors.warning }]}
-                        >
-                          {surveysByStatus.draft.length}
-                        </Text>
-                      </View>
-                    </View>
-                    <Ionicons
-                      name={
-                        expandedSections.draft ? "chevron-up" : "chevron-down"
-                      }
-                      size={20}
-                      color={colors.textSecondary}
-                    />
-                  </TouchableOpacity>
-
-                  {expandedSections.draft && (
-                    <View style={styles.sectionContent}>
-                      {surveysByStatus.draft.map((survey) => {
-                        const config = statusConfig[survey.status];
-                        return (
-                          <TouchableOpacity
-                            key={survey.id}
-                            style={[
-                              styles.surveyCard,
-                              {
-                                backgroundColor: colors.surface,
-                                borderColor: colors.border,
-                              },
-                            ]}
-                            onPress={() => handleSurveyPress(survey)}
-                            activeOpacity={0.7}
-                          >
-                            <View style={styles.cardHeader}>
-                              <View style={styles.cardTitleSection}>
-                                <Text
-                                  style={[
-                                    styles.cardTitle,
-                                    { color: colors.text },
-                                  ]}
-                                  numberOfLines={2}
-                                >
-                                  {survey.title}
-                                </Text>
-                                <Text
-                                  style={[
-                                    styles.cardCategory,
-                                    { color: colors.textSecondary },
-                                  ]}
-                                >
-                                  {survey.category}
-                                </Text>
-                              </View>
-                              <View
-                                style={[
-                                  styles.statusBadge,
-                                  { backgroundColor: config.color + "20" },
-                                ]}
-                              >
-                                <Ionicons
-                                  name={config.icon}
-                                  size={14}
-                                  color={config.color}
-                                />
-                                <Text
-                                  style={[
-                                    styles.statusText,
-                                    { color: config.color },
-                                  ]}
-                                >
-                                  {config.label}
-                                </Text>
-                              </View>
-                            </View>
-
-                            <View style={styles.cardInfo}>
-                              <View style={styles.infoItem}>
-                                <Ionicons
-                                  name="help-circle-outline"
-                                  size={16}
-                                  color={colors.textSecondary}
-                                />
-                                <Text
-                                  style={[
-                                    styles.infoText,
-                                    { color: colors.textSecondary },
-                                  ]}
-                                >
-                                  {survey.questionsCount} preguntas
-                                </Text>
-                              </View>
-                              <View style={styles.infoItem}>
-                                <Ionicons
-                                  name="chatbox-outline"
-                                  size={16}
-                                  color={colors.textSecondary}
-                                />
-                                <Text
-                                  style={[
-                                    styles.infoText,
-                                    { color: colors.textSecondary },
-                                  ]}
-                                >
-                                  {survey.responsesCount} respuestas
-                                </Text>
-                              </View>
-                            </View>
-
-                            <View
-                              style={[
-                                styles.cardFooter,
-                                { borderTopColor: colors.border },
-                              ]}
-                            >
-                              <Text
-                                style={[
-                                  styles.dateText,
-                                  { color: colors.textSecondary },
-                                ]}
-                              >
-                                Creada:{" "}
-                                {new Date(
-                                  survey.createdAt,
-                                ).toLocaleDateString()}
-                              </Text>
-                              <Ionicons
-                                name="chevron-forward"
-                                size={20}
-                                color={colors.textSecondary}
-                              />
-                            </View>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </View>
-                  )}
-                </View>
-              )}
-
-              {/* Archivadas */}
-              {surveysByStatus.archived.length > 0 && (
-                <View style={styles.section}>
-                  <TouchableOpacity
-                    style={styles.sectionHeader}
-                    onPress={() => toggleSection("archived")}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.sectionHeaderLeft}>
-                      <Ionicons
-                        name="archive-outline"
-                        size={24}
-                        color={colors.textSecondary}
-                      />
-                      <Text
-                        style={[styles.sectionTitle, { color: colors.text }]}
-                      >
-                        Archivadas
-                      </Text>
-                      <View
-                        style={[
-                          styles.badge,
-                          { backgroundColor: colors.textSecondary + "20" },
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.badgeText,
-                            { color: colors.textSecondary },
-                          ]}
-                        >
-                          {surveysByStatus.archived.length}
-                        </Text>
-                      </View>
-                    </View>
-                    <Ionicons
-                      name={
-                        expandedSections.archived
-                          ? "chevron-up"
-                          : "chevron-down"
-                      }
-                      size={20}
-                      color={colors.textSecondary}
-                    />
-                  </TouchableOpacity>
-
-                  {expandedSections.archived && (
-                    <View style={styles.sectionContent}>
-                      {surveysByStatus.archived.map((survey) => {
-                        const config = statusConfig[survey.status];
-                        return (
-                          <TouchableOpacity
-                            key={survey.id}
-                            style={[
-                              styles.surveyCard,
-                              {
-                                backgroundColor: colors.surface,
-                                borderColor: colors.border,
-                              },
-                            ]}
-                            onPress={() => handleSurveyPress(survey)}
-                            activeOpacity={0.7}
-                          >
-                            <View style={styles.cardHeader}>
-                              <View style={styles.cardTitleSection}>
-                                <Text
-                                  style={[
-                                    styles.cardTitle,
-                                    { color: colors.text },
-                                  ]}
-                                  numberOfLines={2}
-                                >
-                                  {survey.title}
-                                </Text>
-                                <Text
-                                  style={[
-                                    styles.cardCategory,
-                                    { color: colors.textSecondary },
-                                  ]}
-                                >
-                                  {survey.category}
-                                </Text>
-                              </View>
-                              <View
-                                style={[
-                                  styles.statusBadge,
-                                  { backgroundColor: config.color + "20" },
-                                ]}
-                              >
-                                <Ionicons
-                                  name={config.icon}
-                                  size={14}
-                                  color={config.color}
-                                />
-                                <Text
-                                  style={[
-                                    styles.statusText,
-                                    { color: config.color },
-                                  ]}
-                                >
-                                  {config.label}
-                                </Text>
-                              </View>
-                            </View>
-
-                            <View style={styles.cardInfo}>
-                              <View style={styles.infoItem}>
-                                <Ionicons
-                                  name="help-circle-outline"
-                                  size={16}
-                                  color={colors.textSecondary}
-                                />
-                                <Text
-                                  style={[
-                                    styles.infoText,
-                                    { color: colors.textSecondary },
-                                  ]}
-                                >
-                                  {survey.questionsCount} preguntas
-                                </Text>
-                              </View>
-                              <View style={styles.infoItem}>
-                                <Ionicons
-                                  name="chatbox-outline"
-                                  size={16}
-                                  color={colors.textSecondary}
-                                />
-                                <Text
-                                  style={[
-                                    styles.infoText,
-                                    { color: colors.textSecondary },
-                                  ]}
-                                >
-                                  {survey.responsesCount} respuestas
-                                </Text>
-                              </View>
-                            </View>
-
-                            <View
-                              style={[
-                                styles.cardFooter,
-                                { borderTopColor: colors.border },
-                              ]}
-                            >
-                              <Text
-                                style={[
-                                  styles.dateText,
-                                  { color: colors.textSecondary },
-                                ]}
-                              >
-                                Creada:{" "}
-                                {new Date(
-                                  survey.createdAt,
-                                ).toLocaleDateString()}
-                              </Text>
-                              <Ionicons
-                                name="chevron-forward"
-                                size={20}
-                                color={colors.textSecondary}
-                              />
-                            </View>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </View>
-                  )}
-                </View>
-              )}
-            </>
-          )}
         </View>
+
+        {/* Stats row */}
+        {!loading && surveys.length > 0 && (
+          <View style={styles.statsRow}>
+            <View style={[styles.statPill, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <Ionicons name="document-text-outline" size={18} color={colors.primary} />
+              <Text style={[styles.statValue, { color: colors.text }]}>{surveys.length}</Text>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Total</Text>
+            </View>
+            <View style={[styles.statPill, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <Ionicons name="pulse-outline" size={18} color={colors.success} />
+              <Text style={[styles.statValue, { color: colors.text }]}>{active.length}</Text>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Activas</Text>
+            </View>
+            <View style={[styles.statPill, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <Ionicons name="pause-circle-outline" size={18} color={colors.textSecondary} />
+              <Text style={[styles.statValue, { color: colors.text }]}>{inactive.length}</Text>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Inactivas</Text>
+            </View>
+          </View>
+        )}
+
+        {/* Loading */}
+        {loading && (
+          <ActivityIndicator size="large" color={colors.primary} style={styles.loader} />
+        )}
+
+        {/* Error */}
+        {!loading && error && (
+          <View style={styles.emptyState}>
+            <Ionicons name="cloud-offline-outline" size={48} color={colors.textSecondary} />
+            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>{error}</Text>
+          </View>
+        )}
+
+        {/* Empty */}
+        {!loading && !error && surveys.length === 0 && (
+          <View style={styles.emptyState}>
+            <Ionicons name="document-text-outline" size={48} color={colors.textSecondary} />
+            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>Sin encuestas</Text>
+          </View>
+        )}
+
+        {/* Activas */}
+        {!loading && active.length > 0 && (
+          <View style={styles.section}>
+            <SectionHeader
+              label="Activas"
+              count={active.length}
+              accentColor={colors.success}
+              icon="checkmark-circle-outline"
+              expanded={expandedSections.active}
+              onToggle={() => toggleSection("active")}
+            />
+            {expandedSections.active && (
+              <View style={styles.sectionContent}>
+                {active.map((s) => <SurveyCard key={s.id} survey={s} />)}
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Inactivas */}
+        {!loading && inactive.length > 0 && (
+          <View style={styles.section}>
+            <SectionHeader
+              label="Inactivas"
+              count={inactive.length}
+              accentColor={colors.textSecondary}
+              icon="pause-circle-outline"
+              expanded={expandedSections.inactive}
+              onToggle={() => toggleSection("inactive")}
+            />
+            {expandedSections.inactive && (
+              <View style={styles.sectionContent}>
+                {inactive.map((s) => <SurveyCard key={s.id} survey={s} />)}
+              </View>
+            )}
+          </View>
+        )}
       </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  content: {
-    padding: 20,
-  },
-  statsContainer: {
+  container: { flex: 1 },
+  content: { padding: 20, gap: 16 },
+  noticeBanner: {
     flexDirection: "row",
-    gap: 12,
-    marginBottom: 20,
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    borderWidth: 1,
   },
-  statCard: {
+  noticeText: { fontSize: 13, fontWeight: "500", flex: 1 },
+  statsRow: { flexDirection: "row", gap: 10 },
+  statPill: {
     flex: 1,
-    padding: 16,
+    alignItems: "center",
+    paddingVertical: 12,
     borderRadius: 12,
     borderWidth: 1,
-    alignItems: "center",
-    gap: 8,
+    gap: 4,
   },
-  statValue: {
-    fontSize: 24,
-    fontWeight: "700",
-  },
-  statLabel: {
-    fontSize: 12,
-  },
-  createButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 16,
-    borderRadius: 12,
-    gap: 8,
-    marginBottom: 24,
-  },
-  createButtonText: {
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  listContainer: {
-    gap: 12,
-  },
-  section: {
-    marginBottom: 16,
-  },
+  statValue: { fontSize: 20, fontWeight: "700" },
+  statLabel: { fontSize: 11, fontWeight: "600" },
+  loader: { marginTop: 60 },
+  emptyState: { alignItems: "center", paddingTop: 60, gap: 12 },
+  emptyText: { fontSize: 15, textAlign: "center" },
+  section: { gap: 0 },
   sectionHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -783,97 +312,32 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 4,
   },
-  sectionHeaderLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-  },
-  badge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  badgeText: {
-    fontSize: 13,
-    fontWeight: "700",
-  },
-  sectionContent: {
-    gap: 12,
-    marginTop: 8,
-  },
-  emptyState: {
-    alignItems: "center",
-    paddingVertical: 60,
-  },
-  emptyText: {
-    fontSize: 20,
-    fontWeight: "600",
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  emptySubtext: {
-    fontSize: 14,
-  },
-  surveyCard: {
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
+  sectionHeaderLeft: { flexDirection: "row", alignItems: "center", gap: 10 },
+  sectionTitle: { fontSize: 17, fontWeight: "700" },
+  badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
+  badgeText: { fontSize: 13, fontWeight: "700" },
+  sectionContent: { gap: 10, marginTop: 4 },
+  surveyCard: { padding: 14, borderRadius: 12, borderWidth: 1 },
   cardHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    marginBottom: 12,
-    gap: 12,
+    gap: 10,
+    marginBottom: 10,
   },
-  cardTitleSection: {
-    flex: 1,
-  },
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    marginBottom: 4,
-  },
-  cardCategory: {
-    fontSize: 14,
-  },
+  cardTitleSection: { flex: 1 },
+  cardTitle: { fontSize: 15, fontWeight: "600", marginBottom: 3 },
+  cardDescription: { fontSize: 13 },
   statusBadge: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 12,
+    borderRadius: 10,
     gap: 4,
   },
-  statusText: {
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  cardInfo: {
-    flexDirection: "row",
-    gap: 16,
-    marginBottom: 12,
-  },
-  infoItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  infoText: {
-    fontSize: 14,
-  },
-  cardFooter: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingTop: 12,
-    borderTopWidth: 1,
-  },
-  dateText: {
-    fontSize: 12,
-  },
+  statusText: { fontSize: 11, fontWeight: "700" },
+  cardInfo: { flexDirection: "row", gap: 16 },
+  infoItem: { flexDirection: "row", alignItems: "center", gap: 4 },
+  infoText: { fontSize: 13 },
 });
