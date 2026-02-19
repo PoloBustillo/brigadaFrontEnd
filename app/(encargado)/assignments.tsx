@@ -6,8 +6,11 @@
 
 import { UserHeader } from "@/components/shared";
 import { typography } from "@/constants/typography";
-import { getMyCreatedAssignments, type AssignmentDetail } from "@/lib/api/assignments";
 import { useThemeColors } from "@/contexts/theme-context";
+import {
+  getMyCreatedAssignments,
+  type AssignmentDetail,
+} from "@/lib/api/assignments";
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
 import {
@@ -30,7 +33,10 @@ interface SurveyGroup {
   createdAt: string;
 }
 
-const STATUS_CONFIG: Record<string, { label: string; color: string; icon: string }> = {
+const STATUS_CONFIG: Record<
+  string,
+  { label: string; color: string; icon: string }
+> = {
   active: {
     label: "Activa",
     color: "#06D6A0",
@@ -86,7 +92,9 @@ export default function EncargadoAssignmentsScreen() {
     }
   };
 
-  useEffect(() => { fetchAssignments(); }, []);
+  useEffect(() => {
+    fetchAssignments();
+  }, []);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -98,7 +106,7 @@ export default function EncargadoAssignmentsScreen() {
   };
 
   const totalBrigadistas = Array.from(
-    new Set(surveyGroups.flatMap((g) => g.brigadistas.map((b) => b.id)))
+    new Set(surveyGroups.flatMap((g) => g.brigadistas.map((b) => b.id))),
   ).length;
 
   return (
@@ -118,130 +126,149 @@ export default function EncargadoAssignmentsScreen() {
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : (
-      <ScrollView
-        contentContainerStyle={styles.content}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-      >
-        {/* Summary */}
-        <View style={styles.summaryContainer}>
-          <View style={[styles.summaryCard, { backgroundColor: "#00B4D8" }]}>
-            <Ionicons name="document-text-outline" size={32} color="#FFFFFF" />
-            <Text style={styles.summaryValue}>{surveyGroups.length}</Text>
-            <Text style={styles.summaryLabel}>Encuestas</Text>
-          </View>
-          <View style={[styles.summaryCard, { backgroundColor: "#06D6A0" }]}>
-            <Ionicons name="people-outline" size={32} color="#FFFFFF" />
-            <Text style={styles.summaryValue}>{totalBrigadistas}</Text>
-            <Text style={styles.summaryLabel}>Mi Equipo</Text>
-          </View>
-        </View>
-
-        {/* Assignments List */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            Encuestas Activas
-          </Text>
-
-          {surveyGroups.length === 0 ? (
-            <View style={styles.emptyState}>
+        <ScrollView
+          contentContainerStyle={styles.content}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+        >
+          {/* Summary */}
+          <View style={styles.summaryContainer}>
+            <View style={[styles.summaryCard, { backgroundColor: "#00B4D8" }]}>
               <Ionicons
-                name="folder-open-outline"
-                size={64}
-                color={colors.icon}
+                name="document-text-outline"
+                size={32}
+                color="#FFFFFF"
               />
-              <Text style={[styles.emptyText, { color: colors.icon }]}>
-                No tienes asignaciones
-              </Text>
-              <Text style={[styles.emptySubtext, { color: colors.icon }]}>
-                Crea asignaciones desde el panel web
-              </Text>
+              <Text style={styles.summaryValue}>{surveyGroups.length}</Text>
+              <Text style={styles.summaryLabel}>Encuestas</Text>
             </View>
-          ) : (
-            surveyGroups.map((group) => {
-              const statusConf = STATUS_CONFIG[group.status] ?? STATUS_CONFIG.inactive;
+            <View style={[styles.summaryCard, { backgroundColor: "#06D6A0" }]}>
+              <Ionicons name="people-outline" size={32} color="#FFFFFF" />
+              <Text style={styles.summaryValue}>{totalBrigadistas}</Text>
+              <Text style={styles.summaryLabel}>Mi Equipo</Text>
+            </View>
+          </View>
 
-              return (
-                <TouchableOpacity
-                  key={group.surveyId}
-                  style={[
-                    styles.assignmentCard,
-                    { backgroundColor: colors.surface, borderColor: colors.border },
-                  ]}
-                  onPress={() => handleViewAssignment(group)}
-                  activeOpacity={0.7}
-                >
-                  {/* Header */}
-                  <View style={styles.cardHeader}>
-                    <Text
-                      style={[styles.cardTitle, { color: colors.text }]}
-                      numberOfLines={2}
-                    >
-                      {group.surveyTitle}
-                    </Text>
-                  </View>
+          {/* Assignments List */}
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              Encuestas Activas
+            </Text>
 
-                  {/* Status badge */}
-                  <View style={styles.badgesRow}>
-                    <View
-                      style={[
-                        styles.statusBadge,
-                        { backgroundColor: statusConf.color },
-                      ]}
-                    >
-                      <Ionicons
-                        name={statusConf.icon as any}
-                        size={14}
-                        color="#FFFFFF"
-                      />
-                      <Text style={styles.statusText}>
-                        {statusConf.label}
+            {surveyGroups.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Ionicons
+                  name="folder-open-outline"
+                  size={64}
+                  color={colors.icon}
+                />
+                <Text style={[styles.emptyText, { color: colors.icon }]}>
+                  No tienes asignaciones
+                </Text>
+                <Text style={[styles.emptySubtext, { color: colors.icon }]}>
+                  Crea asignaciones desde el panel web
+                </Text>
+              </View>
+            ) : (
+              surveyGroups.map((group) => {
+                const statusConf =
+                  STATUS_CONFIG[group.status] ?? STATUS_CONFIG.inactive;
+
+                return (
+                  <TouchableOpacity
+                    key={group.surveyId}
+                    style={[
+                      styles.assignmentCard,
+                      {
+                        backgroundColor: colors.surface,
+                        borderColor: colors.border,
+                      },
+                    ]}
+                    onPress={() => handleViewAssignment(group)}
+                    activeOpacity={0.7}
+                  >
+                    {/* Header */}
+                    <View style={styles.cardHeader}>
+                      <Text
+                        style={[styles.cardTitle, { color: colors.text }]}
+                        numberOfLines={2}
+                      >
+                        {group.surveyTitle}
                       </Text>
                     </View>
-                  </View>
 
-                  {/* Team Info */}
-                  <View style={styles.infoRow}>
-                    <Ionicons
-                      name="people-outline"
-                      size={18}
-                      color={colors.icon}
-                    />
-                    <Text style={[styles.infoText, { color: colors.text }]}>
-                      {group.brigadistas.length} brigadista{group.brigadistas.length !== 1 ? "s" : ""} asignado{group.brigadistas.length !== 1 ? "s" : ""}
-                    </Text>
-                  </View>
+                    {/* Status badge */}
+                    <View style={styles.badgesRow}>
+                      <View
+                        style={[
+                          styles.statusBadge,
+                          { backgroundColor: statusConf.color },
+                        ]}
+                      >
+                        <Ionicons
+                          name={statusConf.icon as any}
+                          size={14}
+                          color="#FFFFFF"
+                        />
+                        <Text style={styles.statusText}>
+                          {statusConf.label}
+                        </Text>
+                      </View>
+                    </View>
 
-                  {/* Response count */}
-                  <View style={styles.infoRow}>
-                    <Ionicons
-                      name="chatbox-outline"
-                      size={18}
-                      color={colors.icon}
-                    />
-                    <Text style={[styles.infoText, { color: colors.text }]}>
-                      {group.responsesCount} respuesta{group.responsesCount !== 1 ? "s" : ""} del equipo
-                    </Text>
-                  </View>
+                    {/* Team Info */}
+                    <View style={styles.infoRow}>
+                      <Ionicons
+                        name="people-outline"
+                        size={18}
+                        color={colors.icon}
+                      />
+                      <Text style={[styles.infoText, { color: colors.text }]}>
+                        {group.brigadistas.length} brigadista
+                        {group.brigadistas.length !== 1 ? "s" : ""} asignado
+                        {group.brigadistas.length !== 1 ? "s" : ""}
+                      </Text>
+                    </View>
 
-                  {/* Footer */}
-                  <View style={[styles.cardFooter, { borderTopColor: colors.border }]}>
-                    <Text style={[styles.progressStats, { color: colors.icon }]}>
-                      Asignada {new Date(group.createdAt).toLocaleDateString()}
-                    </Text>
-                    <Ionicons
-                      name="chevron-forward"
-                      size={20}
-                      color={colors.icon}
-                    />
-                  </View>
-                </TouchableOpacity>
-              );
-            })
-          )}
-        </View>
-      </ScrollView>
+                    {/* Response count */}
+                    <View style={styles.infoRow}>
+                      <Ionicons
+                        name="chatbox-outline"
+                        size={18}
+                        color={colors.icon}
+                      />
+                      <Text style={[styles.infoText, { color: colors.text }]}>
+                        {group.responsesCount} respuesta
+                        {group.responsesCount !== 1 ? "s" : ""} del equipo
+                      </Text>
+                    </View>
+
+                    {/* Footer */}
+                    <View
+                      style={[
+                        styles.cardFooter,
+                        { borderTopColor: colors.border },
+                      ]}
+                    >
+                      <Text
+                        style={[styles.progressStats, { color: colors.icon }]}
+                      >
+                        Asignada{" "}
+                        {new Date(group.createdAt).toLocaleDateString()}
+                      </Text>
+                      <Ionicons
+                        name="chevron-forward"
+                        size={20}
+                        color={colors.icon}
+                      />
+                    </View>
+                  </TouchableOpacity>
+                );
+              })
+            )}
+          </View>
+        </ScrollView>
       )}
     </View>
   );

@@ -7,7 +7,7 @@
 import { AppHeader } from "@/components/shared";
 import { useThemeColors } from "@/contexts/theme-context";
 import { useTabBarHeight } from "@/hooks/use-tab-bar-height";
-import { getAdminSurveys, AdminSurvey } from "@/lib/api/admin";
+import { AdminSurvey, getAdminSurveys } from "@/lib/api/admin";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useEffect, useState } from "react";
@@ -48,7 +48,9 @@ export default function AdminSurveys() {
     }
   };
 
-  useEffect(() => { fetchSurveys(); }, []);
+  useEffect(() => {
+    fetchSurveys();
+  }, []);
 
   const onRefresh = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -74,7 +76,10 @@ export default function AdminSurveys() {
       {/* Header */}
       <View style={styles.cardHeader}>
         <View style={styles.cardTitleSection}>
-          <Text style={[styles.cardTitle, { color: colors.text }]} numberOfLines={2}>
+          <Text
+            style={[styles.cardTitle, { color: colors.text }]}
+            numberOfLines={2}
+          >
             {survey.title}
           </Text>
           {survey.description ? (
@@ -97,14 +102,18 @@ export default function AdminSurveys() {
           ]}
         >
           <Ionicons
-            name={survey.is_active ? "checkmark-circle" : "pause-circle-outline"}
+            name={
+              survey.is_active ? "checkmark-circle" : "pause-circle-outline"
+            }
             size={14}
             color={survey.is_active ? colors.success : colors.textSecondary}
           />
           <Text
             style={[
               styles.statusText,
-              { color: survey.is_active ? colors.success : colors.textSecondary },
+              {
+                color: survey.is_active ? colors.success : colors.textSecondary,
+              },
             ]}
           >
             {survey.is_active ? "Activa" : "Inactiva"}
@@ -115,13 +124,22 @@ export default function AdminSurveys() {
       {/* Info */}
       <View style={styles.cardInfo}>
         <View style={styles.infoItem}>
-          <Ionicons name="layers-outline" size={15} color={colors.textSecondary} />
+          <Ionicons
+            name="layers-outline"
+            size={15}
+            color={colors.textSecondary}
+          />
           <Text style={[styles.infoText, { color: colors.textSecondary }]}>
-            {survey.versions.length} {survey.versions.length === 1 ? "versión" : "versiones"}
+            {survey.versions.length}{" "}
+            {survey.versions.length === 1 ? "versión" : "versiones"}
           </Text>
         </View>
         <View style={styles.infoItem}>
-          <Ionicons name="calendar-outline" size={15} color={colors.textSecondary} />
+          <Ionicons
+            name="calendar-outline"
+            size={15}
+            color={colors.textSecondary}
+          />
           <Text style={[styles.infoText, { color: colors.textSecondary }]}>
             {new Date(survey.created_at).toLocaleDateString()}
           </Text>
@@ -152,9 +170,13 @@ export default function AdminSurveys() {
     >
       <View style={styles.sectionHeaderLeft}>
         <Ionicons name={icon} size={22} color={accentColor} />
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>{label}</Text>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>
+          {label}
+        </Text>
         <View style={[styles.badge, { backgroundColor: accentColor + "20" }]}>
-          <Text style={[styles.badgeText, { color: accentColor }]}>{count}</Text>
+          <Text style={[styles.badgeText, { color: accentColor }]}>
+            {count}
+          </Text>
         </View>
       </View>
       <Ionicons
@@ -170,7 +192,10 @@ export default function AdminSurveys() {
       <AppHeader title="Encuestas" />
 
       <ScrollView
-        contentContainerStyle={[styles.content, { paddingBottom: contentPadding }]}
+        contentContainerStyle={[
+          styles.content,
+          { paddingBottom: contentPadding },
+        ]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -184,7 +209,10 @@ export default function AdminSurveys() {
         <View
           style={[
             styles.noticeBanner,
-            { backgroundColor: colors.info + "18", borderColor: colors.info + "40" },
+            {
+              backgroundColor: colors.info + "18",
+              borderColor: colors.info + "40",
+            },
           ]}
         >
           <Ionicons name="eye-outline" size={16} color={colors.info} />
@@ -196,42 +224,93 @@ export default function AdminSurveys() {
         {/* Stats row */}
         {!loading && surveys.length > 0 && (
           <View style={styles.statsRow}>
-            <View style={[styles.statPill, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <Ionicons name="document-text-outline" size={18} color={colors.primary} />
-              <Text style={[styles.statValue, { color: colors.text }]}>{surveys.length}</Text>
-              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Total</Text>
+            <View
+              style={[
+                styles.statPill,
+                { backgroundColor: colors.surface, borderColor: colors.border },
+              ]}
+            >
+              <Ionicons
+                name="document-text-outline"
+                size={18}
+                color={colors.primary}
+              />
+              <Text style={[styles.statValue, { color: colors.text }]}>
+                {surveys.length}
+              </Text>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
+                Total
+              </Text>
             </View>
-            <View style={[styles.statPill, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <View
+              style={[
+                styles.statPill,
+                { backgroundColor: colors.surface, borderColor: colors.border },
+              ]}
+            >
               <Ionicons name="pulse-outline" size={18} color={colors.success} />
-              <Text style={[styles.statValue, { color: colors.text }]}>{active.length}</Text>
-              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Activas</Text>
+              <Text style={[styles.statValue, { color: colors.text }]}>
+                {active.length}
+              </Text>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
+                Activas
+              </Text>
             </View>
-            <View style={[styles.statPill, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <Ionicons name="pause-circle-outline" size={18} color={colors.textSecondary} />
-              <Text style={[styles.statValue, { color: colors.text }]}>{inactive.length}</Text>
-              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Inactivas</Text>
+            <View
+              style={[
+                styles.statPill,
+                { backgroundColor: colors.surface, borderColor: colors.border },
+              ]}
+            >
+              <Ionicons
+                name="pause-circle-outline"
+                size={18}
+                color={colors.textSecondary}
+              />
+              <Text style={[styles.statValue, { color: colors.text }]}>
+                {inactive.length}
+              </Text>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
+                Inactivas
+              </Text>
             </View>
           </View>
         )}
 
         {/* Loading */}
         {loading && (
-          <ActivityIndicator size="large" color={colors.primary} style={styles.loader} />
+          <ActivityIndicator
+            size="large"
+            color={colors.primary}
+            style={styles.loader}
+          />
         )}
 
         {/* Error */}
         {!loading && error && (
           <View style={styles.emptyState}>
-            <Ionicons name="cloud-offline-outline" size={48} color={colors.textSecondary} />
-            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>{error}</Text>
+            <Ionicons
+              name="cloud-offline-outline"
+              size={48}
+              color={colors.textSecondary}
+            />
+            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+              {error}
+            </Text>
           </View>
         )}
 
         {/* Empty */}
         {!loading && !error && surveys.length === 0 && (
           <View style={styles.emptyState}>
-            <Ionicons name="document-text-outline" size={48} color={colors.textSecondary} />
-            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>Sin encuestas</Text>
+            <Ionicons
+              name="document-text-outline"
+              size={48}
+              color={colors.textSecondary}
+            />
+            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+              Sin encuestas
+            </Text>
           </View>
         )}
 
@@ -248,7 +327,9 @@ export default function AdminSurveys() {
             />
             {expandedSections.active && (
               <View style={styles.sectionContent}>
-                {active.map((s) => <SurveyCard key={s.id} survey={s} />)}
+                {active.map((s) => (
+                  <SurveyCard key={s.id} survey={s} />
+                ))}
               </View>
             )}
           </View>
@@ -267,7 +348,9 @@ export default function AdminSurveys() {
             />
             {expandedSections.inactive && (
               <View style={styles.sectionContent}>
-                {inactive.map((s) => <SurveyCard key={s.id} survey={s} />)}
+                {inactive.map((s) => (
+                  <SurveyCard key={s.id} survey={s} />
+                ))}
               </View>
             )}
           </View>

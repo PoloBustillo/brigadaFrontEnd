@@ -16,12 +16,12 @@ import { ThemeToggleIcon } from "@/components/ui/theme-toggle";
 import { toastManager } from "@/components/ui/toast-enhanced";
 import { useAuth } from "@/contexts/auth-context";
 import { useThemeColors } from "@/contexts/theme-context";
+import { completeActivation } from "@/lib/api";
 import { Ionicons } from "@expo/vector-icons";
 import NetInfo from "@react-native-community/netinfo";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { completeActivation } from "@/lib/api";
 import { useEffect, useState } from "react";
 import {
   Platform,

@@ -1,6 +1,15 @@
 import { useThemeColors } from "@/contexts/theme-context";
-import { StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
-import type { NumberQuestion as NumberQ, QuestionAnswer } from "../types/question-base.types";
+import {
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import type {
+  NumberQuestion as NumberQ,
+  QuestionAnswer,
+} from "../types/question-base.types";
 
 interface Props {
   question: NumberQ;
@@ -9,7 +18,12 @@ interface Props {
   disabled?: boolean;
 }
 
-export function NumberQuestion({ question, value = "", onChange, disabled = false }: Props) {
+export function NumberQuestion({
+  question,
+  value = "",
+  onChange,
+  disabled = false,
+}: Props) {
   const colors = useThemeColors();
   const step = question.step ?? 1;
 
@@ -20,18 +34,22 @@ export function NumberQuestion({ question, value = "", onChange, disabled = fals
   };
 
   const increment = () => {
-    const next = (numericValue ?? (question.min ?? 0)) + step;
+    const next = (numericValue ?? question.min ?? 0) + step;
     if (question.max === undefined || next <= question.max) emit(next);
   };
 
   const decrement = () => {
-    const next = (numericValue ?? (question.min ?? 0)) - step;
+    const next = (numericValue ?? question.min ?? 0) - step;
     if (question.min === undefined || next >= question.min) emit(next);
   };
 
   const handleText = (text: string) => {
     if (text === "" || text === "-") {
-      onChange({ questionId: question.id, value: text, answeredAt: Date.now() });
+      onChange({
+        questionId: question.id,
+        value: text,
+        answeredAt: Date.now(),
+      });
       return;
     }
     const n = parseFloat(text);
@@ -72,7 +90,9 @@ export function NumberQuestion({ question, value = "", onChange, disabled = fals
           textAlign="center"
         />
         {question.unit && (
-          <Text style={[styles.unit, { color: colors.textSecondary }]}>{question.unit}</Text>
+          <Text style={[styles.unit, { color: colors.textSecondary }]}>
+            {question.unit}
+          </Text>
         )}
       </View>
 

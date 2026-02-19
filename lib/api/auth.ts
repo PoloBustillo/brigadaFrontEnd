@@ -6,7 +6,6 @@
 import type { User } from "@/types/user";
 import { api, clearTokens, decodeToken, setAccessToken } from "./client";
 import type {
-  LoginRequest,
   LoginResponse,
   TokenData,
   UserCreateRequest,
@@ -27,9 +26,13 @@ export async function login(
     formData.append("username", email);
     formData.append("password", password);
 
-    const response = await api.post<LoginResponse>("/auth/login", formData.toString(), {
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    });
+    const response = await api.post<LoginResponse>(
+      "/auth/login",
+      formData.toString(),
+      {
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      },
+    );
 
     const { access_token } = response.data;
 
@@ -148,14 +151,22 @@ export async function uploadAvatar(imageUri: string): Promise<User> {
     const filename = imageUri.split("/").pop() || "avatar.jpg";
     const ext = (filename.split(".").pop() || "jpg").toLowerCase();
     const type =
-      ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg";
+      ext === "png"
+        ? "image/png"
+        : ext === "webp"
+          ? "image/webp"
+          : "image/jpeg";
 
     const formData = new FormData();
     formData.append("file", { uri: imageUri, name: filename, type } as any);
 
-    const response = await api.post<UserResponse>("/users/me/avatar", formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
+    const response = await api.post<UserResponse>(
+      "/users/me/avatar",
+      formData,
+      {
+        headers: { "Content-Type": "multipart/form-data" },
+      },
+    );
 
     const userProfile = response.data;
     const user: User = {
@@ -332,7 +343,7 @@ export async function completeActivation(data: {
  */
 export async function changePassword(
   currentPassword: string,
-  newPassword: string
+  newPassword: string,
 ): Promise<void> {
   try {
     await api.post("/users/me/change-password", {

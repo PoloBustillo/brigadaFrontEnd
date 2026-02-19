@@ -58,10 +58,15 @@ export interface TeamResponse {
 // API calls
 
 /** GET /assignments/by-me — assignments created by the current encargado */
-export async function getMyCreatedAssignments(status?: "active" | "inactive"): Promise<AssignmentDetail[]> {
+export async function getMyCreatedAssignments(
+  status?: "active" | "inactive",
+): Promise<AssignmentDetail[]> {
   const params: Record<string, string> = {};
   if (status) params.status = status;
-  const { data } = await apiClient.get<AssignmentDetail[]>("/assignments/by-me", { params });
+  const { data } = await apiClient.get<AssignmentDetail[]>(
+    "/assignments/by-me",
+    { params },
+  );
   return data;
 }
 
@@ -72,9 +77,15 @@ export async function getMyTeam(): Promise<TeamMember[]> {
 }
 
 /** GET /assignments/my-team-responses — responses from team members */
-export async function getTeamResponses(skip = 0, limit = 100): Promise<TeamResponse[]> {
-  const { data } = await apiClient.get<TeamResponse[]>("/assignments/my-team-responses", {
-    params: { skip, limit },
-  });
+export async function getTeamResponses(
+  skip = 0,
+  limit = 100,
+): Promise<TeamResponse[]> {
+  const { data } = await apiClient.get<TeamResponse[]>(
+    "/assignments/my-team-responses",
+    {
+      params: { skip, limit },
+    },
+  );
   return data;
 }

@@ -2,20 +2,42 @@
  * SignatureQuestion — finger-drawn signature using PanResponder.
  * Uses rotated View segments to draw lines (no external dependencies).
  */
+import { useThemeColors } from "@/contexts/theme-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { useThemeColors } from "@/contexts/theme-context";
 import { useRef, useState } from "react";
-import { PanResponder, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import type { SignatureQuestion as SignatureQ, QuestionAnswer } from "../types/question-base.types";
+import {
+  PanResponder,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import type {
+  QuestionAnswer,
+  SignatureQuestion as SignatureQ,
+} from "../types/question-base.types";
 
-interface Point { x: number; y: number; }
-interface Segment { x1: number; y1: number; x2: number; y2: number; }
+interface Point {
+  x: number;
+  y: number;
+}
+interface Segment {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+}
 
 function pointsToSegments(points: Point[]): Segment[] {
   const segs: Segment[] = [];
   for (let i = 0; i < points.length - 1; i++) {
-    segs.push({ x1: points[i].x, y1: points[i].y, x2: points[i + 1].x, y2: points[i + 1].y });
+    segs.push({
+      x1: points[i].x,
+      y1: points[i].y,
+      x2: points[i + 1].x,
+      y2: points[i + 1].y,
+    });
   }
   return segs;
 }
@@ -51,7 +73,12 @@ interface Props {
   disabled?: boolean;
 }
 
-export function SignatureQuestion({ question, value, onChange, disabled = false }: Props) {
+export function SignatureQuestion({
+  question,
+  value,
+  onChange,
+  disabled = false,
+}: Props) {
   const colors = useThemeColors();
   const [allSegments, setAllSegments] = useState<Segment[]>([]);
   const [liveSegments, setLiveSegments] = useState<Segment[]>([]);
@@ -79,7 +106,11 @@ export function SignatureQuestion({ question, value, onChange, disabled = false 
         const newSegs = pointsToSegments(currentPoints.current);
         setAllSegments((prev) => {
           const next = [...prev, ...newSegs];
-          onChange({ questionId: question.id, value: serialize(next), answeredAt: Date.now() });
+          onChange({
+            questionId: question.id,
+            value: serialize(next),
+            answeredAt: Date.now(),
+          });
           return next;
         });
         setLiveSegments([]);
@@ -102,7 +133,10 @@ export function SignatureQuestion({ question, value, onChange, disabled = false 
         {...panResponder.panHandlers}
         style={[
           styles.canvas,
-          { backgroundColor: colors.surface, borderColor: hasDrawn ? colors.primary : colors.border },
+          {
+            backgroundColor: colors.surface,
+            borderColor: hasDrawn ? colors.primary : colors.border,
+          },
         ]}
       >
         {!hasDrawn && (
@@ -123,16 +157,30 @@ export function SignatureQuestion({ question, value, onChange, disabled = false 
           <TouchableOpacity
             onPress={clear}
             activeOpacity={0.8}
-            style={[styles.clearBtn, { borderColor: colors.error, backgroundColor: colors.error + "12" }]}
+            style={[
+              styles.clearBtn,
+              {
+                borderColor: colors.error,
+                backgroundColor: colors.error + "12",
+              },
+            ]}
           >
             <Ionicons name="trash-outline" size={16} color={colors.error} />
-            <Text style={[styles.clearLabel, { color: colors.error }]}>Limpiar</Text>
+            <Text style={[styles.clearLabel, { color: colors.error }]}>
+              Limpiar
+            </Text>
           </TouchableOpacity>
         )}
         {hasDrawn && (
           <View style={styles.confirmedBadge}>
-            <Ionicons name="checkmark-circle" size={16} color={colors.success} />
-            <Text style={[styles.confirmedText, { color: colors.success }]}>Firma capturada</Text>
+            <Ionicons
+              name="checkmark-circle"
+              size={16}
+              color={colors.success}
+            />
+            <Text style={[styles.confirmedText, { color: colors.success }]}>
+              Firma capturada
+            </Text>
           </View>
         )}
       </View>
@@ -151,7 +199,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   placeholder: { fontSize: 14, fontStyle: "italic" },
-  actions: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  actions: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
   clearBtn: {
     flexDirection: "row",
     alignItems: "center",

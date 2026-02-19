@@ -7,7 +7,7 @@
 import { AppHeader } from "@/components/shared";
 import { useThemeColors } from "@/contexts/theme-context";
 import { useTabBarHeight } from "@/hooks/use-tab-bar-height";
-import { getAdminUsers, AdminUser } from "@/lib/api/admin";
+import { AdminUser, getAdminUsers } from "@/lib/api/admin";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useEffect, useState } from "react";
@@ -22,11 +22,23 @@ import {
 
 const ROLE_CONFIG: Record<
   string,
-  { label: string; color_key: "error" | "info" | "success"; icon: keyof typeof Ionicons.glyphMap }
+  {
+    label: string;
+    color_key: "error" | "info" | "success";
+    icon: keyof typeof Ionicons.glyphMap;
+  }
 > = {
-  admin: { label: "Administrador", color_key: "error", icon: "shield-checkmark-outline" },
+  admin: {
+    label: "Administrador",
+    color_key: "error",
+    icon: "shield-checkmark-outline",
+  },
   encargado: { label: "Encargado", color_key: "info", icon: "people-outline" },
-  brigadista: { label: "Brigadista", color_key: "success", icon: "person-outline" },
+  brigadista: {
+    label: "Brigadista",
+    color_key: "success",
+    icon: "person-outline",
+  },
 };
 
 export default function AdminUsers() {
@@ -52,7 +64,9 @@ export default function AdminUsers() {
     }
   };
 
-  useEffect(() => { fetchUsers(); }, []);
+  useEffect(() => {
+    fetchUsers();
+  }, []);
 
   const onRefresh = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -68,7 +82,10 @@ export default function AdminUsers() {
       <AppHeader title="Usuarios" />
 
       <ScrollView
-        contentContainerStyle={[styles.content, { paddingBottom: contentPadding }]}
+        contentContainerStyle={[
+          styles.content,
+          { paddingBottom: contentPadding },
+        ]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -82,7 +99,10 @@ export default function AdminUsers() {
         <View
           style={[
             styles.noticeBanner,
-            { backgroundColor: colors.info + "18", borderColor: colors.info + "40" },
+            {
+              backgroundColor: colors.info + "18",
+              borderColor: colors.info + "40",
+            },
           ]}
         >
           <Ionicons name="eye-outline" size={16} color={colors.info} />
@@ -94,42 +114,93 @@ export default function AdminUsers() {
         {/* Stats row */}
         {!loading && users.length > 0 && (
           <View style={styles.statsRow}>
-            <View style={[styles.statPill, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <Ionicons name="people-outline" size={18} color={colors.primary} />
-              <Text style={[styles.statValue, { color: colors.text }]}>{users.length}</Text>
-              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Total</Text>
+            <View
+              style={[
+                styles.statPill,
+                { backgroundColor: colors.surface, borderColor: colors.border },
+              ]}
+            >
+              <Ionicons
+                name="people-outline"
+                size={18}
+                color={colors.primary}
+              />
+              <Text style={[styles.statValue, { color: colors.text }]}>
+                {users.length}
+              </Text>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
+                Total
+              </Text>
             </View>
-            <View style={[styles.statPill, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <Ionicons name="checkmark-circle-outline" size={18} color={colors.success} />
-              <Text style={[styles.statValue, { color: colors.text }]}>{activeCount}</Text>
-              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Activos</Text>
+            <View
+              style={[
+                styles.statPill,
+                { backgroundColor: colors.surface, borderColor: colors.border },
+              ]}
+            >
+              <Ionicons
+                name="checkmark-circle-outline"
+                size={18}
+                color={colors.success}
+              />
+              <Text style={[styles.statValue, { color: colors.text }]}>
+                {activeCount}
+              </Text>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
+                Activos
+              </Text>
             </View>
-            <View style={[styles.statPill, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <View
+              style={[
+                styles.statPill,
+                { backgroundColor: colors.surface, borderColor: colors.border },
+              ]}
+            >
               <Ionicons name="person-outline" size={18} color={colors.info} />
-              <Text style={[styles.statValue, { color: colors.text }]}>{brigadistaCount}</Text>
-              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Brigadistas</Text>
+              <Text style={[styles.statValue, { color: colors.text }]}>
+                {brigadistaCount}
+              </Text>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
+                Brigadistas
+              </Text>
             </View>
           </View>
         )}
 
         {/* Loading */}
         {loading && (
-          <ActivityIndicator size="large" color={colors.primary} style={styles.loader} />
+          <ActivityIndicator
+            size="large"
+            color={colors.primary}
+            style={styles.loader}
+          />
         )}
 
         {/* Error */}
         {!loading && error && (
           <View style={styles.emptyState}>
-            <Ionicons name="cloud-offline-outline" size={48} color={colors.textSecondary} />
-            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>{error}</Text>
+            <Ionicons
+              name="cloud-offline-outline"
+              size={48}
+              color={colors.textSecondary}
+            />
+            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+              {error}
+            </Text>
           </View>
         )}
 
         {/* Empty */}
         {!loading && !error && users.length === 0 && (
           <View style={styles.emptyState}>
-            <Ionicons name="people-outline" size={48} color={colors.textSecondary} />
-            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>Sin usuarios</Text>
+            <Ionicons
+              name="people-outline"
+              size={48}
+              color={colors.textSecondary}
+            />
+            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+              Sin usuarios
+            </Text>
           </View>
         )}
 
@@ -144,19 +215,32 @@ export default function AdminUsers() {
                   key={user.id}
                   style={[
                     styles.userCard,
-                    { backgroundColor: colors.surface, borderColor: colors.border },
+                    {
+                      backgroundColor: colors.surface,
+                      borderColor: colors.border,
+                    },
                   ]}
                 >
                   {/* Avatar + name */}
                   <View style={styles.userHeader}>
-                    <View style={[styles.avatar, { backgroundColor: accentColor + "20" }]}>
+                    <View
+                      style={[
+                        styles.avatar,
+                        { backgroundColor: accentColor + "20" },
+                      ]}
+                    >
                       <Ionicons name={cfg.icon} size={24} color={accentColor} />
                     </View>
                     <View style={styles.userInfo}>
                       <Text style={[styles.userName, { color: colors.text }]}>
                         {user.full_name}
                       </Text>
-                      <Text style={[styles.userEmail, { color: colors.textSecondary }]}>
+                      <Text
+                        style={[
+                          styles.userEmail,
+                          { color: colors.textSecondary },
+                        ]}
+                      >
                         {user.email}
                       </Text>
                     </View>
@@ -164,7 +248,12 @@ export default function AdminUsers() {
 
                   {/* Badges */}
                   <View style={styles.badges}>
-                    <View style={[styles.roleBadge, { backgroundColor: accentColor + "20" }]}>
+                    <View
+                      style={[
+                        styles.roleBadge,
+                        { backgroundColor: accentColor + "20" },
+                      ]}
+                    >
                       <Text style={[styles.roleText, { color: accentColor }]}>
                         {cfg.label}
                       </Text>
@@ -180,14 +269,22 @@ export default function AdminUsers() {
                       ]}
                     >
                       <Ionicons
-                        name={user.is_active ? "checkmark-circle" : "close-circle"}
+                        name={
+                          user.is_active ? "checkmark-circle" : "close-circle"
+                        }
                         size={12}
-                        color={user.is_active ? colors.success : colors.textSecondary}
+                        color={
+                          user.is_active ? colors.success : colors.textSecondary
+                        }
                       />
                       <Text
                         style={[
                           styles.statusText,
-                          { color: user.is_active ? colors.success : colors.textSecondary },
+                          {
+                            color: user.is_active
+                              ? colors.success
+                              : colors.textSecondary,
+                          },
                         ]}
                       >
                         {user.is_active ? "Activo" : "Inactivo"}
@@ -196,10 +293,25 @@ export default function AdminUsers() {
                   </View>
 
                   {/* Footer: created date */}
-                  <View style={[styles.cardFooter, { borderTopColor: colors.border }]}>
-                    <Ionicons name="calendar-outline" size={14} color={colors.textSecondary} />
-                    <Text style={[styles.footerDate, { color: colors.textSecondary }]}>
-                      Registrado: {new Date(user.created_at).toLocaleDateString()}
+                  <View
+                    style={[
+                      styles.cardFooter,
+                      { borderTopColor: colors.border },
+                    ]}
+                  >
+                    <Ionicons
+                      name="calendar-outline"
+                      size={14}
+                      color={colors.textSecondary}
+                    />
+                    <Text
+                      style={[
+                        styles.footerDate,
+                        { color: colors.textSecondary },
+                      ]}
+                    >
+                      Registrado:{" "}
+                      {new Date(user.created_at).toLocaleDateString()}
                     </Text>
                   </View>
                 </View>
@@ -278,4 +390,3 @@ const styles = StyleSheet.create({
   },
   footerDate: { fontSize: 12 },
 });
-

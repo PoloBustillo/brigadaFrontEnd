@@ -1,6 +1,10 @@
 import { useThemeColors } from "@/contexts/theme-context";
 import { StyleSheet, Text, TextInput, View } from "react-native";
-import type { TextAreaQuestion, TextQuestion as TextQ, QuestionAnswer } from "../types/question-base.types";
+import type {
+  QuestionAnswer,
+  TextAreaQuestion,
+  TextQuestion as TextQ,
+} from "../types/question-base.types";
 
 interface Props {
   question: TextQ | TextAreaQuestion;
@@ -9,7 +13,12 @@ interface Props {
   disabled?: boolean;
 }
 
-export function TextQuestion({ question, value = "", onChange, disabled = false }: Props) {
+export function TextQuestion({
+  question,
+  value = "",
+  onChange,
+  disabled = false,
+}: Props) {
   const colors = useThemeColors();
   const isMultiline = question.type === "textarea";
   const maxLen = (question as any).maxLength as number | undefined;
@@ -33,7 +42,10 @@ export function TextQuestion({ question, value = "", onChange, disabled = false 
         ]}
         value={value}
         onChangeText={handleChange}
-        placeholder={question.placeholder ?? (isMultiline ? "Escribe tu respuesta..." : "Ingresa tu respuesta")}
+        placeholder={
+          question.placeholder ??
+          (isMultiline ? "Escribe tu respuesta..." : "Ingresa tu respuesta")
+        }
         placeholderTextColor={colors.textSecondary}
         editable={!disabled}
         multiline={isMultiline}

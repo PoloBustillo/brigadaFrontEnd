@@ -7,7 +7,7 @@
 import { AppHeader } from "@/components/shared";
 import { useThemeColors } from "@/contexts/theme-context";
 import { useTabBarHeight } from "@/hooks/use-tab-bar-height";
-import { getAdminStats, AdminStats } from "@/lib/api/admin";
+import { AdminStats, getAdminStats } from "@/lib/api/admin";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useEffect, useState } from "react";
@@ -72,7 +72,9 @@ export default function AdminDashboard() {
     }
   };
 
-  useEffect(() => { fetchStats(); }, []);
+  useEffect(() => {
+    fetchStats();
+  }, []);
 
   const onRefresh = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -133,13 +135,15 @@ export default function AdminDashboard() {
       ]
     : [];
 
-
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <AppHeader title="Resumen" />
 
       <ScrollView
-        contentContainerStyle={[styles.content, { paddingBottom: contentPadding }]}
+        contentContainerStyle={[
+          styles.content,
+          { paddingBottom: contentPadding },
+        ]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -153,7 +157,10 @@ export default function AdminDashboard() {
         <View
           style={[
             styles.noticeBanner,
-            { backgroundColor: colors.info + "18", borderColor: colors.info + "40" },
+            {
+              backgroundColor: colors.info + "18",
+              borderColor: colors.info + "40",
+            },
           ]}
         >
           <Ionicons name="eye-outline" size={16} color={colors.info} />
@@ -164,13 +171,21 @@ export default function AdminDashboard() {
 
         {/* Loading */}
         {loading && (
-          <ActivityIndicator size="large" color={colors.primary} style={styles.loader} />
+          <ActivityIndicator
+            size="large"
+            color={colors.primary}
+            style={styles.loader}
+          />
         )}
 
         {/* Error */}
         {!loading && error && (
           <View style={styles.errorContainer}>
-            <Ionicons name="cloud-offline-outline" size={40} color={colors.textSecondary} />
+            <Ionicons
+              name="cloud-offline-outline"
+              size={40}
+              color={colors.textSecondary}
+            />
             <Text style={[styles.errorText, { color: colors.textSecondary }]}>
               {error}
             </Text>

@@ -84,7 +84,10 @@ export interface SelectQuestion extends QuestionBase {
  * Pregunta de selección múltiple (backend: multiple_choice)
  */
 export interface MultiSelectQuestion extends QuestionBase {
-  type: QuestionType.MULTIPLE_CHOICE | QuestionType.MULTI_SELECT | QuestionType.CHECKBOX;
+  type:
+    | QuestionType.MULTIPLE_CHOICE
+    | QuestionType.MULTI_SELECT
+    | QuestionType.CHECKBOX;
   options: QuestionOption[];
   minSelections?: number;
   maxSelections?: number;

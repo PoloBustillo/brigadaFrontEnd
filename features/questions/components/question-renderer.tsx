@@ -181,9 +181,20 @@ export function QuestionRenderer({
       // ── INE OCR (not supported — requires native OCR module) ─────────────
       case QuestionType.INE_OCR:
         return (
-          <View style={[styles.unsupported, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <Ionicons name="card-outline" size={20} color={colors.textSecondary} />
-            <Text style={[styles.unsupportedText, { color: colors.textSecondary }]}>
+          <View
+            style={[
+              styles.unsupported,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+            ]}
+          >
+            <Ionicons
+              name="card-outline"
+              size={20}
+              color={colors.textSecondary}
+            />
+            <Text
+              style={[styles.unsupportedText, { color: colors.textSecondary }]}
+            >
               La verificación de INE no está disponible en esta versión.
             </Text>
           </View>
@@ -192,9 +203,20 @@ export function QuestionRenderer({
       // ── File (not supported — no document-picker package) ─────────────────
       case QuestionType.FILE:
         return (
-          <View style={[styles.unsupported, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <Ionicons name="document-outline" size={20} color={colors.textSecondary} />
-            <Text style={[styles.unsupportedText, { color: colors.textSecondary }]}>
+          <View
+            style={[
+              styles.unsupported,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+            ]}
+          >
+            <Ionicons
+              name="document-outline"
+              size={20}
+              color={colors.textSecondary}
+            />
+            <Text
+              style={[styles.unsupportedText, { color: colors.textSecondary }]}
+            >
               La carga de archivos no está disponible en esta versión.
             </Text>
           </View>
@@ -202,7 +224,12 @@ export function QuestionRenderer({
 
       default:
         return (
-          <View style={[styles.unsupported, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View
+            style={[
+              styles.unsupported,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+            ]}
+          >
             <Text style={[styles.unsupportedText, { color: colors.error }]}>
               Tipo de pregunta no soportado: {(question as any).type}
             </Text>
@@ -233,7 +260,9 @@ export function QuestionRenderer({
       {error && (
         <View style={styles.errorRow}>
           <Ionicons name="alert-circle" size={14} color={colors.error} />
-          <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
+          <Text style={[styles.errorText, { color: colors.error }]}>
+            {error}
+          </Text>
         </View>
       )}
     </View>

@@ -6,8 +6,8 @@
 
 import { AppHeader } from "@/components/shared";
 import { useThemeColors } from "@/contexts/theme-context";
-import { getMyCreatedAssignments } from "@/lib/api/assignments";
 import type { AssignmentDetail } from "@/lib/api/assignments";
+import { getMyCreatedAssignments } from "@/lib/api/assignments";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useEffect, useState } from "react";
@@ -84,7 +84,9 @@ export default function EncargadoSurveys() {
     }
   };
 
-  useEffect(() => { fetchSurveys(); }, []);
+  useEffect(() => {
+    fetchSurveys();
+  }, []);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -116,192 +118,196 @@ export default function EncargadoSurveys() {
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : (
-      <ScrollView
-        contentContainerStyle={styles.content}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-      >
-        {/* Stats Cards */}
-        <View style={styles.statsContainer}>
-          <View
-            style={[
-              styles.statCard,
-              { backgroundColor: colors.surface, borderColor: colors.border },
-            ]}
-          >
-            <Ionicons name="document-text" size={24} color={colors.primary} />
-            <Text style={[styles.statValue, { color: colors.text }]}>
-              {surveys.length}
-            </Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-              Asignadas
-            </Text>
-          </View>
-          <View
-            style={[
-              styles.statCard,
-              { backgroundColor: colors.surface, borderColor: colors.border },
-            ]}
-          >
-            <Ionicons name="pulse" size={24} color={colors.success} />
-            <Text style={[styles.statValue, { color: colors.text }]}>
-              {activeSurveys}
-            </Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-              Activas
-            </Text>
-          </View>
-          <View
-            style={[
-              styles.statCard,
-              { backgroundColor: colors.surface, borderColor: colors.border },
-            ]}
-          >
-            <Ionicons name="chatbox" size={24} color={colors.info} />
-            <Text style={[styles.statValue, { color: colors.text }]}>
-              {totalResponses}
-            </Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-              Respuestas
-            </Text>
-          </View>
-        </View>
-
-        {/* Surveys List */}
-        <View style={styles.listContainer}>
-          {surveys.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Ionicons
-                name="document-text-outline"
-                size={64}
-                color={colors.textSecondary}
-              />
-              <Text style={[styles.emptyText, { color: colors.text }]}>
-                No hay encuestas
+        <ScrollView
+          contentContainerStyle={styles.content}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+        >
+          {/* Stats Cards */}
+          <View style={styles.statsContainer}>
+            <View
+              style={[
+                styles.statCard,
+                { backgroundColor: colors.surface, borderColor: colors.border },
+              ]}
+            >
+              <Ionicons name="document-text" size={24} color={colors.primary} />
+              <Text style={[styles.statValue, { color: colors.text }]}>
+                {surveys.length}
               </Text>
-              <Text
-                style={[styles.emptySubtext, { color: colors.textSecondary }]}
-              >
-                Las encuestas asignadas aparecerán aquí
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
+                Asignadas
               </Text>
             </View>
-          ) : (
-            surveys.map((survey) => {
-              const config = statusConfig[survey.status] ?? statusConfig.inactive;
+            <View
+              style={[
+                styles.statCard,
+                { backgroundColor: colors.surface, borderColor: colors.border },
+              ]}
+            >
+              <Ionicons name="pulse" size={24} color={colors.success} />
+              <Text style={[styles.statValue, { color: colors.text }]}>
+                {activeSurveys}
+              </Text>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
+                Activas
+              </Text>
+            </View>
+            <View
+              style={[
+                styles.statCard,
+                { backgroundColor: colors.surface, borderColor: colors.border },
+              ]}
+            >
+              <Ionicons name="chatbox" size={24} color={colors.info} />
+              <Text style={[styles.statValue, { color: colors.text }]}>
+                {totalResponses}
+              </Text>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
+                Respuestas
+              </Text>
+            </View>
+          </View>
 
-              return (
-                <TouchableOpacity
-                  key={survey.surveyId}
-                  style={[
-                    styles.surveyCard,
-                    {
-                      backgroundColor: colors.surface,
-                      borderColor: colors.border,
-                    },
-                  ]}
-                  onPress={() => handleSurveyPress(survey)}
-                  activeOpacity={0.7}
+          {/* Surveys List */}
+          <View style={styles.listContainer}>
+            {surveys.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Ionicons
+                  name="document-text-outline"
+                  size={64}
+                  color={colors.textSecondary}
+                />
+                <Text style={[styles.emptyText, { color: colors.text }]}>
+                  No hay encuestas
+                </Text>
+                <Text
+                  style={[styles.emptySubtext, { color: colors.textSecondary }]}
                 >
-                  {/* Header */}
-                  <View style={styles.cardHeader}>
-                    <View style={styles.cardTitleSection}>
-                      <Text
-                        style={[styles.cardTitle, { color: colors.text }]}
-                        numberOfLines={2}
-                      >
-                        {survey.title}
-                      </Text>
-                    </View>
-                    <View
-                      style={[
-                        styles.statusBadge,
-                        { backgroundColor: config.color + "20" },
-                      ]}
-                    >
-                      <Ionicons
-                        name={config.icon}
-                        size={14}
-                        color={config.color}
-                      />
-                      <Text
-                        style={[styles.statusText, { color: config.color }]}
-                      >
-                        {config.label}
-                      </Text>
-                    </View>
-                  </View>
+                  Las encuestas asignadas aparecerán aquí
+                </Text>
+              </View>
+            ) : (
+              surveys.map((survey) => {
+                const config =
+                  statusConfig[survey.status] ?? statusConfig.inactive;
 
-                  {/* Info */}
-                  <View style={styles.cardInfo}>
-                    <View style={styles.infoItem}>
-                      <Ionicons
-                        name="people-outline"
-                        size={16}
-                        color={colors.textSecondary}
-                      />
-                      <Text
-                        style={[
-                          styles.infoText,
-                          { color: colors.textSecondary },
-                        ]}
-                      >
-                        {survey.brigadistasAssigned} brigadista{survey.brigadistasAssigned !== 1 ? "s" : ""}
-                      </Text>
-                    </View>
-                    <View style={styles.infoItem}>
-                      <Ionicons
-                        name="chatbox-outline"
-                        size={16}
-                        color={colors.textSecondary}
-                      />
-                      <Text
-                        style={[
-                          styles.infoText,
-                          { color: colors.textSecondary },
-                        ]}
-                      >
-                        {survey.totalResponses} respuesta{survey.totalResponses !== 1 ? "s" : ""}
-                      </Text>
-                    </View>
-                  </View>
-
-                  {/* Footer */}
-                  <View
+                return (
+                  <TouchableOpacity
+                    key={survey.surveyId}
                     style={[
-                      styles.cardFooter,
-                      { borderTopColor: colors.border },
+                      styles.surveyCard,
+                      {
+                        backgroundColor: colors.surface,
+                        borderColor: colors.border,
+                      },
                     ]}
+                    onPress={() => handleSurveyPress(survey)}
+                    activeOpacity={0.7}
                   >
-                    <View style={styles.footerInfo}>
-                      <View style={styles.footerItem}>
+                    {/* Header */}
+                    <View style={styles.cardHeader}>
+                      <View style={styles.cardTitleSection}>
+                        <Text
+                          style={[styles.cardTitle, { color: colors.text }]}
+                          numberOfLines={2}
+                        >
+                          {survey.title}
+                        </Text>
+                      </View>
+                      <View
+                        style={[
+                          styles.statusBadge,
+                          { backgroundColor: config.color + "20" },
+                        ]}
+                      >
                         <Ionicons
-                          name="calendar-outline"
+                          name={config.icon}
                           size={14}
+                          color={config.color}
+                        />
+                        <Text
+                          style={[styles.statusText, { color: config.color }]}
+                        >
+                          {config.label}
+                        </Text>
+                      </View>
+                    </View>
+
+                    {/* Info */}
+                    <View style={styles.cardInfo}>
+                      <View style={styles.infoItem}>
+                        <Ionicons
+                          name="people-outline"
+                          size={16}
                           color={colors.textSecondary}
                         />
                         <Text
                           style={[
-                            styles.footerText,
+                            styles.infoText,
                             { color: colors.textSecondary },
                           ]}
                         >
-                          Asignada {new Date(survey.createdAt).toLocaleDateString()}
+                          {survey.brigadistasAssigned} brigadista
+                          {survey.brigadistasAssigned !== 1 ? "s" : ""}
+                        </Text>
+                      </View>
+                      <View style={styles.infoItem}>
+                        <Ionicons
+                          name="chatbox-outline"
+                          size={16}
+                          color={colors.textSecondary}
+                        />
+                        <Text
+                          style={[
+                            styles.infoText,
+                            { color: colors.textSecondary },
+                          ]}
+                        >
+                          {survey.totalResponses} respuesta
+                          {survey.totalResponses !== 1 ? "s" : ""}
                         </Text>
                       </View>
                     </View>
-                    <Ionicons
-                      name="chevron-forward"
-                      size={20}
-                      color={colors.textSecondary}
-                    />
-                  </View>
-                </TouchableOpacity>
-              );
-            })
-          )}
-        </View>
-      </ScrollView>
+
+                    {/* Footer */}
+                    <View
+                      style={[
+                        styles.cardFooter,
+                        { borderTopColor: colors.border },
+                      ]}
+                    >
+                      <View style={styles.footerInfo}>
+                        <View style={styles.footerItem}>
+                          <Ionicons
+                            name="calendar-outline"
+                            size={14}
+                            color={colors.textSecondary}
+                          />
+                          <Text
+                            style={[
+                              styles.footerText,
+                              { color: colors.textSecondary },
+                            ]}
+                          >
+                            Asignada{" "}
+                            {new Date(survey.createdAt).toLocaleDateString()}
+                          </Text>
+                        </View>
+                      </View>
+                      <Ionicons
+                        name="chevron-forward"
+                        size={20}
+                        color={colors.textSecondary}
+                      />
+                    </View>
+                  </TouchableOpacity>
+                );
+              })
+            )}
+          </View>
+        </ScrollView>
       )}
     </View>
   );

@@ -135,7 +135,10 @@ export default function ChangeAvatarScreen() {
               await updateUser(updatedUser);
               setSelectedImage(null);
             } catch (error: any) {
-              Alert.alert("Error", error.message || "No se pudo eliminar la foto");
+              Alert.alert(
+                "Error",
+                error.message || "No se pudo eliminar la foto",
+              );
             }
           },
         },

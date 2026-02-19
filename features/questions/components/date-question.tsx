@@ -2,11 +2,11 @@
  * DateQuestion — custom wheel-based date/time picker
  * Pure React Native, no external dependencies
  */
+import { useThemeColors } from "@/contexts/theme-context";
 import { Ionicons } from "@expo/vector-icons";
-import * as Haptics from "expo-haptics";
 import { format, isValid } from "date-fns";
 import { es } from "date-fns/locale";
-import { useThemeColors } from "@/contexts/theme-context";
+import * as Haptics from "expo-haptics";
 import { useCallback, useRef, useState } from "react";
 import {
   FlatList,
@@ -18,7 +18,10 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import type { DateTimeQuestion as DateTimeQ, QuestionAnswer } from "../types/question-base.types";
+import type {
+  DateTimeQuestion as DateTimeQ,
+  QuestionAnswer,
+} from "../types/question-base.types";
 import { QuestionType } from "../types/question-types.enum";
 
 interface Props {
@@ -31,7 +34,10 @@ interface Props {
 // Build arrays for the wheel columns
 const DAYS = Array.from({ length: 31 }, (_, i) => i + 1);
 const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
-const YEARS = Array.from({ length: 100 }, (_, i) => new Date().getFullYear() - 99 + i).reverse();
+const YEARS = Array.from(
+  { length: 100 },
+  (_, i) => new Date().getFullYear() - 99 + i,
+).reverse();
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 const MINUTES = Array.from({ length: 60 }, (_, i) => i);
 
@@ -55,7 +61,11 @@ function WheelColumn<T extends number>({
 
   const scrollToSelected = useCallback(() => {
     if (ref.current && selectedIndex >= 0) {
-      ref.current.scrollToIndex({ index: selectedIndex, animated: true, viewPosition: 0.5 });
+      ref.current.scrollToIndex({
+        index: selectedIndex,
+        animated: true,
+        viewPosition: 0.5,
+      });
     }
   }, [selectedIndex]);
 
@@ -112,7 +122,12 @@ function WheelColumn<T extends number>({
   );
 }
 
-export function DateQuestion({ question, value, onChange, disabled = false }: Props) {
+export function DateQuestion({
+  question,
+  value,
+  onChange,
+  disabled = false,
+}: Props) {
   const colors = useThemeColors();
   const isTime = question.type === QuestionType.TIME;
   const isDateTime = question.type === QuestionType.DATETIME;
@@ -129,7 +144,13 @@ export function DateQuestion({ question, value, onChange, disabled = false }: Pr
   const [minute, setMinute] = useState(base.getMinutes());
   const [open, setOpen] = useState(false);
 
-  const buildISO = (d: number, mo: number, y: number, h: number, mi: number): string => {
+  const buildISO = (
+    d: number,
+    mo: number,
+    y: number,
+    h: number,
+    mi: number,
+  ): string => {
     const date = new Date(y, mo - 1, d, h, mi, 0);
     return date.toISOString();
   };
@@ -149,7 +170,20 @@ export function DateQuestion({ question, value, onChange, disabled = false }: Pr
     return format(d, "d/MM/yyyy HH:mm");
   };
 
-  const MONTH_NAMES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+  const MONTH_NAMES = [
+    "Ene",
+    "Feb",
+    "Mar",
+    "Abr",
+    "May",
+    "Jun",
+    "Jul",
+    "Ago",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dic",
+  ];
 
   return (
     <>
@@ -190,15 +224,30 @@ export function DateQuestion({ question, value, onChange, disabled = false }: Pr
         <View style={styles.overlay}>
           <View style={[styles.sheet, { backgroundColor: colors.background }]}>
             {/* Header */}
-            <View style={[styles.sheetHeader, { borderBottomColor: colors.border }]}>
+            <View
+              style={[styles.sheetHeader, { borderBottomColor: colors.border }]}
+            >
               <TouchableOpacity onPress={() => setOpen(false)}>
-                <Text style={[styles.sheetAction, { color: colors.textSecondary }]}>Cancelar</Text>
+                <Text
+                  style={[styles.sheetAction, { color: colors.textSecondary }]}
+                >
+                  Cancelar
+                </Text>
               </TouchableOpacity>
               <Text style={[styles.sheetTitle, { color: colors.text }]}>
-                {isTime ? "Seleccionar hora" : isDate ? "Seleccionar fecha" : "Fecha y hora"}
+                {isTime
+                  ? "Seleccionar hora"
+                  : isDate
+                    ? "Seleccionar fecha"
+                    : "Fecha y hora"}
               </Text>
               <TouchableOpacity onPress={confirm}>
-                <Text style={[styles.sheetAction, { color: colors.primary, fontWeight: "700" }]}>
+                <Text
+                  style={[
+                    styles.sheetAction,
+                    { color: colors.primary, fontWeight: "700" },
+                  ]}
+                >
                   Listo
                 </Text>
               </TouchableOpacity>
@@ -231,9 +280,16 @@ export function DateQuestion({ question, value, onChange, disabled = false }: Pr
               )}
               {(isTime || isDateTime) && (
                 <>
-                  <WheelColumn data={HOURS} selected={hour} onSelect={setHour} colors={colors} />
+                  <WheelColumn
+                    data={HOURS}
+                    selected={hour}
+                    onSelect={setHour}
+                    colors={colors}
+                  />
                   <View style={styles.colon}>
-                    <Text style={[styles.colonText, { color: colors.text }]}>:</Text>
+                    <Text style={[styles.colonText, { color: colors.text }]}>
+                      :
+                    </Text>
                   </View>
                   <WheelColumn
                     data={MINUTES}

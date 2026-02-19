@@ -1,44 +1,92 @@
 /**
- * ☑️ BOOLEAN QUESTION - Componente para preguntas Sí/No
+ * ✅ BOOLEAN QUESTION
+ * UX: Two full-width cards — Sí / No
+ * - Min 80dp height (Ley de Fitts: fat-finger safe)
+ * - Icon + text for quick recognition even in bright sunlight
+ * - Immediate visual feedback; auto-advance triggered by parent
  */
 
-import type { SurveyQuestion } from "@/lib/db/schema";
+import { useThemeColors } from "@/contexts/theme-context";
+import { Ionicons } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
 import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
-type BooleanQuestionProps = {
+interface BooleanQuestionProps {
   value: boolean | null;
   onChange: (value: boolean) => void;
-  question: SurveyQuestion;
-};
+  colors?: ReturnType<typeof useThemeColors>;
+}
 
-export function BooleanQuestion({ value, onChange }: BooleanQuestionProps) {
+export function BooleanQuestion({ value, onChange, colors: colorsProp }: BooleanQuestionProps) {
+  const themeColors = useThemeColors();
+  const colors = colorsProp ?? themeColors;
+
+  const opts = [
+    {
+      v: true,
+      label: "Sí",
+      icon: "checkmark-circle" as const,
+      selectedBg: colors.success + "22",
+      selectedBorder: colors.success,
+    },
+    {
+      v: false,
+      label: "No",
+      icon: "close-circle" as const,
+      selectedBg: colors.error + "18",
+      selectedBorder: colors.error,
+    },
+  ];
+
   return (
     <View style={styles.container}>
-      <TouchableOpacity
-        style={[styles.button, value === true && styles.buttonActive]}
-        onPress={() => onChange(true)}
-      >
-        <Text
-          style={[styles.buttonText, value === true && styles.buttonTextActive]}
-        >
-          Sí
-        </Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={[styles.button, value === false && styles.buttonActive]}
-        onPress={() => onChange(false)}
-      >
-        <Text
-          style={[
-            styles.buttonText,
-            value === false && styles.buttonTextActive,
-          ]}
-        >
-          No
-        </Text>
-      </TouchableOpacity>
+      {opts.map(({ v, label, icon, selectedBg, selectedBorder }) => {
+        const selected = value === v;
+        return (
+          <TouchableOpacity
+            key={label}
+            style={[
+              styles.card,
+              {
+                backgroundColor: selected ? selectedBg : colors.surface,
+                borderColor: selected ? selectedBorder : colors.border,
+                borderWidth: selected ? 2 : 1.5,
+              },
+            ]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              onChange(v);
+            }}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name={selected ? icon : (`${icon}-outline` as any)}
+              size={36}
+              color={selected ? selectedBorder : colors.textTertiary}
+            />
+            <Text
+              style={[
+                styles.label,
+                {
+                  color: selected ? colors.text : colors.textSecondary,
+                  fontWeight: selected ? "700" : "500",
+                },
+              ]}
+            >
+              {label}
+            </Text>
+            {selected && (
+              <View
+                style={[
+                  styles.dot,
+                  { backgroundColor: selectedBorder },
+                ]}
+              />
+            )}
+          </TouchableOpacity>
+        );
+      })}
     </View>
   );
 }
@@ -48,25 +96,25 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 12,
   },
-  button: {
+  card: {
     flex: 1,
-    padding: 16,
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: "#ddd",
+    minHeight: 96,
+    borderRadius: 16,
     alignItems: "center",
-    backgroundColor: "#fafafa",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 20,
+    position: "relative",
   },
-  buttonActive: {
-    borderColor: "#007AFF",
-    backgroundColor: "#007AFF",
+  label: {
+    fontSize: 18,
   },
-  buttonText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#666",
-  },
-  buttonTextActive: {
-    color: "#fff",
+  dot: {
+    position: "absolute",
+    top: 10,
+    right: 10,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
   },
 });

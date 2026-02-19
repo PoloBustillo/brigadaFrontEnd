@@ -1,13 +1,16 @@
 /**
  * PhotoQuestion — uses expo-image-picker (already installed)
  */
+import { useThemeColors } from "@/contexts/theme-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import * as ImagePicker from "expo-image-picker";
-import { useThemeColors } from "@/contexts/theme-context";
 import { Image } from "expo-image";
+import * as ImagePicker from "expo-image-picker";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import type { PhotoQuestion as PhotoQ, QuestionAnswer } from "../types/question-base.types";
+import type {
+  PhotoQuestion as PhotoQ,
+  QuestionAnswer,
+} from "../types/question-base.types";
 
 interface Props {
   question: PhotoQ;
@@ -16,7 +19,12 @@ interface Props {
   disabled?: boolean;
 }
 
-export function PhotoQuestion({ question, value = [], onChange, disabled = false }: Props) {
+export function PhotoQuestion({
+  question,
+  value = [],
+  onChange,
+  disabled = false,
+}: Props) {
   const colors = useThemeColors();
   const maxPhotos = question.maxPhotos ?? 5;
   const current: string[] = Array.isArray(value) ? value : [];
@@ -64,8 +72,15 @@ export function PhotoQuestion({ question, value = [], onChange, disabled = false
       {/* Thumbnails */}
       <View style={styles.grid}>
         {current.map((uri, i) => (
-          <View key={`${uri}-${i}`} style={[styles.thumb, { borderColor: colors.border }]}>
-            <Image source={{ uri }} style={styles.thumbImage} contentFit="cover" />
+          <View
+            key={`${uri}-${i}`}
+            style={[styles.thumb, { borderColor: colors.border }]}
+          >
+            <Image
+              source={{ uri }}
+              style={styles.thumbImage}
+              contentFit="cover"
+            />
             {!disabled && (
               <TouchableOpacity
                 onPress={() => remove(i)}
@@ -82,10 +97,19 @@ export function PhotoQuestion({ question, value = [], onChange, disabled = false
           <TouchableOpacity
             onPress={pickFromCamera}
             activeOpacity={0.8}
-            style={[styles.thumb, styles.addTile, { borderColor: colors.primary, backgroundColor: colors.primary + "10" }]}
+            style={[
+              styles.thumb,
+              styles.addTile,
+              {
+                borderColor: colors.primary,
+                backgroundColor: colors.primary + "10",
+              },
+            ]}
           >
             <Ionicons name="camera" size={28} color={colors.primary} />
-            <Text style={[styles.addLabel, { color: colors.primary }]}>Foto</Text>
+            <Text style={[styles.addLabel, { color: colors.primary }]}>
+              Foto
+            </Text>
           </TouchableOpacity>
         )}
       </View>
@@ -95,10 +119,15 @@ export function PhotoQuestion({ question, value = [], onChange, disabled = false
         <TouchableOpacity
           onPress={pickFromGallery}
           activeOpacity={0.8}
-          style={[styles.galleryBtn, { borderColor: colors.border, backgroundColor: colors.surface }]}
+          style={[
+            styles.galleryBtn,
+            { borderColor: colors.border, backgroundColor: colors.surface },
+          ]}
         >
           <Ionicons name="images-outline" size={18} color={colors.primary} />
-          <Text style={[styles.galleryLabel, { color: colors.primary }]}>Elegir de galería</Text>
+          <Text style={[styles.galleryLabel, { color: colors.primary }]}>
+            Elegir de galería
+          </Text>
         </TouchableOpacity>
       )}
 

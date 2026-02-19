@@ -1,11 +1,15 @@
 /**
  * RatingQuestion — star/heart/thumb rating + numeric scale
  */
+import { useThemeColors } from "@/contexts/theme-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { useThemeColors } from "@/contexts/theme-context";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import type { RatingQuestion as RatingQ, SliderQuestion as SliderQ, QuestionAnswer } from "../types/question-base.types";
+import type {
+  QuestionAnswer,
+  RatingQuestion as RatingQ,
+  SliderQuestion as SliderQ,
+} from "../types/question-base.types";
 
 // ─── Star/Heart/Thumb Rating ─────────────────────────────────────────────────
 
@@ -17,12 +21,17 @@ interface RatingProps {
 }
 
 const ICONS: Record<string, { filled: any; empty: any; color: string }> = {
-  star:  { filled: "star",         empty: "star-outline",         color: "#f59e0b" },
-  heart: { filled: "heart",        empty: "heart-outline",        color: "#ef4444" },
-  thumb: { filled: "thumbs-up",    empty: "thumbs-up-outline",    color: "#3b82f6" },
+  star: { filled: "star", empty: "star-outline", color: "#f59e0b" },
+  heart: { filled: "heart", empty: "heart-outline", color: "#ef4444" },
+  thumb: { filled: "thumbs-up", empty: "thumbs-up-outline", color: "#3b82f6" },
 };
 
-export function RatingQuestion({ question, value = 0, onChange, disabled = false }: RatingProps) {
+export function RatingQuestion({
+  question,
+  value = 0,
+  onChange,
+  disabled = false,
+}: RatingProps) {
   const colors = useThemeColors();
   const max = question.maxRating ?? 5;
   const iconKey = question.icon ?? "star";
@@ -73,7 +82,12 @@ interface ScaleProps {
   disabled?: boolean;
 }
 
-export function ScaleQuestion({ question, value, onChange, disabled = false }: ScaleProps) {
+export function ScaleQuestion({
+  question,
+  value,
+  onChange,
+  disabled = false,
+}: ScaleProps) {
   const colors = useThemeColors();
   const min = question.min ?? 0;
   const max = question.max ?? 10;

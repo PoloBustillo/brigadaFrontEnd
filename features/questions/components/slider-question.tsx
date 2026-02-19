@@ -13,7 +13,10 @@ import {
   Text,
   View,
 } from "react-native";
-import type { SliderQuestion as SliderQ, QuestionAnswer } from "../types/question-base.types";
+import type {
+  QuestionAnswer,
+  SliderQuestion as SliderQ,
+} from "../types/question-base.types";
 
 interface Props {
   question: SliderQ;
@@ -24,7 +27,12 @@ interface Props {
 
 const THUMB_SIZE = 28;
 
-export function SliderQuestion({ question, value, onChange, disabled = false }: Props) {
+export function SliderQuestion({
+  question,
+  value,
+  onChange,
+  disabled = false,
+}: Props) {
   const colors = useThemeColors();
   const min = question.min ?? 0;
   const max = question.max ?? 100;
@@ -57,7 +65,10 @@ export function SliderQuestion({ question, value, onChange, disabled = false }: 
     const _max = question.max ?? 100;
     const v = Math.min(_max, Math.max(_min, value ?? _min));
     setCurrent(v);
-    const pos = trackWidth === 0 ? 0 : ((_max === _min ? 0 : (v - _min) / (_max - _min)) * trackWidth);
+    const pos =
+      trackWidth === 0
+        ? 0
+        : (_max === _min ? 0 : (v - _min) / (_max - _min)) * trackWidth;
     posX.setValue(pos);
   }, [value, trackWidth, question.min, question.max, posX]); // posX is a stable ref
 
@@ -97,7 +108,11 @@ export function SliderQuestion({ question, value, onChange, disabled = false }: 
         setCurrent(snapped);
         posX.setValue(valueToPos(snapped));
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        onChange({ questionId: question.id, value: snapped, answeredAt: Date.now() });
+        onChange({
+          questionId: question.id,
+          value: snapped,
+          answeredAt: Date.now(),
+        });
       },
     }),
   ).current;
@@ -124,11 +139,22 @@ export function SliderQuestion({ question, value, onChange, disabled = false }: 
       {/* Value label */}
       {question.showValue !== false && (
         <View style={styles.valueRow}>
-          <Text style={[styles.minMax, { color: colors.textSecondary }]}>{min}</Text>
-          <View style={[styles.valueBadge, { backgroundColor: colors.primary + "20" }]}>
-            <Text style={[styles.valueText, { color: colors.primary }]}>{current}</Text>
+          <Text style={[styles.minMax, { color: colors.textSecondary }]}>
+            {min}
+          </Text>
+          <View
+            style={[
+              styles.valueBadge,
+              { backgroundColor: colors.primary + "20" },
+            ]}
+          >
+            <Text style={[styles.valueText, { color: colors.primary }]}>
+              {current}
+            </Text>
           </View>
-          <Text style={[styles.minMax, { color: colors.textSecondary }]}>{max}</Text>
+          <Text style={[styles.minMax, { color: colors.textSecondary }]}>
+            {max}
+          </Text>
         </View>
       )}
 

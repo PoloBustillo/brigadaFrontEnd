@@ -6,7 +6,7 @@
 
 import { AppHeader } from "@/components/shared";
 import { useThemeColors } from "@/contexts/theme-context";
-import { getMyTeam, getMyCreatedAssignments } from "@/lib/api/assignments";
+import { getMyCreatedAssignments, getMyTeam } from "@/lib/api/assignments";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useEffect, useState } from "react";
@@ -58,8 +58,12 @@ export default function EncargadoTeam() {
       ]);
       const display: TeamMemberDisplay[] = members.map((m) => {
         const userAssignments = assignments.filter((a) => a.user_id === m.id);
-        const uniqueSurveys = new Set(userAssignments.map((a) => a.survey_id)).size;
-        const totalResponses = userAssignments.reduce((acc, a) => acc + a.response_count, 0);
+        const uniqueSurveys = new Set(userAssignments.map((a) => a.survey_id))
+          .size;
+        const totalResponses = userAssignments.reduce(
+          (acc, a) => acc + a.response_count,
+          0,
+        );
         const hasActive = userAssignments.some((a) => a.status === "active");
         return {
           id: m.id,
@@ -79,7 +83,9 @@ export default function EncargadoTeam() {
     }
   };
 
-  useEffect(() => { fetchTeam(); }, []);
+  useEffect(() => {
+    fetchTeam();
+  }, []);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -114,213 +120,216 @@ export default function EncargadoTeam() {
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : (
-      <ScrollView
-        contentContainerStyle={styles.content}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-      >
-        {/* Stats Cards */}
-        <View style={styles.statsContainer}>
-          <View
-            style={[
-              styles.statCard,
-              { backgroundColor: colors.surface, borderColor: colors.border },
-            ]}
-          >
-            <Ionicons name="people" size={24} color={colors.primary} />
-            <Text style={[styles.statValue, { color: colors.text }]}>
-              {teamMembers.length}
-            </Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-              Brigadistas
-            </Text>
-          </View>
-          <View
-            style={[
-              styles.statCard,
-              { backgroundColor: colors.surface, borderColor: colors.border },
-            ]}
-          >
-            <Ionicons
-              name="checkmark-circle"
-              size={24}
-              color={colors.success}
-            />
-            <Text style={[styles.statValue, { color: colors.text }]}>
-              {activeMembers}
-            </Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-              Activos
-            </Text>
-          </View>
-          <View
-            style={[
-              styles.statCard,
-              { backgroundColor: colors.surface, borderColor: colors.border },
-            ]}
-          >
-            <Ionicons name="chatbox" size={24} color={colors.info} />
-            <Text style={[styles.statValue, { color: colors.text }]}>
-              {totalResponses}
-            </Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-              Respuestas
-            </Text>
-          </View>
-        </View>
-
-        {/* Team Members List */}
-        <View style={styles.listContainer}>
-          {teamMembers.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Ionicons
-                name="people-outline"
-                size={64}
-                color={colors.textSecondary}
-              />
-              <Text style={[styles.emptyText, { color: colors.text }]}>
-                No hay miembros
+        <ScrollView
+          contentContainerStyle={styles.content}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+        >
+          {/* Stats Cards */}
+          <View style={styles.statsContainer}>
+            <View
+              style={[
+                styles.statCard,
+                { backgroundColor: colors.surface, borderColor: colors.border },
+              ]}
+            >
+              <Ionicons name="people" size={24} color={colors.primary} />
+              <Text style={[styles.statValue, { color: colors.text }]}>
+                {teamMembers.length}
               </Text>
-              <Text
-                style={[styles.emptySubtext, { color: colors.textSecondary }]}
-              >
-                Los miembros de tu equipo aparecerán aquí
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
+                Brigadistas
               </Text>
             </View>
-          ) : (
-            teamMembers.map((member) => {
-              const config = statusConfig[member.status] ?? statusConfig.inactive;
+            <View
+              style={[
+                styles.statCard,
+                { backgroundColor: colors.surface, borderColor: colors.border },
+              ]}
+            >
+              <Ionicons
+                name="checkmark-circle"
+                size={24}
+                color={colors.success}
+              />
+              <Text style={[styles.statValue, { color: colors.text }]}>
+                {activeMembers}
+              </Text>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
+                Activos
+              </Text>
+            </View>
+            <View
+              style={[
+                styles.statCard,
+                { backgroundColor: colors.surface, borderColor: colors.border },
+              ]}
+            >
+              <Ionicons name="chatbox" size={24} color={colors.info} />
+              <Text style={[styles.statValue, { color: colors.text }]}>
+                {totalResponses}
+              </Text>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
+                Respuestas
+              </Text>
+            </View>
+          </View>
 
-              return (
-                <TouchableOpacity
-                  key={member.id}
-                  style={[
-                    styles.memberCard,
-                    {
-                      backgroundColor: colors.surface,
-                      borderColor: colors.border,
-                    },
-                  ]}
-                  onPress={() => handleMemberPress(member)}
-                  activeOpacity={0.7}
+          {/* Team Members List */}
+          <View style={styles.listContainer}>
+            {teamMembers.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Ionicons
+                  name="people-outline"
+                  size={64}
+                  color={colors.textSecondary}
+                />
+                <Text style={[styles.emptyText, { color: colors.text }]}>
+                  No hay miembros
+                </Text>
+                <Text
+                  style={[styles.emptySubtext, { color: colors.textSecondary }]}
                 >
-                  {/* Header */}
-                  <View style={styles.cardHeader}>
-                    <View
-                      style={[
-                        styles.avatar,
-                        { backgroundColor: colors.success + "20" },
-                      ]}
-                    >
-                      <Text
-                        style={[styles.avatarText, { color: colors.success }]}
-                      >
-                        {member.name
-                          .split(" ")
-                          .map((n) => n[0])
-                          .join("")
-                          .toUpperCase()
-                          .slice(0, 2)}
-                      </Text>
-                    </View>
-                    <View style={styles.memberInfo}>
-                      <Text style={[styles.memberName, { color: colors.text }]}>
-                        {member.name}
-                      </Text>
-                      <Text
-                        style={[
-                          styles.memberEmail,
-                          { color: colors.textSecondary },
-                        ]}
-                      >
-                        {member.email}
-                      </Text>
-                    </View>
-                    <View
-                      style={[
-                        styles.statusBadge,
-                        { backgroundColor: config.color + "20" },
-                      ]}
-                    >
-                      <Ionicons
-                        name={config.icon}
-                        size={12}
-                        color={config.color}
-                      />
-                    </View>
-                  </View>
+                  Los miembros de tu equipo aparecerán aquí
+                </Text>
+              </View>
+            ) : (
+              teamMembers.map((member) => {
+                const config =
+                  statusConfig[member.status] ?? statusConfig.inactive;
 
-                  {/* Stats Row */}
-                  <View style={styles.statsRow}>
-                    <View style={styles.statItem}>
-                      <Ionicons
-                        name="document-text-outline"
-                        size={16}
-                        color={colors.textSecondary}
-                      />
-                      <Text
-                        style={[
-                          styles.statText,
-                          { color: colors.textSecondary },
-                        ]}
-                      >
-                        {member.surveysAssigned} encuestas
-                      </Text>
-                    </View>
-                    <View style={styles.statItem}>
-                      <Ionicons
-                        name="checkmark-done-outline"
-                        size={16}
-                        color={colors.textSecondary}
-                      />
-                      <Text
-                        style={[
-                          styles.statText,
-                          { color: colors.textSecondary },
-                        ]}
-                      >
-                        {member.responsesCompleted} completadas
-                      </Text>
-                    </View>
-                  </View>
-
-                  {/* Progress section removed — no target available */}
-
-                  {/* Footer */}
-                  <View
+                return (
+                  <TouchableOpacity
+                    key={member.id}
                     style={[
-                      styles.cardFooter,
-                      { borderTopColor: colors.border },
+                      styles.memberCard,
+                      {
+                        backgroundColor: colors.surface,
+                        borderColor: colors.border,
+                      },
                     ]}
+                    onPress={() => handleMemberPress(member)}
+                    activeOpacity={0.7}
                   >
-                    <View style={styles.footerItem}>
-                      <Ionicons
-                        name="person-outline"
-                        size={14}
-                        color={colors.textSecondary}
-                      />
-                      <Text
+                    {/* Header */}
+                    <View style={styles.cardHeader}>
+                      <View
                         style={[
-                          styles.footerText,
-                          { color: colors.textSecondary },
+                          styles.avatar,
+                          { backgroundColor: colors.success + "20" },
                         ]}
                       >
-                        {config.label}
-                      </Text>
+                        <Text
+                          style={[styles.avatarText, { color: colors.success }]}
+                        >
+                          {member.name
+                            .split(" ")
+                            .map((n) => n[0])
+                            .join("")
+                            .toUpperCase()
+                            .slice(0, 2)}
+                        </Text>
+                      </View>
+                      <View style={styles.memberInfo}>
+                        <Text
+                          style={[styles.memberName, { color: colors.text }]}
+                        >
+                          {member.name}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.memberEmail,
+                            { color: colors.textSecondary },
+                          ]}
+                        >
+                          {member.email}
+                        </Text>
+                      </View>
+                      <View
+                        style={[
+                          styles.statusBadge,
+                          { backgroundColor: config.color + "20" },
+                        ]}
+                      >
+                        <Ionicons
+                          name={config.icon}
+                          size={12}
+                          color={config.color}
+                        />
+                      </View>
                     </View>
-                    <Ionicons
-                      name="chevron-forward"
-                      size={20}
-                      color={colors.textSecondary}
-                    />
-                  </View>
-                </TouchableOpacity>
-              );
-            })
-          )}
-        </View>
-      </ScrollView>
+
+                    {/* Stats Row */}
+                    <View style={styles.statsRow}>
+                      <View style={styles.statItem}>
+                        <Ionicons
+                          name="document-text-outline"
+                          size={16}
+                          color={colors.textSecondary}
+                        />
+                        <Text
+                          style={[
+                            styles.statText,
+                            { color: colors.textSecondary },
+                          ]}
+                        >
+                          {member.surveysAssigned} encuestas
+                        </Text>
+                      </View>
+                      <View style={styles.statItem}>
+                        <Ionicons
+                          name="checkmark-done-outline"
+                          size={16}
+                          color={colors.textSecondary}
+                        />
+                        <Text
+                          style={[
+                            styles.statText,
+                            { color: colors.textSecondary },
+                          ]}
+                        >
+                          {member.responsesCompleted} completadas
+                        </Text>
+                      </View>
+                    </View>
+
+                    {/* Progress section removed — no target available */}
+
+                    {/* Footer */}
+                    <View
+                      style={[
+                        styles.cardFooter,
+                        { borderTopColor: colors.border },
+                      ]}
+                    >
+                      <View style={styles.footerItem}>
+                        <Ionicons
+                          name="person-outline"
+                          size={14}
+                          color={colors.textSecondary}
+                        />
+                        <Text
+                          style={[
+                            styles.footerText,
+                            { color: colors.textSecondary },
+                          ]}
+                        >
+                          {config.label}
+                        </Text>
+                      </View>
+                      <Ionicons
+                        name="chevron-forward"
+                        size={20}
+                        color={colors.textSecondary}
+                      />
+                    </View>
+                  </TouchableOpacity>
+                );
+              })
+            )}
+          </View>
+        </ScrollView>
       )}
     </View>
   );

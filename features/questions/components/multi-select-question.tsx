@@ -1,8 +1,11 @@
+import { useThemeColors } from "@/contexts/theme-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { useThemeColors } from "@/contexts/theme-context";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import type { MultiSelectQuestion as MultiSelectQ, QuestionAnswer } from "../types/question-base.types";
+import type {
+  MultiSelectQuestion as MultiSelectQ,
+  QuestionAnswer,
+} from "../types/question-base.types";
 
 interface Props {
   question: MultiSelectQ;
@@ -11,7 +14,12 @@ interface Props {
   disabled?: boolean;
 }
 
-export function MultiSelectQuestion({ question, value = [], onChange, disabled = false }: Props) {
+export function MultiSelectQuestion({
+  question,
+  value = [],
+  onChange,
+  disabled = false,
+}: Props) {
   const colors = useThemeColors();
 
   const toggle = (optValue: string | number) => {
@@ -23,7 +31,11 @@ export function MultiSelectQuestion({ question, value = [], onChange, disabled =
       : [...current, optValue];
 
     // Respect maxSelections
-    if (question.maxSelections !== undefined && next.length > question.maxSelections) return;
+    if (
+      question.maxSelections !== undefined &&
+      next.length > question.maxSelections
+    )
+      return;
 
     onChange({ questionId: question.id, value: next, answeredAt: Date.now() });
   };
@@ -35,7 +47,9 @@ export function MultiSelectQuestion({ question, value = [], onChange, disabled =
       {question.minSelections !== undefined && (
         <Text style={[styles.hint, { color: colors.textSecondary }]}>
           Selecciona mínimo {question.minSelections}
-          {question.maxSelections !== undefined ? ` y máximo ${question.maxSelections}` : ""}
+          {question.maxSelections !== undefined
+            ? ` y máximo ${question.maxSelections}`
+            : ""}
         </Text>
       )}
 
@@ -51,7 +65,9 @@ export function MultiSelectQuestion({ question, value = [], onChange, disabled =
               styles.option,
               {
                 borderColor: isSelected ? colors.primary : colors.border,
-                backgroundColor: isSelected ? colors.primary + "18" : colors.surface,
+                backgroundColor: isSelected
+                  ? colors.primary + "18"
+                  : colors.surface,
               },
             ]}
             accessibilityRole="checkbox"
@@ -66,7 +82,9 @@ export function MultiSelectQuestion({ question, value = [], onChange, disabled =
                 },
               ]}
             >
-              {isSelected && <Ionicons name="checkmark" size={14} color="#fff" />}
+              {isSelected && (
+                <Ionicons name="checkmark" size={14} color="#fff" />
+              )}
             </View>
             <Text
               style={[
@@ -91,8 +109,12 @@ export function MultiSelectQuestion({ question, value = [], onChange, disabled =
           style={[
             styles.option,
             {
-              borderColor: selected.includes("__other__") ? colors.primary : colors.border,
-              backgroundColor: selected.includes("__other__") ? colors.primary + "18" : colors.surface,
+              borderColor: selected.includes("__other__")
+                ? colors.primary
+                : colors.border,
+              backgroundColor: selected.includes("__other__")
+                ? colors.primary + "18"
+                : colors.surface,
             },
           ]}
         >
@@ -100,20 +122,30 @@ export function MultiSelectQuestion({ question, value = [], onChange, disabled =
             style={[
               styles.checkbox,
               {
-                borderColor: selected.includes("__other__") ? colors.primary : colors.border,
-                backgroundColor: selected.includes("__other__") ? colors.primary : "transparent",
+                borderColor: selected.includes("__other__")
+                  ? colors.primary
+                  : colors.border,
+                backgroundColor: selected.includes("__other__")
+                  ? colors.primary
+                  : "transparent",
               },
             ]}
           >
-            {selected.includes("__other__") && <Ionicons name="checkmark" size={14} color="#fff" />}
+            {selected.includes("__other__") && (
+              <Ionicons name="checkmark" size={14} color="#fff" />
+            )}
           </View>
-          <Text style={[styles.label, { color: colors.textSecondary }]}>Otro...</Text>
+          <Text style={[styles.label, { color: colors.textSecondary }]}>
+            Otro...
+          </Text>
         </TouchableOpacity>
       )}
 
       <Text style={[styles.counter, { color: colors.textSecondary }]}>
         {selected.length} seleccionado{selected.length !== 1 ? "s" : ""}
-        {question.maxSelections !== undefined ? ` / ${question.maxSelections}` : ""}
+        {question.maxSelections !== undefined
+          ? ` / ${question.maxSelections}`
+          : ""}
       </Text>
     </View>
   );

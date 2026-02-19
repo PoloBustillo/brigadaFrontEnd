@@ -1,8 +1,11 @@
+import { useThemeColors } from "@/contexts/theme-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { useThemeColors } from "@/contexts/theme-context";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import type { SelectQuestion as SelectQ, QuestionAnswer } from "../types/question-base.types";
+import type {
+  QuestionAnswer,
+  SelectQuestion as SelectQ,
+} from "../types/question-base.types";
 
 interface Props {
   question: SelectQ;
@@ -12,13 +15,22 @@ interface Props {
 }
 
 // Also handles YES_NO (passed as synthetic SelectQ with 2 options)
-export function SelectQuestion({ question, value, onChange, disabled = false }: Props) {
+export function SelectQuestion({
+  question,
+  value,
+  onChange,
+  disabled = false,
+}: Props) {
   const colors = useThemeColors();
 
   const select = (optValue: string | number) => {
     if (disabled) return;
     Haptics.selectionAsync();
-    onChange({ questionId: question.id, value: optValue, answeredAt: Date.now() });
+    onChange({
+      questionId: question.id,
+      value: optValue,
+      answeredAt: Date.now(),
+    });
   };
 
   return (
@@ -35,7 +47,9 @@ export function SelectQuestion({ question, value, onChange, disabled = false }: 
               styles.option,
               {
                 borderColor: selected ? colors.primary : colors.border,
-                backgroundColor: selected ? colors.primary + "18" : colors.surface,
+                backgroundColor: selected
+                  ? colors.primary + "18"
+                  : colors.surface,
               },
             ]}
             accessibilityRole="radio"
@@ -50,7 +64,12 @@ export function SelectQuestion({ question, value, onChange, disabled = false }: 
               ]}
             >
               {selected && (
-                <View style={[styles.radioInner, { backgroundColor: colors.primary }]} />
+                <View
+                  style={[
+                    styles.radioInner,
+                    { backgroundColor: colors.primary },
+                  ]}
+                />
               )}
             </View>
             <Text
@@ -76,22 +95,31 @@ export function SelectQuestion({ question, value, onChange, disabled = false }: 
           style={[
             styles.option,
             {
-              borderColor: value === "__other__" ? colors.primary : colors.border,
-              backgroundColor: value === "__other__" ? colors.primary + "18" : colors.surface,
+              borderColor:
+                value === "__other__" ? colors.primary : colors.border,
+              backgroundColor:
+                value === "__other__" ? colors.primary + "18" : colors.surface,
             },
           ]}
         >
           <View
             style={[
               styles.radio,
-              { borderColor: value === "__other__" ? colors.primary : colors.border },
+              {
+                borderColor:
+                  value === "__other__" ? colors.primary : colors.border,
+              },
             ]}
           >
             {value === "__other__" && (
-              <View style={[styles.radioInner, { backgroundColor: colors.primary }]} />
+              <View
+                style={[styles.radioInner, { backgroundColor: colors.primary }]}
+              />
             )}
           </View>
-          <Text style={[styles.label, { color: colors.textSecondary }]}>Otro...</Text>
+          <Text style={[styles.label, { color: colors.textSecondary }]}>
+            Otro...
+          </Text>
         </TouchableOpacity>
       )}
     </View>
@@ -107,7 +135,12 @@ interface YesNoProps {
   disabled?: boolean;
 }
 
-export function YesNoQuestion({ questionId, value, onChange, disabled = false }: YesNoProps) {
+export function YesNoQuestion({
+  questionId,
+  value,
+  onChange,
+  disabled = false,
+}: YesNoProps) {
   const colors = useThemeColors();
 
   const select = (v: boolean) => {
@@ -140,8 +173,17 @@ export function YesNoQuestion({ questionId, value, onChange, disabled = false }:
               },
             ]}
           >
-            <Ionicons name={icon} size={24} color={selected ? color : colors.textSecondary} />
-            <Text style={[styles.yesNoLabel, { color: selected ? color : colors.textSecondary }]}>
+            <Ionicons
+              name={icon}
+              size={24}
+              color={selected ? color : colors.textSecondary}
+            />
+            <Text
+              style={[
+                styles.yesNoLabel,
+                { color: selected ? color : colors.textSecondary },
+              ]}
+            >
               {label}
             </Text>
           </TouchableOpacity>

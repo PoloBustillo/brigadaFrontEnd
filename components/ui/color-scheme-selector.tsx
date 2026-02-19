@@ -49,9 +49,7 @@ export function ColorSchemeSelector() {
                 styles.schemeCard,
                 {
                   borderColor: isSelected ? colors.primary : colors.border,
-                  backgroundColor: isSelected
-                    ? colors.overlay
-                    : colors.surface,
+                  backgroundColor: isSelected ? colors.overlay : colors.surface,
                   borderWidth: isSelected ? 2 : 1,
                 },
               ]}

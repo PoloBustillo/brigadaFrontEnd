@@ -9,11 +9,14 @@
  * ✅ Offline Ready: Sync status and offline capabilities highlighted
  */
 
-import { getAssignedSurveys, type AssignedSurveyResponse } from "@/lib/api/mobile";
 import { ThemeToggleIcon } from "@/components/ui/theme-toggle";
 import { useAuth } from "@/contexts/auth-context";
 import { useThemeColors } from "@/contexts/theme-context";
 import { useTabBarHeight } from "@/hooks/use-tab-bar-height";
+import {
+  getAssignedSurveys,
+  type AssignedSurveyResponse,
+} from "@/lib/api/mobile";
 import { Ionicons } from "@expo/vector-icons";
 import NetInfo from "@react-native-community/netinfo";
 import * as Haptics from "expo-haptics";
@@ -288,7 +291,9 @@ export default function BrigadistaHome() {
     },
     {
       icon: "time" as const,
-      value: String(assignments.filter((a) => a.assignment_status === "active").length),
+      value: String(
+        assignments.filter((a) => a.assignment_status === "active").length,
+      ),
       label: "Activas",
       color: colors.warning,
     },
@@ -358,10 +363,17 @@ export default function BrigadistaHome() {
             styles.errorBanner,
             { backgroundColor: colors.error + "15", borderColor: colors.error },
           ]}
-          onPress={() => { setIsLoading(true); fetchAssignments(); }}
+          onPress={() => {
+            setIsLoading(true);
+            fetchAssignments();
+          }}
           activeOpacity={0.8}
         >
-          <Ionicons name="cloud-offline-outline" size={20} color={colors.error} />
+          <Ionicons
+            name="cloud-offline-outline"
+            size={20}
+            color={colors.error}
+          />
           <Text style={[styles.errorBannerText, { color: colors.error }]}>
             No se pudo cargar. Toca para reintentar.
           </Text>

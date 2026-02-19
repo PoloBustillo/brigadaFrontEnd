@@ -39,7 +39,9 @@ export default function EncargadoResponses() {
     }
   };
 
-  useEffect(() => { fetchResponses(); }, []);
+  useEffect(() => {
+    fetchResponses();
+  }, []);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -86,139 +88,158 @@ export default function EncargadoResponses() {
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : (
-      <ScrollView
-        contentContainerStyle={styles.content}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-      >
-        {/* Stats Cards */}
-        <View style={styles.statsContainer}>
-          <View
-            style={[
-              styles.statCard,
-              { backgroundColor: colors.surface, borderColor: colors.border },
-            ]}
-          >
-            <Ionicons name="chatbox" size={24} color={colors.primary} />
-            <Text style={[styles.statValue, { color: colors.text }]}>
-              {responses.length}
-            </Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-              Total
-            </Text>
-          </View>
-          <View
-            style={[
-              styles.statCard,
-              { backgroundColor: colors.surface, borderColor: colors.border },
-            ]}
-          >
-            <Ionicons
-              name="checkmark-done-circle"
-              size={24}
-              color={colors.success}
-            />
-            <Text style={[styles.statValue, { color: colors.text }]}>
-              {responses.length}
-            </Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-              Sincronizadas
-            </Text>
-          </View>
-        </View>
-
-        {/* Responses List */}
-        <View style={styles.listContainer}>
-          {responses.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Ionicons
-                name="chatbox-outline"
-                size={64}
-                color={colors.textSecondary}
-              />
-              <Text style={[styles.emptyText, { color: colors.text }]}>
-                No hay respuestas
+        <ScrollView
+          contentContainerStyle={styles.content}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+        >
+          {/* Stats Cards */}
+          <View style={styles.statsContainer}>
+            <View
+              style={[
+                styles.statCard,
+                { backgroundColor: colors.surface, borderColor: colors.border },
+              ]}
+            >
+              <Ionicons name="chatbox" size={24} color={colors.primary} />
+              <Text style={[styles.statValue, { color: colors.text }]}>
+                {responses.length}
               </Text>
-              <Text
-                style={[styles.emptySubtext, { color: colors.textSecondary }]}
-              >
-                Las respuestas del equipo aparecerán aquí
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
+                Total
               </Text>
             </View>
-          ) : (
-            responses.map((response) => {
-              return (
-                <TouchableOpacity
-                  key={response.id}
-                  style={[
-                    styles.responseCard,
-                    {
-                      backgroundColor: colors.surface,
-                      borderColor: colors.border,
-                    },
-                  ]}
-                  onPress={() => handleResponsePress(response)}
-                  activeOpacity={0.7}
-                >
-                  {/* Header */}
-                  <View style={styles.cardHeader}>
-                    <Text
-                      style={[styles.surveyTitle, { color: colors.text }]}
-                      numberOfLines={1}
-                    >
-                      {response.survey_title}
-                    </Text>
-                    <Ionicons
-                      name="checkmark-circle"
-                      size={20}
-                      color={colors.success}
-                    />
-                  </View>
+            <View
+              style={[
+                styles.statCard,
+                { backgroundColor: colors.surface, borderColor: colors.border },
+              ]}
+            >
+              <Ionicons
+                name="checkmark-done-circle"
+                size={24}
+                color={colors.success}
+              />
+              <Text style={[styles.statValue, { color: colors.text }]}>
+                {responses.length}
+              </Text>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
+                Sincronizadas
+              </Text>
+            </View>
+          </View>
 
-                  {/* Brigadista Info */}
-                  <View style={styles.brigadistaInfo}>
-                    <View
-                      style={[
-                        styles.avatar,
-                        { backgroundColor: colors.success + "20" },
-                      ]}
-                    >
+          {/* Responses List */}
+          <View style={styles.listContainer}>
+            {responses.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Ionicons
+                  name="chatbox-outline"
+                  size={64}
+                  color={colors.textSecondary}
+                />
+                <Text style={[styles.emptyText, { color: colors.text }]}>
+                  No hay respuestas
+                </Text>
+                <Text
+                  style={[styles.emptySubtext, { color: colors.textSecondary }]}
+                >
+                  Las respuestas del equipo aparecerán aquí
+                </Text>
+              </View>
+            ) : (
+              responses.map((response) => {
+                return (
+                  <TouchableOpacity
+                    key={response.id}
+                    style={[
+                      styles.responseCard,
+                      {
+                        backgroundColor: colors.surface,
+                        borderColor: colors.border,
+                      },
+                    ]}
+                    onPress={() => handleResponsePress(response)}
+                    activeOpacity={0.7}
+                  >
+                    {/* Header */}
+                    <View style={styles.cardHeader}>
+                      <Text
+                        style={[styles.surveyTitle, { color: colors.text }]}
+                        numberOfLines={1}
+                      >
+                        {response.survey_title}
+                      </Text>
                       <Ionicons
-                        name="person"
+                        name="checkmark-circle"
                         size={20}
                         color={colors.success}
                       />
                     </View>
-                    <View style={styles.brigadistaDetails}>
-                      <Text
+
+                    {/* Brigadista Info */}
+                    <View style={styles.brigadistaInfo}>
+                      <View
                         style={[
-                          styles.brigadistaLabel,
-                          { color: colors.textSecondary },
+                          styles.avatar,
+                          { backgroundColor: colors.success + "20" },
                         ]}
                       >
-                        Brigadista
-                      </Text>
-                      <Text
-                        style={[styles.brigadistaName, { color: colors.text }]}
-                      >
-                        {response.brigadista_name}
-                      </Text>
+                        <Ionicons
+                          name="person"
+                          size={20}
+                          color={colors.success}
+                        />
+                      </View>
+                      <View style={styles.brigadistaDetails}>
+                        <Text
+                          style={[
+                            styles.brigadistaLabel,
+                            { color: colors.textSecondary },
+                          ]}
+                        >
+                          Brigadista
+                        </Text>
+                        <Text
+                          style={[
+                            styles.brigadistaName,
+                            { color: colors.text },
+                          ]}
+                        >
+                          {response.brigadista_name}
+                        </Text>
+                      </View>
                     </View>
-                  </View>
 
-                  {/* Footer */}
-                  <View
-                    style={[
-                      styles.cardFooter,
-                      { borderTopColor: colors.border },
-                    ]}
-                  >
-                    <View style={styles.footerInfo}>
-                      {formatLocation(response.location) && (
+                    {/* Footer */}
+                    <View
+                      style={[
+                        styles.cardFooter,
+                        { borderTopColor: colors.border },
+                      ]}
+                    >
+                      <View style={styles.footerInfo}>
+                        {formatLocation(response.location) && (
+                          <View style={styles.footerItem}>
+                            <Ionicons
+                              name="location-outline"
+                              size={14}
+                              color={colors.textSecondary}
+                            />
+                            <Text
+                              style={[
+                                styles.footerText,
+                                { color: colors.textSecondary },
+                              ]}
+                            >
+                              {formatLocation(response.location)}
+                            </Text>
+                          </View>
+                        )}
                         <View style={styles.footerItem}>
                           <Ionicons
-                            name="location-outline"
+                            name="time-outline"
                             size={14}
                             color={colors.textSecondary}
                           />
@@ -228,53 +249,37 @@ export default function EncargadoResponses() {
                               { color: colors.textSecondary },
                             ]}
                           >
-                            {formatLocation(response.location)}
+                            {formatDate(response.completed_at)}
                           </Text>
                         </View>
-                      )}
-                      <View style={styles.footerItem}>
-                        <Ionicons
-                          name="time-outline"
-                          size={14}
-                          color={colors.textSecondary}
-                        />
-                        <Text
-                          style={[
-                            styles.footerText,
-                            { color: colors.textSecondary },
-                          ]}
-                        >
-                          {formatDate(response.completed_at)}
-                        </Text>
+                        <View style={styles.footerItem}>
+                          <Ionicons
+                            name="list-outline"
+                            size={14}
+                            color={colors.textSecondary}
+                          />
+                          <Text
+                            style={[
+                              styles.footerText,
+                              { color: colors.textSecondary },
+                            ]}
+                          >
+                            {response.answer_count} respuestas
+                          </Text>
+                        </View>
                       </View>
-                      <View style={styles.footerItem}>
-                        <Ionicons
-                          name="list-outline"
-                          size={14}
-                          color={colors.textSecondary}
-                        />
-                        <Text
-                          style={[
-                            styles.footerText,
-                            { color: colors.textSecondary },
-                          ]}
-                        >
-                          {response.answer_count} respuestas
-                        </Text>
-                      </View>
+                      <Ionicons
+                        name="chevron-forward"
+                        size={20}
+                        color={colors.textSecondary}
+                      />
                     </View>
-                    <Ionicons
-                      name="chevron-forward"
-                      size={20}
-                      color={colors.textSecondary}
-                    />
-                  </View>
-                </TouchableOpacity>
-              );
-            })
-          )}
-        </View>
-      </ScrollView>
+                  </TouchableOpacity>
+                );
+              })
+            )}
+          </View>
+        </ScrollView>
       )}
     </View>
   );
