@@ -9,6 +9,7 @@
  * ✅ Offline Ready: Sync status and offline capabilities highlighted
  */
 
+import { getAssignedSurveys, type AssignedSurveyResponse } from "@/lib/api/mobile";
 import { ThemeToggleIcon } from "@/components/ui/theme-toggle";
 import { useAuth } from "@/contexts/auth-context";
 import { useThemeColors } from "@/contexts/theme-context";
@@ -204,6 +205,20 @@ export default function BrigadistaHome() {
   const [refreshing, setRefreshing] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
+  const [assignments, setAssignments] = useState<AssignedSurveyResponse[]>([]);
+
+  const fetchAssignments = async () => {
+    try {
+      const data = await getAssignedSurveys("active");
+      setAssignments(data);
+    } catch (err) {
+      console.error("Error fetching assignments:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchAssignments();
+  }, []);
 
   // Monitor network connectivity
   useEffect(() => {
@@ -217,10 +232,8 @@ export default function BrigadistaHome() {
   const onRefresh = async () => {
     setRefreshing(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    // TODO: Fetch real data from API
-    setTimeout(() => {
-      setRefreshing(false);
-    }, 1500);
+    await fetchAssignments();
+    setRefreshing(false);
   };
 
   const handleSync = async () => {
@@ -258,72 +271,45 @@ export default function BrigadistaHome() {
     );
   };
 
-  // 🧪 MOCK DATA
+  // Stats derived from real assignments
   const stats = [
     {
       icon: "checkmark-circle" as const,
-      value: "18",
-      label: "Completadas",
+      value: String(assignments.length),
+      label: "Asignadas",
       color: colors.success,
     },
     {
       icon: "time" as const,
-      value: "5",
-      label: "Pendientes",
+      value: String(assignments.filter((a) => a.assignment_status === "active").length),
+      label: "Activas",
       color: colors.warning,
     },
     {
       icon: "document-text" as const,
-      value: "23",
+      value: String(assignments.length),
       label: "Total",
       color: colors.primary,
     },
     {
       icon: "cloud-upload" as const,
-      value: "2",
+      value: "–",
       label: "Sin Sync",
       color: colors.info,
     },
   ];
 
-  const assignments = [
-    {
-      id: 1,
-      title: "Encuesta de Salud Mental y Bienestar",
-      category: "Salud Comunitaria",
-      completed: 8,
-      total: 10,
-      dueDate: "15 Feb",
-      priority: "high" as const,
-      synced: true,
-    },
-    {
-      id: 2,
-      title: "Evaluación de Infraestructura Urbana",
-      category: "Urbanismo",
-      completed: 3,
-      total: 15,
-      dueDate: "20 Feb",
-      priority: "medium" as const,
-      synced: false,
-    },
-    {
-      id: 3,
-      title: "Censo de Recursos Educativos",
-      category: "Educación",
-      completed: 7,
-      total: 8,
-      dueDate: "18 Feb",
-      priority: "low" as const,
-      synced: true,
-    },
-  ];
-
-  const syncStatus = {
-    lastSync: "Hace 5 minutos",
-    pendingResponses: 2,
-    isSynced: true,
-  };
+  // Map API assignments to card props
+  const assignmentCards = assignments.map((a) => ({
+    id: a.assignment_id,
+    title: a.survey_title,
+    category: a.assigned_location ?? "Sin ubicación",
+    completed: 0,
+    total: a.latest_version.questions.length || 1,
+    dueDate: "–",
+    priority: "medium" as const,
+    synced: false,
+  }));
 
   return (
     <ScrollView
@@ -492,7 +478,7 @@ export default function BrigadistaHome() {
         </View>
 
         <View style={styles.assignmentsList}>
-          {assignments.map((assignment) => (
+          {assignmentCards.map((assignment) => (
             <SurveyAssignmentCard key={assignment.id} {...assignment} />
           ))}
         </View>

@@ -193,10 +193,8 @@ export default function EncargadoHome() {
   const onRefresh = async () => {
     setRefreshing(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    // TODO: Fetch real data from API
-    setTimeout(() => {
-      setRefreshing(false);
-    }, 1500);
+    // Encargado dashboard stats endpoint not yet available — refresh UI only
+    setRefreshing(false);
   };
 
   const handleLogout = () => {
