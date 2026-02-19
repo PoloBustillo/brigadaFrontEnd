@@ -33,25 +33,12 @@ export default function EditProfileScreen() {
   };
 
   const [name, setName] = useState(user?.name || "");
-  const [email, setEmail] = useState(user?.email || "");
   const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleSave = async () => {
     if (!name.trim()) {
       Alert.alert("Error", "El nombre es obligatorio");
-      return;
-    }
-
-    if (!email.trim()) {
-      Alert.alert("Error", "El email es obligatorio");
-      return;
-    }
-
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      Alert.alert("Error", "El email no es válido");
       return;
     }
 
@@ -73,7 +60,7 @@ export default function EditProfileScreen() {
         await updateUser({
           ...user,
           name,
-          email,
+          email: user.email,
         });
       }
 
@@ -155,8 +142,8 @@ export default function EditProfileScreen() {
                 Correo Electrónico *
               </Text>
               <Input
-                value={email}
-                onChangeText={setEmail}
+                value={user?.email || ""}
+                editable={false}
                 placeholder="tu@email.com"
                 keyboardType="email-address"
                 autoCapitalize="none"
@@ -164,7 +151,7 @@ export default function EditProfileScreen() {
                 style={styles.input}
               />
               <Text style={[styles.hint, { color: colors.textTertiary }]}>
-                El correo se usa para iniciar sesión
+                El correo se usa para iniciar sesión y no se puede cambiar
               </Text>
             </View>
 

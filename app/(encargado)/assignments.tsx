@@ -1,10 +1,11 @@
 /**
  * Encargado Assignments Screen
- * View assigned surveys and team management
+ * Informational view of assigned surveys
+ * Assignment creation and configuration are handled in web CMS
  * Rule 9-10: Encargado can only see their assignments
  */
 
-import { UserHeader } from "@/components/shared";
+import { CMSNotice, UserHeader } from "@/components/shared";
 import { typography } from "@/constants/typography";
 import { useThemeColors } from "@/contexts/theme-context";
 import {
@@ -101,10 +102,6 @@ export default function EncargadoAssignmentsScreen() {
     fetchAssignments();
   };
 
-  const handleViewAssignment = (group: SurveyGroup) => {
-    console.log("View survey group:", group.surveyId);
-  };
-
   const totalBrigadistas = Array.from(
     new Set(surveyGroups.flatMap((g) => g.brigadistas.map((b) => b.id))),
   ).length;
@@ -112,6 +109,10 @@ export default function EncargadoAssignmentsScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <UserHeader title="Mis Asignaciones" />
+
+      <View style={styles.noticeContainer}>
+        <CMSNotice message="Vista informativa. La creación y edición de asignaciones se realiza en el CMS web." />
+      </View>
 
       {fetchError && (
         <TouchableOpacity style={styles.errorBanner} onPress={fetchAssignments}>
@@ -167,7 +168,7 @@ export default function EncargadoAssignmentsScreen() {
                   No tienes asignaciones
                 </Text>
                 <Text style={[styles.emptySubtext, { color: colors.icon }]}>
-                  Crea asignaciones desde el panel web
+                  Las asignaciones se gestionan desde el CMS web
                 </Text>
               </View>
             ) : (
@@ -176,7 +177,7 @@ export default function EncargadoAssignmentsScreen() {
                   STATUS_CONFIG[group.status] ?? STATUS_CONFIG.inactive;
 
                 return (
-                  <TouchableOpacity
+                  <View
                     key={group.surveyId}
                     style={[
                       styles.assignmentCard,
@@ -185,8 +186,6 @@ export default function EncargadoAssignmentsScreen() {
                         borderColor: colors.border,
                       },
                     ]}
-                    onPress={() => handleViewAssignment(group)}
-                    activeOpacity={0.7}
                   >
                     {/* Header */}
                     <View style={styles.cardHeader}>
@@ -258,12 +257,12 @@ export default function EncargadoAssignmentsScreen() {
                         {new Date(group.createdAt).toLocaleDateString()}
                       </Text>
                       <Ionicons
-                        name="chevron-forward"
+                        name="eye-outline"
                         size={20}
                         color={colors.icon}
                       />
                     </View>
-                  </TouchableOpacity>
+                  </View>
                 );
               })
             )}
@@ -280,6 +279,11 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 20,
+  },
+  noticeContainer: {
+    marginHorizontal: 20,
+    marginTop: 10,
+    marginBottom: 6,
   },
   summaryContainer: {
     flexDirection: "row",

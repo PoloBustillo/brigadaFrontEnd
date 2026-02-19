@@ -229,6 +229,17 @@ export function CustomTabBar({
     });
   };
 
+  const activeRoute = state.routes[state.index];
+  const activeOptions = descriptors[activeRoute.key]?.options;
+  const activeTabBarStyle = activeOptions?.tabBarStyle;
+  const shouldHideTabBar = Array.isArray(activeTabBarStyle)
+    ? activeTabBarStyle.some((style: any) => style?.display === "none")
+    : (activeTabBarStyle as any)?.display === "none";
+
+  if (shouldHideTabBar) {
+    return null;
+  }
+
   return (
     <View
       style={[
@@ -236,7 +247,7 @@ export function CustomTabBar({
         {
           paddingBottom: Math.max(insets.bottom, 4),
           borderTopColor: colors.border,
-          backgroundColor: colors.backgroundSecondary,
+          backgroundColor: colors.surface,
         },
       ]}
     >

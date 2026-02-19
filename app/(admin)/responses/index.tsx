@@ -1,17 +1,20 @@
 /**
  * Admin Responses - All System Responses
- * Shows: All responses from all surveys, analytics
- * Access: Administrators only (Rule 6)
+ * Read-only responses overview for mobile
+ * Filters and response management are handled in web CMS
  */
 
-import { AppHeader } from "@/components/shared";
+import { AppHeader, CMSNotice } from "@/components/shared";
 import { useThemeColors } from "@/contexts/theme-context";
 import { useTabBarHeight } from "@/hooks/use-tab-bar-height";
-import { Ionicons } from "@expo/vector-icons";
-import * as Haptics from "expo-haptics";
-import { useRouter } from "expo-router";
-import { useState } from "react";
 import {
+  getAdminResponsesSummary,
+  type AdminResponsesSummaryItem,
+} from "@/lib/api/admin";
+import { Ionicons } from "@expo/vector-icons";
+import { useEffect, useState } from "react";
+import {
+  ActivityIndicator,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -20,90 +23,38 @@ import {
   View,
 } from "react-native";
 
-interface Response {
-  id: number;
-  surveyTitle: string;
-  respondentName: string;
-  respondentRole: "ENCARGADO" | "BRIGADISTA";
-  completedAt: string;
-  questionsAnswered: number;
-  totalQuestions: number;
-  location: string;
-  syncStatus: "synced" | "pending";
-}
-
-// Mock data
-const mockResponses: Response[] = [
-  {
-    id: 1,
-    surveyTitle: "Encuesta de Satisfacción Ciudadana 2024",
-    respondentName: "Juan Pérez",
-    respondentRole: "BRIGADISTA",
-    completedAt: "2024-02-13T10:30:00",
-    questionsAnswered: 15,
-    totalQuestions: 15,
-    location: "Zona Norte",
-    syncStatus: "synced",
-  },
-  {
-    id: 2,
-    surveyTitle: "Censo de Infraestructura Urbana",
-    respondentName: "María González",
-    respondentRole: "ENCARGADO",
-    completedAt: "2024-02-13T09:15:00",
-    questionsAnswered: 22,
-    totalQuestions: 22,
-    location: "Zona Sur",
-    syncStatus: "synced",
-  },
-  {
-    id: 3,
-    surveyTitle: "Evaluación de Programas Sociales",
-    respondentName: "Carlos López",
-    respondentRole: "BRIGADISTA",
-    completedAt: "2024-02-12T16:45:00",
-    questionsAnswered: 18,
-    totalQuestions: 18,
-    location: "Zona Este",
-    syncStatus: "pending",
-  },
-];
-
 export default function AdminResponses() {
   const colors = useThemeColors();
   const { contentPadding } = useTabBarHeight();
-  const router = useRouter();
-  const [responses, setResponses] = useState<Response[]>(mockResponses);
+  const [responses, setResponses] = useState<AdminResponsesSummaryItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  const roleConfig = {
-    ENCARGADO: {
-      label: "Encargado",
-      color: colors.info,
-      icon: "people" as const,
-    },
-    BRIGADISTA: {
-      label: "Brigadista",
-      color: colors.success,
-      icon: "person" as const,
-    },
+  const fetchSummary = async () => {
+    setFetchError(false);
+    try {
+      const data = await getAdminResponsesSummary();
+      setResponses(data);
+    } catch {
+      setFetchError(true);
+    } finally {
+      setIsLoading(false);
+      setRefreshing(false);
+    }
   };
+
+  useEffect(() => {
+    fetchSummary();
+  }, []);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    // TODO: Fetch responses from database
-    setTimeout(() => {
-      setRefreshing(false);
-    }, 1000);
+    fetchSummary();
   };
 
-  const handleResponsePress = (response: Response) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    // TODO: Navigate to response detail
-    console.log("View response:", response.id);
-  };
-
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return "Sin respuestas";
     const date = new Date(dateString);
     const today = new Date();
     const diffTime = Math.abs(today.getTime() - date.getTime());
@@ -117,9 +68,13 @@ export default function AdminResponses() {
     }
   };
 
-  const completedResponses = responses.filter(
-    (r) => r.questionsAnswered === r.totalQuestions,
+  const activeSurveysWithResponses = responses.filter(
+    (r) => r.is_active && r.total_responses > 0,
   ).length;
+  const totalResponses = responses.reduce(
+    (sum, r) => sum + r.total_responses,
+    0,
+  );
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -134,293 +89,223 @@ export default function AdminResponses() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        {/* Stats Cards */}
-        <View style={styles.statsContainer}>
-          <View
-            style={[
-              styles.statCard,
-              { backgroundColor: colors.surface, borderColor: colors.border },
-            ]}
-          >
-            <Ionicons name="chatbox" size={24} color={colors.primary} />
-            <Text style={[styles.statValue, { color: colors.text }]}>
-              {responses.length}
-            </Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-              Total
-            </Text>
-          </View>
-          <View
-            style={[
-              styles.statCard,
-              { backgroundColor: colors.surface, borderColor: colors.border },
-            ]}
-          >
-            <Ionicons
-              name="checkmark-done-circle"
-              size={24}
-              color={colors.success}
-            />
-            <Text style={[styles.statValue, { color: colors.text }]}>
-              {completedResponses}
-            </Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-              Completas
-            </Text>
-          </View>
-          <View
-            style={[
-              styles.statCard,
-              { backgroundColor: colors.surface, borderColor: colors.border },
-            ]}
-          >
-            <Ionicons name="cloud-upload" size={24} color={colors.info} />
-            <Text style={[styles.statValue, { color: colors.text }]}>
-              {responses.filter((r) => r.syncStatus === "synced").length}
-            </Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-              Sincronizadas
-            </Text>
-          </View>
-        </View>
+        <CMSNotice message="Vista de solo lectura. Filtros avanzados y detalle de respuestas se gestionan en el CMS web." />
 
-        {/* Filters */}
-        <View style={styles.filtersContainer}>
-          <TouchableOpacity
-            style={[
-              styles.filterButton,
-              styles.filterButtonActive,
-              { backgroundColor: colors.primary },
-            ]}
-            activeOpacity={0.8}
-          >
-            <Text
-              style={[styles.filterTextActive, { color: colors.background }]}
-            >
-              Todas
+        {fetchError && (
+          <TouchableOpacity style={styles.errorBanner} onPress={fetchSummary}>
+            <Text style={styles.errorBannerText}>
+              No se pudo cargar. Toca para reintentar.
             </Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.filterButton,
-              { backgroundColor: colors.surface, borderColor: colors.border },
-            ]}
-            activeOpacity={0.8}
-          >
-            <Text style={[styles.filterText, { color: colors.text }]}>
-              Sincronizadas
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.filterButton,
-              { backgroundColor: colors.surface, borderColor: colors.border },
-            ]}
-            activeOpacity={0.8}
-          >
-            <Text style={[styles.filterText, { color: colors.text }]}>
-              Pendientes
-            </Text>
-          </TouchableOpacity>
-        </View>
+        )}
 
-        {/* Responses List */}
-        <View style={styles.listContainer}>
-          {responses.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Ionicons
-                name="chatbox-outline"
-                size={64}
-                color={colors.textSecondary}
-              />
-              <Text style={[styles.emptyText, { color: colors.text }]}>
-                No hay respuestas
-              </Text>
-              <Text
-                style={[styles.emptySubtext, { color: colors.textSecondary }]}
+        {isLoading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={colors.primary} />
+          </View>
+        ) : (
+          <>
+            {/* Stats Cards */}
+            <View style={styles.statsContainer}>
+              <View
+                style={[
+                  styles.statCard,
+                  {
+                    backgroundColor: colors.surface,
+                    borderColor: colors.border,
+                  },
+                ]}
               >
-                Las respuestas aparecerán aquí cuando se completen encuestas
-              </Text>
-            </View>
-          ) : (
-            responses.map((response) => {
-              const config = roleConfig[response.respondentRole];
-              const isComplete =
-                response.questionsAnswered === response.totalQuestions;
-              const isSynced = response.syncStatus === "synced";
-
-              return (
-                <TouchableOpacity
-                  key={response.id}
-                  style={[
-                    styles.responseCard,
-                    {
-                      backgroundColor: colors.surface,
-                      borderColor: colors.border,
-                    },
-                  ]}
-                  onPress={() => handleResponsePress(response)}
-                  activeOpacity={0.7}
+                <Ionicons name="chatbox" size={24} color={colors.primary} />
+                <Text style={[styles.statValue, { color: colors.text }]}>
+                  {totalResponses}
+                </Text>
+                <Text
+                  style={[styles.statLabel, { color: colors.textSecondary }]}
                 >
-                  {/* Header */}
-                  <View style={styles.cardHeader}>
-                    <Text
-                      style={[styles.surveyTitle, { color: colors.text }]}
-                      numberOfLines={1}
-                    >
-                      {response.surveyTitle}
-                    </Text>
-                    <View style={styles.badges}>
-                      {isComplete ? (
-                        <Ionicons
-                          name="checkmark-circle"
-                          size={20}
-                          color={colors.success}
-                        />
-                      ) : (
-                        <Ionicons
-                          name="time"
-                          size={20}
-                          color={colors.warning}
-                        />
-                      )}
-                      {!isSynced && (
-                        <Ionicons
-                          name="cloud-upload-outline"
-                          size={20}
-                          color={colors.warning}
-                        />
-                      )}
-                    </View>
-                  </View>
+                  Respuestas
+                </Text>
+              </View>
+              <View
+                style={[
+                  styles.statCard,
+                  {
+                    backgroundColor: colors.surface,
+                    borderColor: colors.border,
+                  },
+                ]}
+              >
+                <Ionicons
+                  name="checkmark-done-circle"
+                  size={24}
+                  color={colors.success}
+                />
+                <Text style={[styles.statValue, { color: colors.text }]}>
+                  {activeSurveysWithResponses}
+                </Text>
+                <Text
+                  style={[styles.statLabel, { color: colors.textSecondary }]}
+                >
+                  Activas con respuestas
+                </Text>
+              </View>
+              <View
+                style={[
+                  styles.statCard,
+                  {
+                    backgroundColor: colors.surface,
+                    borderColor: colors.border,
+                  },
+                ]}
+              >
+                <Ionicons name="cloud-upload" size={24} color={colors.info} />
+                <Text style={[styles.statValue, { color: colors.text }]}>
+                  {responses.length}
+                </Text>
+                <Text
+                  style={[styles.statLabel, { color: colors.textSecondary }]}
+                >
+                  Encuestas
+                </Text>
+              </View>
+            </View>
 
-                  {/* Respondent Info */}
-                  <View style={styles.respondentInfo}>
-                    <View
-                      style={[
-                        styles.avatar,
-                        { backgroundColor: config.color + "20" },
-                      ]}
-                    >
-                      <Ionicons
-                        name={config.icon}
-                        size={20}
-                        color={config.color}
-                      />
-                    </View>
-                    <View style={styles.respondentDetails}>
-                      <Text
-                        style={[styles.respondentName, { color: colors.text }]}
-                      >
-                        {response.respondentName}
-                      </Text>
-                      <View
-                        style={[
-                          styles.roleBadge,
-                          { backgroundColor: config.color + "20" },
-                        ]}
-                      >
-                        <Text
-                          style={[styles.roleText, { color: config.color }]}
-                        >
-                          {config.label}
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
-
-                  {/* Progress */}
-                  <View style={styles.progressSection}>
-                    <View style={styles.progressHeader}>
-                      <Text
-                        style={[
-                          styles.progressText,
-                          { color: colors.textSecondary },
-                        ]}
-                      >
-                        Progreso
-                      </Text>
-                      <Text
-                        style={[
-                          styles.progressValue,
-                          {
-                            color: isComplete ? colors.success : colors.warning,
-                          },
-                        ]}
-                      >
-                        {response.questionsAnswered}/{response.totalQuestions}
-                      </Text>
-                    </View>
-                    <View
-                      style={[
-                        styles.progressBar,
-                        { backgroundColor: colors.border },
-                      ]}
-                    >
-                      <View
-                        style={[
-                          styles.progressFill,
-                          {
-                            backgroundColor: isComplete
-                              ? colors.success
-                              : colors.warning,
-                            width: `${(response.questionsAnswered / response.totalQuestions) * 100}%`,
-                          },
-                        ]}
-                      />
-                    </View>
-                  </View>
-
-                  {/* Footer */}
-                  <View
+            {/* Responses List */}
+            <View style={styles.listContainer}>
+              {responses.length === 0 ? (
+                <View style={styles.emptyState}>
+                  <Ionicons
+                    name="chatbox-outline"
+                    size={64}
+                    color={colors.textSecondary}
+                  />
+                  <Text style={[styles.emptyText, { color: colors.text }]}>
+                    No hay respuestas
+                  </Text>
+                  <Text
                     style={[
-                      styles.cardFooter,
-                      { borderTopColor: colors.border },
+                      styles.emptySubtext,
+                      { color: colors.textSecondary },
                     ]}
                   >
-                    <View style={styles.footerInfo}>
-                      <View style={styles.footerItem}>
-                        <Ionicons
-                          name="location-outline"
-                          size={14}
-                          color={colors.textSecondary}
-                        />
+                    Las respuestas por encuesta aparecerán aquí
+                  </Text>
+                </View>
+              ) : (
+                responses.map((response) => {
+                  const statusColor = response.is_active
+                    ? colors.success
+                    : colors.textSecondary;
+
+                  return (
+                    <View
+                      key={response.survey_id}
+                      style={[
+                        styles.responseCard,
+                        {
+                          backgroundColor: colors.surface,
+                          borderColor: colors.border,
+                        },
+                      ]}
+                    >
+                      {/* Header */}
+                      <View style={styles.cardHeader}>
                         <Text
-                          style={[
-                            styles.footerText,
-                            { color: colors.textSecondary },
-                          ]}
+                          style={[styles.surveyTitle, { color: colors.text }]}
+                          numberOfLines={1}
                         >
-                          {response.location}
+                          {response.survey_title}
                         </Text>
+                        <View style={styles.badges}>
+                          <Ionicons
+                            name={
+                              response.is_active
+                                ? "checkmark-circle"
+                                : "pause-circle"
+                            }
+                            size={20}
+                            color={statusColor}
+                          />
+                        </View>
                       </View>
-                      <View style={styles.footerItem}>
-                        <Ionicons
-                          name="time-outline"
-                          size={14}
-                          color={colors.textSecondary}
-                        />
-                        <Text
+
+                      {/* Survey status */}
+                      <View style={styles.respondentInfo}>
+                        <View
                           style={[
-                            styles.footerText,
-                            { color: colors.textSecondary },
+                            styles.avatar,
+                            { backgroundColor: statusColor + "20" },
                           ]}
                         >
-                          {formatDate(response.completedAt)}
-                        </Text>
+                          <Ionicons
+                            name="layers-outline"
+                            size={20}
+                            color={statusColor}
+                          />
+                        </View>
+                        <View style={styles.respondentDetails}>
+                          <Text
+                            style={[
+                              styles.respondentName,
+                              { color: colors.text },
+                            ]}
+                          >
+                            {response.total_responses} respuesta
+                            {response.total_responses !== 1 ? "s" : ""}
+                          </Text>
+                          <View
+                            style={[
+                              styles.roleBadge,
+                              { backgroundColor: statusColor + "20" },
+                            ]}
+                          >
+                            <Text
+                              style={[styles.roleText, { color: statusColor }]}
+                            >
+                              {response.is_active ? "Activa" : "Inactiva"}
+                            </Text>
+                          </View>
+                        </View>
+                      </View>
+
+                      {/* Footer */}
+                      <View
+                        style={[
+                          styles.cardFooter,
+                          { borderTopColor: colors.border },
+                        ]}
+                      >
+                        <View style={styles.footerInfo}>
+                          <View style={styles.footerItem}>
+                            <Ionicons
+                              name="time-outline"
+                              size={14}
+                              color={colors.textSecondary}
+                            />
+                            <Text
+                              style={[
+                                styles.footerText,
+                                { color: colors.textSecondary },
+                              ]}
+                            >
+                              Última respuesta:{" "}
+                              {formatDate(response.last_response_at)}
+                            </Text>
+                          </View>
+                        </View>
+                        <Ionicons
+                          name="eye-outline"
+                          size={20}
+                          color={colors.textSecondary}
+                        />
                       </View>
                     </View>
-                    <Ionicons
-                      name="chevron-forward"
-                      size={20}
-                      color={colors.textSecondary}
-                    />
-                  </View>
-                </TouchableOpacity>
-              );
-            })
-          )}
-        </View>
+                  );
+                })
+              )}
+            </View>
+          </>
+        )}
       </ScrollView>
     </View>
   );
@@ -432,6 +317,25 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 20,
+  },
+  loadingContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 28,
+  },
+  errorBanner: {
+    backgroundColor: "#FF3B30",
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    marginTop: 12,
+    marginBottom: 12,
+  },
+  errorBannerText: {
+    color: "#fff",
+    textAlign: "center",
+    fontWeight: "600",
+    fontSize: 13,
   },
   statsContainer: {
     flexDirection: "row",
@@ -452,28 +356,6 @@ const styles = StyleSheet.create({
   },
   statLabel: {
     fontSize: 12,
-  },
-  filtersContainer: {
-    flexDirection: "row",
-    gap: 8,
-    marginBottom: 20,
-  },
-  filterButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
-    borderWidth: 1,
-  },
-  filterButtonActive: {
-    borderWidth: 0,
-  },
-  filterText: {
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  filterTextActive: {
-    fontSize: 14,
-    fontWeight: "600",
   },
   listContainer: {
     gap: 12,
@@ -544,29 +426,6 @@ const styles = StyleSheet.create({
   roleText: {
     fontSize: 11,
     fontWeight: "600",
-  },
-  progressSection: {
-    marginBottom: 12,
-  },
-  progressHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 6,
-  },
-  progressText: {
-    fontSize: 12,
-  },
-  progressValue: {
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  progressBar: {
-    height: 6,
-    borderRadius: 3,
-    overflow: "hidden",
-  },
-  progressFill: {
-    height: "100%",
   },
   cardFooter: {
     flexDirection: "row",

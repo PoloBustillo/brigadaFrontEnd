@@ -4,12 +4,11 @@
  * Access: Encargados only (Rule 9)
  */
 
-import { AppHeader } from "@/components/shared";
+import { AppHeader, CMSNotice } from "@/components/shared";
 import { useThemeColors } from "@/contexts/theme-context";
 import type { AssignmentDetail } from "@/lib/api/assignments";
 import { getMyCreatedAssignments } from "@/lib/api/assignments";
 import { Ionicons } from "@expo/vector-icons";
-import * as Haptics from "expo-haptics";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -93,17 +92,16 @@ export default function EncargadoSurveys() {
     fetchSurveys();
   };
 
-  const handleSurveyPress = (survey: SurveyGroup) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    console.log("View survey:", survey.surveyId);
-  };
-
   const totalResponses = surveys.reduce((acc, s) => acc + s.totalResponses, 0);
   const activeSurveys = surveys.filter((s) => s.status === "active").length;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <AppHeader title="Mis Encuestas" />
+
+      <View style={styles.noticeContainer}>
+        <CMSNotice message="Vista informativa. La configuración de encuestas se realiza en el CMS web." />
+      </View>
 
       {fetchError && (
         <TouchableOpacity style={styles.errorBanner} onPress={fetchSurveys}>
@@ -194,7 +192,7 @@ export default function EncargadoSurveys() {
                   statusConfig[survey.status] ?? statusConfig.inactive;
 
                 return (
-                  <TouchableOpacity
+                  <View
                     key={survey.surveyId}
                     style={[
                       styles.surveyCard,
@@ -203,8 +201,6 @@ export default function EncargadoSurveys() {
                         borderColor: colors.border,
                       },
                     ]}
-                    onPress={() => handleSurveyPress(survey)}
-                    activeOpacity={0.7}
                   >
                     {/* Header */}
                     <View style={styles.cardHeader}>
@@ -297,12 +293,12 @@ export default function EncargadoSurveys() {
                         </View>
                       </View>
                       <Ionicons
-                        name="chevron-forward"
+                        name="eye-outline"
                         size={20}
                         color={colors.textSecondary}
                       />
                     </View>
-                  </TouchableOpacity>
+                  </View>
                 );
               })
             )}
@@ -316,6 +312,11 @@ export default function EncargadoSurveys() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  noticeContainer: {
+    marginHorizontal: 20,
+    marginTop: 8,
+    marginBottom: 4,
   },
   content: {
     padding: 20,

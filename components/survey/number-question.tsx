@@ -1,9 +1,10 @@
 /**
  * 🔢 NUMBER QUESTION
  * UX:
- * - Large centred numeric display (easy to read outdoors)
- * - − / + stepper buttons (fat-finger safe, 56dp)
- * - Direct text input on tap of number
+ * - Scale mode: When range ≤ 10, show tappable numbered circles (ideal for ratings/scales)
+ * - Stepper mode: Large centred numeric display with − / + buttons (fat-finger safe)
+ * - Direct text input on tap of number in stepper mode
+ * - Haptic feedback on every interaction
  * - Respects min / max constraints
  */
 
@@ -41,7 +42,7 @@ export function NumberQuestion({
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
 
-  const current = value ?? 0;
+  const current = value ?? min ?? 0;
 
   const clamp = (n: number) => {
     let v = n;
@@ -50,6 +51,68 @@ export function NumberQuestion({
     return v;
   };
 
+  // If min & max are defined and range is small → scale / rating mode
+  const useScaleMode =
+    min !== undefined && max !== undefined && max - min <= 10 && max > min;
+
+  // ── Scale mode ──────────────────────────────────────────────────────────
+  if (useScaleMode) {
+    const items: number[] = [];
+    for (let i = min!; i <= max!; i += step) items.push(i);
+
+    return (
+      <View style={styles.scaleContainer}>
+        <View style={styles.scaleRow}>
+          {items.map((n) => {
+            const isSelected = value === n;
+            return (
+              <TouchableOpacity
+                key={n}
+                style={[
+                  styles.scaleItem,
+                  {
+                    backgroundColor: isSelected
+                      ? colors.primary
+                      : colors.surface,
+                    borderColor: isSelected ? colors.primary : colors.border,
+                    borderWidth: isSelected ? 2 : 1.5,
+                    flex: 1,
+                    maxWidth: 64,
+                  },
+                ]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  onChange(n);
+                }}
+                activeOpacity={0.7}
+              >
+                <Text
+                  style={[
+                    styles.scaleNumber,
+                    { color: isSelected ? "#fff" : colors.text },
+                  ]}
+                >
+                  {n}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        {/* Range labels */}
+        <View style={styles.scaleLabels}>
+          <Text style={[styles.scaleLabelText, { color: colors.textTertiary }]}>
+            {min}
+          </Text>
+          <Text style={[styles.scaleLabelText, { color: colors.textTertiary }]}>
+            {max}
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
+  // ── Stepper mode ────────────────────────────────────────────────────────
   const increment = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     onChange(clamp(current + step));
@@ -92,7 +155,7 @@ export function NumberQuestion({
           <Text style={[styles.stepBtnText, { color: colors.primary }]}>−</Text>
         </TouchableOpacity>
 
-        {/* Value display / edit */}
+        {/* Value display / direct edit */}
         {editing ? (
           <TextInput
             style={[styles.valueInput, { color: colors.text }]}
@@ -102,6 +165,7 @@ export function NumberQuestion({
             onSubmitEditing={commitDraft}
             keyboardType="numeric"
             autoFocus
+            selectTextOnFocus
           />
         ) : (
           <TouchableOpacity
@@ -114,6 +178,9 @@ export function NumberQuestion({
           >
             <Text style={[styles.valueText, { color: colors.text }]}>
               {current}
+            </Text>
+            <Text style={[styles.tapHint, { color: colors.textTertiary }]}>
+              Toca para editar
             </Text>
           </TouchableOpacity>
         )}
@@ -141,8 +208,8 @@ export function NumberQuestion({
           {min !== undefined && max !== undefined
             ? `Rango: ${min} – ${max}`
             : min !== undefined
-            ? `Mínimo: ${min}`
-            : `Máximo: ${max}`}
+              ? `Mínimo: ${min}`
+              : `Máximo: ${max}`}
         </Text>
       )}
     </View>
@@ -150,6 +217,38 @@ export function NumberQuestion({
 }
 
 const styles = StyleSheet.create({
+  // ── Scale mode ──────────────────────────────────────────
+  scaleContainer: {
+    gap: 8,
+  },
+  scaleRow: {
+    flexDirection: "row",
+    gap: 8,
+    justifyContent: "center",
+    flexWrap: "wrap",
+  },
+  scaleItem: {
+    minWidth: 48,
+    height: 56,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  scaleNumber: {
+    fontSize: 20,
+    fontWeight: "700",
+  },
+  scaleLabels: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: 4,
+  },
+  scaleLabelText: {
+    fontSize: 12,
+    fontWeight: "500",
+  },
+
+  // ── Stepper mode ────────────────────────────────────────
   container: {
     gap: 10,
   },
@@ -177,20 +276,28 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
+    paddingHorizontal: 16,
+    gap: 2,
   },
   valueText: {
     fontSize: 32,
     fontWeight: "700",
     textAlign: "center",
   },
+  tapHint: {
+    fontSize: 11,
+    fontWeight: "400",
+  },
   valueInput: {
     flex: 1,
     fontSize: 32,
     fontWeight: "700",
     textAlign: "center",
+    paddingHorizontal: 16,
   },
   rangeHint: {
     fontSize: 12,
-    textAlign: "center",
+    textAlign: "left",
+    paddingHorizontal: 4,
   },
 });

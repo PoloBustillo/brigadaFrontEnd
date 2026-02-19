@@ -4,7 +4,7 @@
  * Access: Encargados only (Rule 10)
  */
 
-import { AppHeader } from "@/components/shared";
+import { AppHeader, CMSNotice } from "@/components/shared";
 import { useThemeColors } from "@/contexts/theme-context";
 import { getTeamResponses, type TeamResponse } from "@/lib/api/assignments";
 import { Ionicons } from "@expo/vector-icons";
@@ -48,10 +48,6 @@ export default function EncargadoResponses() {
     fetchResponses();
   };
 
-  const handleResponsePress = (response: TeamResponse) => {
-    console.log("View response:", response.id);
-  };
-
   const formatDate = (dateString: string | null) => {
     if (!dateString) return "—";
     const date = new Date(dateString);
@@ -74,6 +70,10 @@ export default function EncargadoResponses() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <AppHeader title="Respuestas del Equipo" />
+
+      <View style={styles.noticeContainer}>
+        <CMSNotice message="Vista informativa. El análisis avanzado y gestión se realizan en el CMS web." />
+      </View>
 
       {fetchError && (
         <TouchableOpacity style={styles.errorBanner} onPress={fetchResponses}>
@@ -151,7 +151,7 @@ export default function EncargadoResponses() {
             ) : (
               responses.map((response) => {
                 return (
-                  <TouchableOpacity
+                  <View
                     key={response.id}
                     style={[
                       styles.responseCard,
@@ -160,8 +160,6 @@ export default function EncargadoResponses() {
                         borderColor: colors.border,
                       },
                     ]}
-                    onPress={() => handleResponsePress(response)}
-                    activeOpacity={0.7}
                   >
                     {/* Header */}
                     <View style={styles.cardHeader}>
@@ -269,12 +267,12 @@ export default function EncargadoResponses() {
                         </View>
                       </View>
                       <Ionicons
-                        name="chevron-forward"
+                        name="eye-outline"
                         size={20}
                         color={colors.textSecondary}
                       />
                     </View>
-                  </TouchableOpacity>
+                  </View>
                 );
               })
             )}
@@ -288,6 +286,11 @@ export default function EncargadoResponses() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  noticeContainer: {
+    marginHorizontal: 20,
+    marginTop: 8,
+    marginBottom: 4,
   },
   content: {
     padding: 20,

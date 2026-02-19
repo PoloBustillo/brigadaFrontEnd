@@ -64,3 +64,61 @@ export async function getAdminUsers(): Promise<AdminUser[]> {
   const { data } = await apiClient.get<AdminUser[]>("/users");
   return data;
 }
+
+// ---------------------------------------------------------------------------
+// Assignments
+
+interface AdminAssignmentUser {
+  id: number;
+  full_name: string;
+  email: string;
+  role: string;
+}
+
+interface AdminAssignmentSurvey {
+  id: number;
+  title: string;
+}
+
+export interface AdminAssignment {
+  id: number;
+  user_id: number;
+  user: AdminAssignmentUser;
+  survey_id: number;
+  survey: AdminAssignmentSurvey;
+  assigned_by: number | null;
+  assigned_by_user: AdminAssignmentUser | null;
+  status: "active" | "inactive";
+  location: string | null;
+  notes: string | null;
+  response_count: number;
+  created_at: string;
+  updated_at: string | null;
+}
+
+/** GET /assignments */
+export async function getAdminAssignments(): Promise<AdminAssignment[]> {
+  const { data } = await apiClient.get<AdminAssignment[]>("/assignments");
+  return data;
+}
+
+// ---------------------------------------------------------------------------
+// Responses summary
+
+export interface AdminResponsesSummaryItem {
+  survey_id: number;
+  survey_title: string;
+  is_active: boolean;
+  total_responses: number;
+  last_response_at: string | null;
+}
+
+/** GET /admin/responses/summary */
+export async function getAdminResponsesSummary(): Promise<
+  AdminResponsesSummaryItem[]
+> {
+  const { data } = await apiClient.get<AdminResponsesSummaryItem[]>(
+    "/admin/responses/summary",
+  );
+  return data;
+}

@@ -9,13 +9,8 @@
  */
 
 import { useThemeColors } from "@/contexts/theme-context";
-import React from "react";
-import {
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import React, { useEffect, useRef } from "react";
+import { StyleSheet, Text, TextInput, View } from "react-native";
 
 interface TextQuestionProps {
   value: string | null;
@@ -26,6 +21,8 @@ interface TextQuestionProps {
   maxLength?: number;
   optional?: boolean;
   placeholder?: string;
+  /** When true, the input focuses and opens the keyboard automatically */
+  autoFocus?: boolean;
 }
 
 export function TextQuestion({
@@ -37,17 +34,30 @@ export function TextQuestion({
   maxLength = 200,
   optional = false,
   placeholder,
+  autoFocus = false,
 }: TextQuestionProps) {
   const themeColors = useThemeColors();
   const colors = colorsProp ?? themeColors;
+  const inputRef = useRef<TextInput>(null);
 
   const current = value ?? "";
   const remaining = maxLength - current.length;
   const showCounter = remaining <= 40;
 
+  // Auto-focus the input with a small delay so the layout settles first
+  useEffect(() => {
+    if (autoFocus) {
+      const timer = setTimeout(() => {
+        inputRef.current?.focus();
+      }, 350);
+      return () => clearTimeout(timer);
+    }
+  }, [autoFocus]);
+
   return (
     <View style={styles.container}>
       <TextInput
+        ref={inputRef}
         style={[
           styles.input,
           multiline && styles.inputMultiline,
@@ -59,7 +69,9 @@ export function TextQuestion({
         ]}
         value={current}
         onChangeText={onChange}
-        placeholder={placeholder ?? (optional ? "Opcional..." : "Escribe aquí...")}
+        placeholder={
+          placeholder ?? (optional ? "Opcional..." : "Escribe aquí...")
+        }
         placeholderTextColor={colors.textTertiary}
         keyboardType={keyboardType}
         maxLength={maxLength}
@@ -68,6 +80,7 @@ export function TextQuestion({
         textAlignVertical={multiline ? "top" : "center"}
         autoCapitalize={keyboardType === "email-address" ? "none" : "sentences"}
         autoCorrect={keyboardType === "default"}
+        returnKeyType={multiline ? "default" : "done"}
       />
       <View style={styles.footer}>
         {optional && (

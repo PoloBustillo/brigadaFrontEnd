@@ -4,7 +4,6 @@
  */
 
 import { useAuth } from "@/contexts/auth-context";
-import { useSync } from "@/contexts/sync-context";
 import { useThemeColors } from "@/contexts/theme-context";
 import { useTabBarHeight } from "@/hooks/use-tab-bar-height";
 import { Ionicons } from "@expo/vector-icons";
@@ -24,7 +23,6 @@ export default function AdminProfileScreen() {
   const { contentPadding } = useTabBarHeight();
   const router = useRouter();
   const { user } = useAuth();
-  const { addPendingItem, clearPending, pendingByType } = useSync();
 
   const handleThemeSettings = () => {
     router.push("/theme-settings" as any);
@@ -44,14 +42,6 @@ export default function AdminProfileScreen() {
 
   const handleChangePassword = () => {
     router.push("/(admin)/change-password" as any);
-  };
-
-  // Debug: Agregar items pendientes de prueba
-  const addTestPending = (type: "survey" | "response" | "user") => {
-    addPendingItem({
-      id: `test-${type}-${Date.now()}`,
-      type,
-    });
   };
 
   const profileMenuItems = [
@@ -252,63 +242,6 @@ export default function AdminProfileScreen() {
           ))}
         </View>
 
-        {/* Debug Section - TEST SYNC BADGES */}
-        <View style={[styles.debugSection, { borderColor: colors.border }]}>
-          <Text style={[styles.debugTitle, { color: colors.textSecondary }]}>
-            🔧 Debug: Probar Sync Badges
-          </Text>
-          <Text style={[styles.debugSubtitle, { color: colors.textTertiary }]}>
-            Pendientes: Encuestas {pendingByType.surveys} | Respuestas{" "}
-            {pendingByType.responses} | Usuarios {pendingByType.users}
-          </Text>
-          <View style={styles.debugButtons}>
-            <TouchableOpacity
-              style={[
-                styles.debugButton,
-                { backgroundColor: colors.primary + "20" },
-              ]}
-              onPress={() => addTestPending("survey")}
-            >
-              <Text style={[styles.debugButtonText, { color: colors.primary }]}>
-                + Encuesta
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.debugButton,
-                { backgroundColor: colors.info + "20" },
-              ]}
-              onPress={() => addTestPending("response")}
-            >
-              <Text style={[styles.debugButtonText, { color: colors.info }]}>
-                + Respuesta
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.debugButton,
-                { backgroundColor: colors.success + "20" },
-              ]}
-              onPress={() => addTestPending("user")}
-            >
-              <Text style={[styles.debugButtonText, { color: colors.success }]}>
-                + Usuario
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.debugButton,
-                { backgroundColor: colors.error + "20" },
-              ]}
-              onPress={() => clearPending()}
-            >
-              <Text style={[styles.debugButtonText, { color: colors.error }]}>
-                Limpiar
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
         {/* Logout */}
         <TouchableOpacity
           style={[
@@ -405,9 +338,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   menuIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: "center",
     justifyContent: "center",
     marginRight: 12,
@@ -421,36 +354,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   menuSubtitle: {
-    fontSize: 14,
-  },
-  debugSection: {
-    marginTop: 24,
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  debugTitle: {
-    fontSize: 14,
-    fontWeight: "600",
-    marginBottom: 4,
-  },
-  debugSubtitle: {
-    fontSize: 12,
-    marginBottom: 12,
-  },
-  debugButtons: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-  },
-  debugButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-  },
-  debugButtonText: {
-    fontSize: 12,
-    fontWeight: "600",
+    fontSize: 13,
   },
   logoutButton: {
     flexDirection: "row",

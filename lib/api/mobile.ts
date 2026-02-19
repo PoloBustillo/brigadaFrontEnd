@@ -4,6 +4,14 @@
  */
 import { apiClient } from "./client";
 
+const ASSIGNED_SURVEYS_TIMEOUT_MS = 60000;
+const ASSIGNED_SURVEYS_RETRY_ATTEMPTS = 2;
+const ASSIGNED_SURVEYS_RETRY_DELAY_MS = 1200;
+
+async function sleep(ms: number): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 // ─── Response types ──────────────────────────────────────────────────────────
 
 export interface AnswerOptionResponse {
@@ -65,10 +73,27 @@ export async function getAssignedSurveys(
   statusFilter?: "active" | "inactive",
 ): Promise<AssignedSurveyResponse[]> {
   const params = statusFilter ? `?status_filter=${statusFilter}` : "";
-  const { data } = await apiClient.get<AssignedSurveyResponse[]>(
-    `/mobile/surveys${params}`,
-  );
-  return data;
+  let lastError: unknown = null;
+
+  for (let attempt = 1; attempt <= ASSIGNED_SURVEYS_RETRY_ATTEMPTS; attempt++) {
+    try {
+      const { data } = await apiClient.get<AssignedSurveyResponse[]>(
+        `/mobile/surveys${params}`,
+        { timeout: ASSIGNED_SURVEYS_TIMEOUT_MS },
+      );
+      return data;
+    } catch (error) {
+      lastError = error;
+
+      if (attempt === ASSIGNED_SURVEYS_RETRY_ATTEMPTS) {
+        break;
+      }
+
+      await sleep(ASSIGNED_SURVEYS_RETRY_DELAY_MS);
+    }
+  }
+
+  throw lastError;
 }
 
 /**
@@ -107,7 +132,12 @@ export interface BatchResponseResult {
   total: number;
   successful: number;
   failed: number;
-  results: { client_id: string; status: string; response_id?: number; errors: string[] }[];
+  results: {
+    client_id: string;
+    status: string;
+    response_id?: number;
+    errors: string[];
+  }[];
 }
 
 /**

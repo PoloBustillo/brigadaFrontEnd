@@ -42,6 +42,7 @@ interface SurveyAssignmentCardProps {
   dueDate: string;
   priority: "high" | "medium" | "low";
   synced: boolean;
+  onPress: () => void;
 }
 
 function SurveyAssignmentCard({
@@ -52,9 +53,9 @@ function SurveyAssignmentCard({
   dueDate,
   priority,
   synced,
+  onPress,
 }: SurveyAssignmentCardProps) {
   const colors = useThemeColors();
-  const router = useRouter();
 
   const priorityConfig = {
     high: {
@@ -87,7 +88,7 @@ function SurveyAssignmentCard({
       activeOpacity={0.7}
       onPress={() => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        router.push("/(brigadista)/my-surveys" as any);
+        onPress();
       }}
     >
       {/* Header with Priority and Sync Status */}
@@ -216,7 +217,20 @@ export default function BrigadistaHome() {
   const fetchAssignments = async () => {
     setFetchError(false);
     try {
-      const data = await getAssignedSurveys("active");
+      const netState = await NetInfo.fetch();
+      if (!netState.isConnected) {
+        setFetchError(true);
+        return;
+      }
+
+      let data: AssignedSurveyResponse[] = [];
+      try {
+        data = await getAssignedSurveys("active");
+      } catch {
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        data = await getAssignedSurveys("active");
+      }
+
       setAssignments(data);
     } catch (err) {
       console.error("Error fetching assignments:", err);
@@ -328,6 +342,21 @@ export default function BrigadistaHome() {
     dueDate: "–",
     priority: "medium" as const,
     synced: false,
+    onPress: () => {
+      if (!a.latest_version?.id) {
+        router.push("/(brigadista)/my-surveys" as any);
+        return;
+      }
+
+      router.push({
+        pathname: "/(brigadista)/surveys/fill",
+        params: {
+          surveyTitle: a.survey_title,
+          versionId: String(a.latest_version.id),
+          questionsJson: JSON.stringify(a.latest_version.questions ?? []),
+        },
+      });
+    },
   }));
 
   return (

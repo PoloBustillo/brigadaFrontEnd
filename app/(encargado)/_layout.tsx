@@ -8,8 +8,9 @@ import { Ionicons } from "@expo/vector-icons";
 
 /**
  * Encargado Layout - Tabs for Team Manager Role
- * Access: Assigned surveys + team management (Rules 9-10)
- * Tabs: Home, My Surveys, Team, Responses
+ * Access: Seguimiento de equipo y encuestas asignadas (consulta)
+ * Configuración y asignaciones: solo desde CMS web
+ * Tabs: Home, Encuestas, Equipo, Respuestas
  */
 export default function EncargadoLayout() {
   return (
@@ -79,6 +80,12 @@ export default function EncargadoLayout() {
           name="change-password"
           options={{
             href: null, // Hidden from tabs
+          }}
+        />
+        <Tabs.Screen
+          name="assignments"
+          options={{
+            href: null, // Hidden route (informational only if opened)
           }}
         />
       </Tabs>

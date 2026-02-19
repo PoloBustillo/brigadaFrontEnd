@@ -11,7 +11,13 @@ import { useThemeColors } from "@/contexts/theme-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import React from "react";
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import {
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 interface Option {
   label: string;
@@ -25,7 +31,12 @@ interface SelectQuestionProps {
   colors?: ReturnType<typeof useThemeColors>;
 }
 
-export function SelectQuestion({ value, options, onChange, colors: colorsProp }: SelectQuestionProps) {
+export function SelectQuestion({
+  value,
+  options,
+  onChange,
+  colors: colorsProp,
+}: SelectQuestionProps) {
   const themeColors = useThemeColors();
   const colors = colorsProp ?? themeColors;
 
@@ -86,7 +97,12 @@ export function SelectQuestion({ value, options, onChange, colors: colorsProp }:
                 {opt.label}
               </Text>
               {selected && (
-                <Ionicons name="checkmark" size={18} color={colors.primary} style={styles.checkIcon} />
+                <Ionicons
+                  name="checkmark"
+                  size={18}
+                  color={colors.primary}
+                  style={styles.checkIcon}
+                />
               )}
             </TouchableOpacity>
           );

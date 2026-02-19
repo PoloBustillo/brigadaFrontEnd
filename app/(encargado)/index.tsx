@@ -12,12 +12,18 @@
 import { ThemeToggleIcon } from "@/components/ui/theme-toggle";
 import { useAuth } from "@/contexts/auth-context";
 import { useThemeColors } from "@/contexts/theme-context";
+import {
+  getMyCreatedAssignments,
+  getMyTeam,
+  getTeamResponses,
+} from "@/lib/api/assignments";
 import { Ionicons } from "@expo/vector-icons";
 import NetInfo from "@react-native-community/netinfo";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   RefreshControl,
   ScrollView,
@@ -148,7 +154,7 @@ function TeamMemberCard({
 
 interface StatCardProps {
   icon: keyof typeof Ionicons.glyphMap;
-  value: string;
+  value: string | number;
   label: string;
   color: string;
 }
@@ -180,6 +186,139 @@ export default function EncargadoHome() {
   const { user, logout } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(false);
+  const [stats, setStats] = useState<StatCardProps[]>([]);
+  const [teamMembers, setTeamMembers] = useState<TeamMemberCardProps[]>([]);
+
+  const formatLastActive = (isoDate: string | null) => {
+    if (!isoDate) return "Sin actividad reciente";
+    const date = new Date(isoDate);
+    const diffMs = Date.now() - date.getTime();
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    if (diffHours < 1) return "Hace <1h";
+    if (diffHours < 24) return `Hace ${diffHours}h`;
+    const diffDays = Math.floor(diffHours / 24);
+    return `Hace ${diffDays}d`;
+  };
+
+  const fetchDashboardData = async () => {
+    setFetchError(false);
+    try {
+      const [members, assignments, responses] = await Promise.all([
+        getMyTeam(),
+        getMyCreatedAssignments(),
+        getTeamResponses(0, 200),
+      ]);
+
+      const uniqueSurveyIds = new Set(assignments.map((a) => a.survey_id));
+      const assignmentsWithResponses = assignments.filter(
+        (a) => a.response_count > 0,
+      ).length;
+      const completionRate =
+        assignments.length > 0
+          ? Math.round((assignmentsWithResponses / assignments.length) * 100)
+          : 0;
+
+      setStats([
+        {
+          icon: "people",
+          value: members.length,
+          label: "Mi Equipo",
+          color: colors.primary,
+        },
+        {
+          icon: "document-text",
+          value: uniqueSurveyIds.size,
+          label: "Mis Encuestas",
+          color: colors.success,
+        },
+        {
+          icon: "clipboard",
+          value: responses.length,
+          label: "Respuestas",
+          color: colors.info,
+        },
+        {
+          icon: "trending-up",
+          value: `${completionRate}%`,
+          label: "Completado",
+          color: colors.warning,
+        },
+      ]);
+
+      const mappedMembers: TeamMemberCardProps[] = members.map((member) => {
+        const memberAssignments = assignments.filter(
+          (a) => a.user_id === member.id,
+        );
+        const surveysAssigned = new Set(
+          memberAssignments.map((a) => a.survey_id),
+        ).size;
+        const surveysWithResponses = new Set(
+          memberAssignments
+            .filter((a) => a.response_count > 0)
+            .map((a) => a.survey_id),
+        ).size;
+        const latestResponseDate =
+          responses
+            .filter((r) => r.user_id === member.id && r.completed_at)
+            .map((r) => r.completed_at as string)
+            .sort()
+            .reverse()[0] ?? null;
+
+        const hasActive = memberAssignments.some((a) => a.status === "active");
+        const status: TeamMemberCardProps["status"] = hasActive
+          ? "active"
+          : memberAssignments.length > 0
+            ? "idle"
+            : "offline";
+
+        return {
+          id: member.id,
+          name: member.full_name,
+          email: member.email,
+          surveysCompleted: surveysWithResponses,
+          surveysTotal: Math.max(surveysAssigned, 1),
+          lastActive: formatLastActive(latestResponseDate),
+          status,
+        };
+      });
+
+      setTeamMembers(mappedMembers);
+    } catch {
+      setFetchError(true);
+      setStats([
+        {
+          icon: "people",
+          value: 0,
+          label: "Mi Equipo",
+          color: colors.primary,
+        },
+        {
+          icon: "document-text",
+          value: 0,
+          label: "Mis Encuestas",
+          color: colors.success,
+        },
+        {
+          icon: "clipboard",
+          value: 0,
+          label: "Respuestas",
+          color: colors.info,
+        },
+        {
+          icon: "trending-up",
+          value: "0%",
+          label: "Completado",
+          color: colors.warning,
+        },
+      ]);
+      setTeamMembers([]);
+    } finally {
+      setIsLoading(false);
+      setRefreshing(false);
+    }
+  };
 
   // Monitor network connectivity
   useEffect(() => {
@@ -190,11 +329,14 @@ export default function EncargadoHome() {
     return () => unsubscribe();
   }, []);
 
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
   const onRefresh = async () => {
     setRefreshing(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    // Encargado dashboard stats endpoint not yet available — refresh UI only
-    setRefreshing(false);
+    fetchDashboardData();
   };
 
   const handleLogout = () => {
@@ -221,73 +363,6 @@ export default function EncargadoHome() {
       { cancelable: true },
     );
   };
-
-  // 🧪 MOCK DATA
-  const stats = [
-    {
-      icon: "people" as const,
-      value: "8",
-      label: "Mi Equipo",
-      color: colors.primary,
-    },
-    {
-      icon: "document-text" as const,
-      value: "5",
-      label: "Mis Encuestas",
-      color: colors.success,
-    },
-    {
-      icon: "clipboard" as const,
-      value: "124",
-      label: "Respuestas",
-      color: colors.info,
-    },
-    {
-      icon: "trending-up" as const,
-      value: "78%",
-      label: "Completado",
-      color: colors.warning,
-    },
-  ];
-
-  const teamMembers = [
-    {
-      id: 1,
-      name: "María González",
-      email: "maria.g@brigada.com",
-      surveysCompleted: 12,
-      surveysTotal: 15,
-      lastActive: "Hace 2 horas",
-      status: "active" as const,
-    },
-    {
-      id: 2,
-      name: "Carlos Ramírez",
-      email: "carlos.r@brigada.com",
-      surveysCompleted: 8,
-      surveysTotal: 15,
-      lastActive: "Hace 6 horas",
-      status: "idle" as const,
-    },
-    {
-      id: 3,
-      name: "Ana Martínez",
-      email: "ana.m@brigada.com",
-      surveysCompleted: 15,
-      surveysTotal: 15,
-      lastActive: "Hace 1 hora",
-      status: "active" as const,
-    },
-    {
-      id: 4,
-      name: "Luis Torres",
-      email: "luis.t@brigada.com",
-      surveysCompleted: 5,
-      surveysTotal: 15,
-      lastActive: "Hace 2 días",
-      status: "offline" as const,
-    },
-  ];
 
   return (
     <ScrollView
@@ -368,70 +443,105 @@ export default function EncargadoHome() {
         ))}
       </View>
 
-      {/* Team Section */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            Mi Equipo
+      {fetchError && (
+        <TouchableOpacity
+          style={styles.errorBanner}
+          onPress={fetchDashboardData}
+        >
+          <Text style={styles.errorBannerText}>
+            No se pudieron cargar todos los datos. Toca para reintentar.
           </Text>
-          <TouchableOpacity
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              router.push("/(encargado)/team/" as any);
-            }}
-          >
-            <Text style={[styles.seeAllText, { color: colors.primary }]}>
-              Ver todos
-            </Text>
-          </TouchableOpacity>
-        </View>
+        </TouchableOpacity>
+      )}
 
-        <View style={styles.teamList}>
-          {teamMembers.map((member) => (
-            <TeamMemberCard key={member.id} {...member} />
-          ))}
+      {isLoading && (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
-      </View>
+      )}
+
+      {/* Team Section */}
+      {!isLoading && (
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              Mi Equipo
+            </Text>
+            <TouchableOpacity
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                router.push("/(encargado)/team/" as any);
+              }}
+            >
+              <Text style={[styles.seeAllText, { color: colors.primary }]}>
+                Ver todos
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.teamList}>
+            {teamMembers.map((member) => (
+              <TeamMemberCard key={member.id} {...member} />
+            ))}
+            {teamMembers.length === 0 && (
+              <Text
+                style={[styles.emptyTeamText, { color: colors.textSecondary }]}
+              >
+                No hay miembros de equipo asignados todavía.
+              </Text>
+            )}
+          </View>
+        </View>
+      )}
 
       {/* Quick Actions */}
-      <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>
-          Acciones Rápidas
-        </Text>
-        <View style={styles.actionsGrid}>
-          <TouchableOpacity
-            style={[
-              styles.actionCard,
-              { backgroundColor: colors.surface, borderColor: colors.border },
-            ]}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              router.push("/(encargado)/assignments" as any);
-            }}
-          >
-            <Ionicons name="add-circle" size={32} color={colors.primary} />
-            <Text style={[styles.actionText, { color: colors.text }]}>
-              Nueva Asignación
-            </Text>
-          </TouchableOpacity>
+      {!isLoading && (
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>
+            Acciones Rápidas
+          </Text>
+          <View style={styles.actionsGrid}>
+            <TouchableOpacity
+              style={[
+                styles.actionCard,
+                { backgroundColor: colors.surface, borderColor: colors.border },
+              ]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                Alert.alert(
+                  "Gestión desde CMS",
+                  "Las asignaciones se crean y administran en el CMS web. En la app móvil solo puedes consultar avances y respuestas.",
+                );
+              }}
+            >
+              <Ionicons
+                name="information-circle"
+                size={32}
+                color={colors.primary}
+              />
+              <Text style={[styles.actionText, { color: colors.text }]}>
+                Gestión en CMS
+              </Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[
-              styles.actionCard,
-              { backgroundColor: colors.surface, borderColor: colors.border },
-            ]}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              router.push("/(encargado)/surveys/" as any);
-            }}
-          >
-            <Ionicons name="bar-chart" size={32} color={colors.success} />
-            <Text style={[styles.actionText, { color: colors.text }]}>
-              Ver Progreso
-            </Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.actionCard,
+                { backgroundColor: colors.surface, borderColor: colors.border },
+              ]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                router.push("/(encargado)/surveys/" as any);
+              }}
+            >
+              <Ionicons name="bar-chart" size={32} color={colors.success} />
+              <Text style={[styles.actionText, { color: colors.text }]}>
+                Ver Progreso
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
+      )}
     </ScrollView>
   );
 }
@@ -498,6 +608,25 @@ const styles = StyleSheet.create({
     gap: 12,
     marginBottom: 32,
   },
+  loadingContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 24,
+  },
+  errorBanner: {
+    backgroundColor: "#FF3B30",
+    marginHorizontal: 20,
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    marginBottom: 16,
+  },
+  errorBannerText: {
+    color: "#fff",
+    textAlign: "center",
+    fontWeight: "600",
+    fontSize: 13,
+  },
   statCard: {
     flex: 1,
     minWidth: "22%",
@@ -546,6 +675,11 @@ const styles = StyleSheet.create({
   teamList: {
     paddingHorizontal: 20,
     gap: 12,
+  },
+  emptyTeamText: {
+    fontSize: 14,
+    textAlign: "center",
+    marginVertical: 10,
   },
   memberCard: {
     flexDirection: "row",

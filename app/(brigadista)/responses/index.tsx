@@ -7,11 +7,13 @@
 import { AppHeader } from "@/components/shared";
 import { useThemeColors } from "@/contexts/theme-context";
 import { useTabBarHeight } from "@/hooks/use-tab-bar-height";
+import { getMyResponses } from "@/lib/api/mobile";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -30,50 +32,47 @@ interface MyResponse {
   syncStatus: "synced" | "pending";
 }
 
-// Mock data
-const mockMyResponses: MyResponse[] = [
-  {
-    id: 1,
-    surveyTitle: "Encuesta de Satisfacción Ciudadana 2024",
-    completedAt: "2024-02-13T10:30:00",
-    questionsAnswered: 15,
-    totalQuestions: 15,
-    location: "Zona Norte, Calle 5",
-    syncStatus: "synced",
-  },
-  {
-    id: 2,
-    surveyTitle: "Censo de Infraestructura Urbana",
-    completedAt: "2024-02-12T14:20:00",
-    questionsAnswered: 22,
-    totalQuestions: 22,
-    location: "Zona Norte, Av. Principal",
-    syncStatus: "synced",
-  },
-  {
-    id: 3,
-    surveyTitle: "Encuesta de Satisfacción Ciudadana 2024",
-    completedAt: "2024-02-11T09:15:00",
-    questionsAnswered: 15,
-    totalQuestions: 15,
-    location: "Zona Norte, Parque Central",
-    syncStatus: "pending",
-  },
-];
-
 export default function BrigadistaResponses() {
   const colors = useThemeColors();
   const { contentPadding } = useTabBarHeight();
   const router = useRouter();
-  const [responses, setResponses] = useState<MyResponse[]>(mockMyResponses);
+  const [responses, setResponses] = useState<MyResponse[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(false);
+
+  const fetchResponses = async () => {
+    setFetchError(false);
+    try {
+      const data = await getMyResponses(0, 100);
+      const mapped: MyResponse[] = data.map((r) => {
+        const answersCount = Array.isArray(r.answers) ? r.answers.length : 0;
+        return {
+          id: r.id,
+          surveyTitle: `Encuesta #${r.survey_id}`,
+          completedAt: r.submitted_at ?? r.created_at,
+          questionsAnswered: answersCount,
+          totalQuestions: answersCount,
+          location: "Sin ubicación",
+          syncStatus: r.submitted_at ? "synced" : "pending",
+        };
+      });
+      setResponses(mapped);
+    } catch {
+      setFetchError(true);
+    } finally {
+      setIsLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchResponses();
+  }, []);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    // TODO: Fetch my responses from database
-    setTimeout(() => {
-      setRefreshing(false);
-    }, 1000);
+    fetchResponses();
   };
 
   const handleResponsePress = (response: MyResponse) => {
@@ -96,254 +95,132 @@ export default function BrigadistaResponses() {
     }
   };
 
-  const completedResponses = responses.filter(
-    (r) => r.questionsAnswered === r.totalQuestions,
-  ).length;
-  const pendingSync = responses.filter(
-    (r) => r.syncStatus === "pending",
-  ).length;
-
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <AppHeader title="Mis Respuestas" />
+      <AppHeader title="Respuestas" />
 
-      <ScrollView
-        contentContainerStyle={[
-          styles.content,
-          { paddingBottom: contentPadding },
-        ]}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-      >
-        {/* Stats Cards */}
-        <View style={styles.statsContainer}>
-          <View
-            style={[
-              styles.statCard,
-              { backgroundColor: colors.surface, borderColor: colors.border },
-            ]}
-          >
-            <Ionicons name="chatbox" size={24} color={colors.primary} />
-            <Text style={[styles.statValue, { color: colors.text }]}>
-              {responses.length}
-            </Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-              Total
-            </Text>
-          </View>
-          <View
-            style={[
-              styles.statCard,
-              { backgroundColor: colors.surface, borderColor: colors.border },
-            ]}
-          >
-            <Ionicons
-              name="checkmark-done-circle"
-              size={24}
-              color={colors.success}
-            />
-            <Text style={[styles.statValue, { color: colors.text }]}>
-              {completedResponses}
-            </Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-              Completas
-            </Text>
-          </View>
-          <View
-            style={[
-              styles.statCard,
-              { backgroundColor: colors.surface, borderColor: colors.border },
-            ]}
-          >
-            <Ionicons
-              name="cloud-upload"
-              size={24}
-              color={pendingSync > 0 ? colors.warning : colors.info}
-            />
-            <Text style={[styles.statValue, { color: colors.text }]}>
-              {pendingSync}
-            </Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-              Pendientes
-            </Text>
-          </View>
+      {fetchError && (
+        <TouchableOpacity style={styles.errorBanner} onPress={fetchResponses}>
+          <Text style={styles.errorBannerText}>
+            No se pudo cargar. Toca para reintentar.
+          </Text>
+        </TouchableOpacity>
+      )}
+
+      {isLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
-
-        {/* Responses List */}
-        <View style={styles.listContainer}>
-          {responses.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Ionicons
-                name="chatbox-outline"
-                size={64}
-                color={colors.textSecondary}
-              />
-              <Text style={[styles.emptyText, { color: colors.text }]}>
-                No hay respuestas
-              </Text>
-              <Text
-                style={[styles.emptySubtext, { color: colors.textSecondary }]}
-              >
-                Tus respuestas aparecerán aquí cuando completes encuestas
-              </Text>
-            </View>
-          ) : (
-            responses.map((response) => {
-              const isComplete =
-                response.questionsAnswered === response.totalQuestions;
-              const isSynced = response.syncStatus === "synced";
-
-              return (
-                <TouchableOpacity
-                  key={response.id}
-                  style={[
-                    styles.responseCard,
-                    {
-                      backgroundColor: colors.surface,
-                      borderColor: colors.border,
-                    },
-                  ]}
-                  onPress={() => handleResponsePress(response)}
-                  activeOpacity={0.7}
+      ) : (
+        <ScrollView
+          contentContainerStyle={[
+            styles.content,
+            { paddingBottom: contentPadding },
+          ]}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+        >
+          {/* Responses List */}
+          <View style={styles.listContainer}>
+            {responses.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Ionicons
+                  name="chatbox-outline"
+                  size={64}
+                  color={colors.textSecondary}
+                />
+                <Text style={[styles.emptyText, { color: colors.text }]}>
+                  No hay respuestas
+                </Text>
+                <Text
+                  style={[styles.emptySubtext, { color: colors.textSecondary }]}
                 >
-                  {/* Header */}
-                  <View style={styles.cardHeader}>
-                    <Text
-                      style={[styles.surveyTitle, { color: colors.text }]}
-                      numberOfLines={2}
-                    >
-                      {response.surveyTitle}
-                    </Text>
-                    <View style={styles.badges}>
-                      {isComplete ? (
-                        <Ionicons
-                          name="checkmark-circle"
-                          size={20}
-                          color={colors.success}
-                        />
-                      ) : (
-                        <Ionicons
-                          name="time"
-                          size={20}
-                          color={colors.warning}
-                        />
-                      )}
-                      {!isSynced && (
-                        <View
-                          style={[
-                            styles.syncBadge,
-                            { backgroundColor: colors.warning + "20" },
-                          ]}
-                        >
-                          <Ionicons
-                            name="cloud-upload-outline"
-                            size={16}
-                            color={colors.warning}
-                          />
-                          <Text
-                            style={[styles.syncText, { color: colors.warning }]}
-                          >
-                            Pendiente
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-                  </View>
-
-                  {/* Progress */}
-                  <View style={styles.progressSection}>
-                    <View style={styles.progressHeader}>
+                  Tus respuestas aparecerán aquí cuando completes encuestas
+                </Text>
+              </View>
+            ) : (
+              responses.map((response) => {
+                return (
+                  <TouchableOpacity
+                    key={response.id}
+                    style={[
+                      styles.responseCard,
+                      {
+                        backgroundColor: colors.surface,
+                        borderColor: colors.border,
+                      },
+                    ]}
+                    onPress={() => handleResponsePress(response)}
+                    activeOpacity={0.7}
+                  >
+                    {/* Header */}
+                    <View style={styles.cardHeader}>
                       <Text
-                        style={[
-                          styles.progressText,
-                          { color: colors.textSecondary },
-                        ]}
+                        style={[styles.surveyTitle, { color: colors.text }]}
+                        numberOfLines={2}
                       >
-                        Progreso
+                        {response.surveyTitle}
                       </Text>
-                      <Text
-                        style={[
-                          styles.progressValue,
-                          {
-                            color: isComplete ? colors.success : colors.warning,
-                          },
-                        ]}
-                      >
-                        {response.questionsAnswered}/{response.totalQuestions}
-                      </Text>
-                    </View>
-                    <View
-                      style={[
-                        styles.progressBar,
-                        { backgroundColor: colors.border },
-                      ]}
-                    >
-                      <View
-                        style={[
-                          styles.progressFill,
-                          {
-                            backgroundColor: isComplete
-                              ? colors.success
-                              : colors.warning,
-                            width: `${(response.questionsAnswered / response.totalQuestions) * 100}%`,
-                          },
-                        ]}
+                      <Ionicons
+                        name="checkmark-circle"
+                        size={20}
+                        color={colors.success}
                       />
                     </View>
-                  </View>
 
-                  {/* Footer */}
-                  <View
-                    style={[
-                      styles.cardFooter,
-                      { borderTopColor: colors.border },
-                    ]}
-                  >
-                    <View style={styles.footerInfo}>
-                      <View style={styles.footerItem}>
-                        <Ionicons
-                          name="location-outline"
-                          size={14}
-                          color={colors.textSecondary}
-                        />
-                        <Text
-                          style={[
-                            styles.footerText,
-                            { color: colors.textSecondary },
-                          ]}
-                        >
-                          {response.location}
-                        </Text>
+                    {/* Footer */}
+                    <View
+                      style={[
+                        styles.cardFooter,
+                        { borderTopColor: colors.border },
+                      ]}
+                    >
+                      <View style={styles.footerInfo}>
+                        <View style={styles.footerItem}>
+                          <Ionicons
+                            name="location-outline"
+                            size={14}
+                            color={colors.textSecondary}
+                          />
+                          <Text
+                            style={[
+                              styles.footerText,
+                              { color: colors.textSecondary },
+                            ]}
+                          >
+                            {response.location}
+                          </Text>
+                        </View>
+                        <View style={styles.footerItem}>
+                          <Ionicons
+                            name="time-outline"
+                            size={14}
+                            color={colors.textSecondary}
+                          />
+                          <Text
+                            style={[
+                              styles.footerText,
+                              { color: colors.textSecondary },
+                            ]}
+                          >
+                            {formatDate(response.completedAt)}
+                          </Text>
+                        </View>
                       </View>
-                      <View style={styles.footerItem}>
-                        <Ionicons
-                          name="time-outline"
-                          size={14}
-                          color={colors.textSecondary}
-                        />
-                        <Text
-                          style={[
-                            styles.footerText,
-                            { color: colors.textSecondary },
-                          ]}
-                        >
-                          {formatDate(response.completedAt)}
-                        </Text>
-                      </View>
+                      <Ionicons
+                        name="chevron-forward"
+                        size={20}
+                        color={colors.textSecondary}
+                      />
                     </View>
-                    <Ionicons
-                      name="chevron-forward"
-                      size={20}
-                      color={colors.textSecondary}
-                    />
-                  </View>
-                </TouchableOpacity>
-              );
-            })
-          )}
-        </View>
-      </ScrollView>
+                  </TouchableOpacity>
+                );
+              })
+            )}
+          </View>
+        </ScrollView>
+      )}
     </View>
   );
 }
@@ -352,28 +229,23 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  errorBanner: {
+    backgroundColor: "#FF3B30",
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+  },
+  errorBannerText: {
+    color: "#fff",
+    textAlign: "center",
+    fontWeight: "600",
+  },
   content: {
     padding: 20,
-  },
-  statsContainer: {
-    flexDirection: "row",
-    gap: 12,
-    marginBottom: 20,
-  },
-  statCard: {
-    flex: 1,
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    alignItems: "center",
-    gap: 8,
-  },
-  statValue: {
-    fontSize: 24,
-    fontWeight: "700",
-  },
-  statLabel: {
-    fontSize: 12,
   },
   listContainer: {
     gap: 12,
@@ -409,46 +281,6 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     fontWeight: "600",
-  },
-  badges: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  syncBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    gap: 4,
-  },
-  syncText: {
-    fontSize: 11,
-    fontWeight: "600",
-  },
-  progressSection: {
-    marginBottom: 12,
-  },
-  progressHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 6,
-  },
-  progressText: {
-    fontSize: 12,
-  },
-  progressValue: {
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  progressBar: {
-    height: 6,
-    borderRadius: 3,
-    overflow: "hidden",
-  },
-  progressFill: {
-    height: "100%",
   },
   cardFooter: {
     flexDirection: "row",

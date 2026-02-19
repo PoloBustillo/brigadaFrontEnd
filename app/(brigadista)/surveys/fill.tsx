@@ -11,11 +11,16 @@
  */
 
 import { BooleanQuestion } from "@/components/survey/boolean-question";
+import { DateQuestion } from "@/components/survey/date-question";
+import { INEQuestion } from "@/components/survey/ine-question";
 import { MultiSelectQuestion } from "@/components/survey/multi-select-question";
 import { NumberQuestion } from "@/components/survey/number-question";
+import { PhotoQuestion } from "@/components/survey/photo-question";
 import { SelectQuestion } from "@/components/survey/select-question";
+import { SignatureQuestion } from "@/components/survey/signature-question";
 import { TextQuestion as TextQuestionComp } from "@/components/survey/text-question";
 import { useThemeColors } from "@/contexts/theme-context";
+import { useTabBarHeight } from "@/hooks/use-tab-bar-height";
 import type { AnswerOptionResponse, QuestionResponse } from "@/lib/api/mobile";
 import { submitBatchResponses } from "@/lib/api/mobile";
 import { Ionicons } from "@expo/vector-icons";
@@ -33,6 +38,7 @@ import {
   Alert,
   Animated,
   Keyboard,
+  KeyboardAvoidingView,
   Platform,
   ScrollView,
   StyleSheet,
@@ -40,6 +46,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 // ─── Internal types ───────────────────────────────────────────────────────────
 
@@ -63,7 +70,16 @@ type Answers = Record<number, any>; // questionId → value
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-const AUTO_ADVANCE_TYPES = new Set(["yes_no", "boolean", "single_choice", "select", "radio"]);
+const AUTO_ADVANCE_TYPES = new Set([
+  "yes_no",
+  "boolean",
+  "single_choice",
+  "select",
+  "radio",
+]);
+
+/** Question types that use a text input and should auto-focus keyboard */
+const TEXT_INPUT_TYPES = new Set(["text", "textarea", "email", "phone"]);
 
 function mapApiQuestion(q: QuestionResponse): FillQuestion {
   return {
@@ -96,6 +112,8 @@ function isAutoAdvanceType(type: string): boolean {
 
 export default function FillSurveyScreen() {
   const colors = useThemeColors();
+  const insets = useSafeAreaInsets();
+  const { contentPadding } = useTabBarHeight();
   const router = useRouter();
   const params = useLocalSearchParams<{
     surveyTitle: string;
@@ -182,7 +200,10 @@ export default function FillSurveyScreen() {
 
     // Validate required
     const value = answers[current.id];
-    if (current.required && (value === undefined || value === null || value === "")) {
+    if (
+      current.required &&
+      (value === undefined || value === null || value === "")
+    ) {
       setFieldError("Este campo es obligatorio");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       return;
@@ -235,7 +256,10 @@ export default function FillSurveyScreen() {
       }));
 
     if (answersPayload.length === 0) {
-      Alert.alert("Sin respuestas", "Por favor responde al menos una pregunta.");
+      Alert.alert(
+        "Sin respuestas",
+        "Por favor responde al menos una pregunta.",
+      );
       return;
     }
 
@@ -259,11 +283,8 @@ export default function FillSurveyScreen() {
       const msg = err?.response?.data?.detail ?? err?.message;
       Alert.alert(
         "No se pudo enviar",
-        msg ??
-          "Se guardará localmente y se enviará cuando tengas conexión.",
-        [
-          { text: "OK" },
-        ],
+        msg ?? "Se guardará localmente y se enviará cuando tengas conexión.",
+        [{ text: "OK" }],
       );
     } finally {
       setSubmitLoading(false);
@@ -274,12 +295,16 @@ export default function FillSurveyScreen() {
   // Render helpers
   // ─────────────────────────────────────────────────────────────────────────
 
-  const currentValue = current ? answers[current.id] ?? null : null;
+  const currentValue = current ? (answers[current.id] ?? null) : null;
 
   if (allQuestions.length === 0) {
     return (
       <View style={[styles.centered, { backgroundColor: colors.background }]}>
-        <Ionicons name="alert-circle-outline" size={48} color={colors.textTertiary} />
+        <Ionicons
+          name="alert-circle-outline"
+          size={48}
+          color={colors.textTertiary}
+        />
         <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
           Esta encuesta no tiene preguntas disponibles.
         </Text>
@@ -287,7 +312,9 @@ export default function FillSurveyScreen() {
           style={[styles.backBtn, { borderColor: colors.border }]}
           onPress={() => router.back()}
         >
-          <Text style={[styles.backBtnText, { color: colors.primary }]}>Volver</Text>
+          <Text style={[styles.backBtnText, { color: colors.primary }]}>
+            Volver
+          </Text>
         </TouchableOpacity>
       </View>
     );
@@ -308,20 +335,35 @@ export default function FillSurveyScreen() {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <KeyboardAvoidingView
+      style={[styles.container, { backgroundColor: colors.background }]}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={0}
+    >
       {/* ── Header bar ──────────────────────────────────────────────────── */}
       <View
         style={[
           styles.header,
-          { borderBottomColor: colors.border, backgroundColor: colors.background },
+          {
+            paddingTop: insets.top + 4,
+            borderBottomColor: colors.border,
+            backgroundColor: colors.background,
+          },
         ]}
       >
-        <TouchableOpacity onPress={handleBack} style={styles.cancelBtn} hitSlop={12}>
+        <TouchableOpacity
+          onPress={handleBack}
+          style={styles.cancelBtn}
+          hitSlop={12}
+        >
           <Ionicons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
 
         <View style={styles.headerCenter}>
-          <Text style={[styles.headerTitle, { color: colors.text }]} numberOfLines={1}>
+          <Text
+            style={[styles.headerTitle, { color: colors.text }]}
+            numberOfLines={1}
+          >
             {params.surveyTitle ?? "Encuesta"}
           </Text>
         </View>
@@ -331,7 +373,9 @@ export default function FillSurveyScreen() {
       </View>
 
       {/* ── Progress ────────────────────────────────────────────────────── */}
-      <View style={[styles.progressContainer, { backgroundColor: colors.surface }]}>
+      <View
+        style={[styles.progressContainer, { backgroundColor: colors.surface }]}
+      >
         <View style={styles.progressBarTrack}>
           <Animated.View
             style={[
@@ -354,7 +398,10 @@ export default function FillSurveyScreen() {
       {/* ── Question area ────────────────────────────────────────────────── */}
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: contentPadding + 48 },
+        ]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
@@ -362,7 +409,12 @@ export default function FillSurveyScreen() {
           <>
             {/* Required badge */}
             {current.required && (
-              <View style={[styles.requiredBadge, { backgroundColor: colors.overlay }]}>
+              <View
+                style={[
+                  styles.requiredBadge,
+                  { backgroundColor: colors.overlay },
+                ]}
+              >
                 <Text style={[styles.requiredText, { color: colors.primary }]}>
                   Obligatoria
                 </Text>
@@ -376,7 +428,12 @@ export default function FillSurveyScreen() {
 
             {/* Optional description */}
             {current.description ? (
-              <Text style={[styles.questionDescription, { color: colors.textSecondary }]}>
+              <Text
+                style={[
+                  styles.questionDescription,
+                  { color: colors.textSecondary },
+                ]}
+              >
                 {current.description}
               </Text>
             ) : null}
@@ -384,13 +441,17 @@ export default function FillSurveyScreen() {
             {/* ── Question input ──────────────────────────────────────── */}
             <View style={styles.inputArea}>
               <QuestionInput
+                key={current.id}
                 question={current}
                 value={currentValue}
                 colors={colors}
                 onChange={(val) => handleAnswer(val, false)}
                 onAutoAdvance={
-                  isAutoAdvanceType(current.type) ? handleAutoAdvance : undefined
+                  isAutoAdvanceType(current.type)
+                    ? handleAutoAdvance
+                    : undefined
                 }
+                autoFocus={TEXT_INPUT_TYPES.has(current.type)}
               />
             </View>
 
@@ -402,7 +463,11 @@ export default function FillSurveyScreen() {
                   { backgroundColor: colors.error + "18" },
                 ]}
               >
-                <Ionicons name="alert-circle-outline" size={16} color={colors.error} />
+                <Ionicons
+                  name="alert-circle-outline"
+                  size={16}
+                  color={colors.error}
+                />
                 <Text style={[styles.fieldErrorText, { color: colors.error }]}>
                   {fieldError}
                 </Text>
@@ -419,7 +484,7 @@ export default function FillSurveyScreen() {
           {
             borderTopColor: colors.border,
             backgroundColor: colors.background,
-            paddingBottom: Platform.OS === "ios" ? 28 : 16,
+            paddingBottom: Math.max(insets.bottom, 16),
           },
         ]}
       >
@@ -430,7 +495,12 @@ export default function FillSurveyScreen() {
           activeOpacity={0.7}
         >
           <Ionicons name="arrow-back" size={18} color={colors.textSecondary} />
-          <Text style={[styles.navBtnSecondaryText, { color: colors.textSecondary }]}>
+          <Text
+            style={[
+              styles.navBtnSecondaryText,
+              { color: colors.textSecondary },
+            ]}
+          >
             {isFirst ? "Salir" : "Anterior"}
           </Text>
         </TouchableOpacity>
@@ -458,7 +528,7 @@ export default function FillSurveyScreen() {
           )}
         </TouchableOpacity>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -470,9 +540,17 @@ interface QuestionInputProps {
   colors: ReturnType<typeof useThemeColors>;
   onChange: (val: any) => void;
   onAutoAdvance?: () => void;
+  autoFocus?: boolean;
 }
 
-function QuestionInput({ question, value, colors, onChange, onAutoAdvance }: QuestionInputProps) {
+function QuestionInput({
+  question,
+  value,
+  colors,
+  onChange,
+  onAutoAdvance,
+  autoFocus,
+}: QuestionInputProps) {
   const { type } = question;
 
   const handleTap = (val: any) => {
@@ -482,19 +560,11 @@ function QuestionInput({ question, value, colors, onChange, onAutoAdvance }: Que
 
   if (type === "yes_no" || type === "boolean") {
     return (
-      <BooleanQuestion
-        value={value}
-        colors={colors}
-        onChange={handleTap}
-      />
+      <BooleanQuestion value={value} colors={colors} onChange={handleTap} />
     );
   }
 
-  if (
-    type === "single_choice" ||
-    type === "select" ||
-    type === "radio"
-  ) {
+  if (type === "single_choice" || type === "select" || type === "radio") {
     return (
       <SelectQuestion
         value={value}
@@ -537,6 +607,24 @@ function QuestionInput({ question, value, colors, onChange, onAutoAdvance }: Que
     );
   }
 
+  if (type === "date" || type === "datetime") {
+    return <DateQuestion value={value} colors={colors} onChange={onChange} />;
+  }
+
+  if (type === "photo" || type === "image") {
+    return <PhotoQuestion value={value} colors={colors} onChange={onChange} />;
+  }
+
+  if (type === "ine" || type === "credential") {
+    return <INEQuestion value={value} colors={colors} onChange={onChange} />;
+  }
+
+  if (type === "signature") {
+    return (
+      <SignatureQuestion value={value} colors={colors} onChange={onChange} />
+    );
+  }
+
   // text / textarea / email / phone / fallback
   return (
     <TextQuestionComp
@@ -545,10 +633,15 @@ function QuestionInput({ question, value, colors, onChange, onAutoAdvance }: Que
       onChange={onChange}
       multiline={type === "textarea"}
       keyboardType={
-        type === "email" ? "email-address" : type === "phone" ? "phone-pad" : "default"
+        type === "email"
+          ? "email-address"
+          : type === "phone"
+            ? "phone-pad"
+            : "default"
       }
       maxLength={type === "textarea" ? 500 : 200}
       optional={!question.required}
+      autoFocus={autoFocus}
     />
   );
 }
@@ -595,7 +688,6 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    paddingTop: Platform.OS === "ios" ? 56 : 20,
     paddingBottom: 12,
     paddingHorizontal: 16,
     borderBottomWidth: StyleSheet.hairlineWidth,
@@ -645,6 +737,8 @@ const styles = StyleSheet.create({
     padding: 24,
     paddingTop: 32,
     flexGrow: 1,
+    justifyContent: "flex-start",
+    alignItems: "stretch",
   },
   requiredBadge: {
     alignSelf: "flex-start",

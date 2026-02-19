@@ -327,10 +327,6 @@ export default function BrigadistaSurveysScreen() {
     });
   };
 
-  const calculateMyProgress = (responses: number, target: number) => {
-    return Math.min((responses / target) * 100, 100);
-  };
-
   const getDaysUntilDeadline = (deadline?: string) => {
     if (!deadline) return null;
     const now = new Date();
@@ -348,16 +344,6 @@ export default function BrigadistaSurveysScreen() {
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     return diffDays;
   };
-
-  // Calculate totals only for active (editable) surveys
-  const totalMyResponses = surveysByTimeWindow.active.reduce(
-    (acc, s) => acc + s.myResponses,
-    0,
-  );
-  const totalMyTarget = surveysByTimeWindow.active.reduce(
-    (acc, s) => acc + s.myTarget,
-    0,
-  );
 
   // Empty state logic
   const getEmptyStateInfo = () => {
@@ -446,74 +432,6 @@ export default function BrigadistaSurveysScreen() {
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
         >
-          {/* Summary */}
-          <View
-            style={[
-              styles.summaryCard,
-              {
-                backgroundColor: colors.success + "15",
-                borderColor: colors.success,
-              },
-            ]}
-          >
-            <View style={styles.summaryHeader}>
-              <View>
-                <Text style={[styles.summaryTitle, { color: colors.text }]}>
-                  Mi Progreso Total
-                </Text>
-                <Text
-                  style={[
-                    styles.summarySubtitle,
-                    { color: colors.textSecondary },
-                  ]}
-                >
-                  {surveysByTimeWindow.active.length} encuestas disponibles
-                </Text>
-              </View>
-              <View
-                style={[
-                  styles.summaryBadge,
-                  {
-                    backgroundColor: colors.success + "20",
-                    borderColor: colors.success,
-                  },
-                ]}
-              >
-                <Text
-                  style={[styles.summaryBadgeText, { color: colors.success }]}
-                >
-                  {totalMyResponses}/{totalMyTarget}
-                </Text>
-              </View>
-            </View>
-            <View
-              style={[styles.progressBar, { backgroundColor: colors.border }]}
-            >
-              <View
-                style={[
-                  styles.progressFill,
-                  {
-                    width: `${calculateMyProgress(totalMyResponses, totalMyTarget)}%`,
-                    backgroundColor: colors.success,
-                  },
-                ]}
-              />
-            </View>
-            <View style={styles.summaryFooterRow}>
-              <Text style={[styles.summaryFooter, { color: colors.text }]}>
-                {calculateMyProgress(totalMyResponses, totalMyTarget).toFixed(
-                  0,
-                )}
-                % completado
-              </Text>
-              {surveysByTimeWindow.upcoming.length > 0 && (
-                <Text style={[styles.summaryFooter, { color: colors.info }]}>
-                  {surveysByTimeWindow.upcoming.length} próxima(s)
-                </Text>
-              )}
-            </View>
-          </View>
-
           {/* Surveys List */}
           <View style={styles.section}>
             {visibleSurveys.length === 0 ? (
@@ -595,7 +513,7 @@ export default function BrigadistaSurveysScreen() {
                               { color: colors.text, marginBottom: 2 },
                             ]}
                           >
-                            Disponibles para Responder
+                            Disponibles
                           </Text>
                           <Text
                             style={[
@@ -624,13 +542,7 @@ export default function BrigadistaSurveysScreen() {
                         const windowConfig = TIME_WINDOW_CONFIG[timeWindow];
                         const statusConfig =
                           STATUS_CONFIG[survey.status] ?? STATUS_CONFIG.ACTIVE;
-                        const myProgress = calculateMyProgress(
-                          survey.myResponses,
-                          survey.myTarget,
-                        );
                         const daysLeft = getDaysUntilDeadline(survey.deadline);
-                        const isCompleted =
-                          survey.myResponses >= survey.myTarget;
 
                         return (
                           <View
@@ -776,76 +688,6 @@ export default function BrigadistaSurveysScreen() {
                               </Text>
                             </View>
 
-                            {/* My Progress */}
-                            <View style={styles.progressContainer}>
-                              <View style={styles.progressHeader}>
-                                <Text
-                                  style={[
-                                    styles.progressText,
-                                    { color: colors.text },
-                                  ]}
-                                >
-                                  Mi progreso
-                                </Text>
-                                <Text
-                                  style={[
-                                    styles.progressStats,
-                                    {
-                                      color: isCompleted
-                                        ? colors.success
-                                        : colors.textSecondary,
-                                    },
-                                  ]}
-                                >
-                                  {survey.myResponses} / {survey.myTarget}
-                                  {isCompleted && " ✓"}
-                                </Text>
-                              </View>
-                              <View
-                                style={[
-                                  styles.progressBar,
-                                  { backgroundColor: colors.surfaceVariant },
-                                ]}
-                              >
-                                <View
-                                  style={[
-                                    styles.progressFill,
-                                    {
-                                      width: `${myProgress}%`,
-                                      backgroundColor: isCompleted
-                                        ? colors.success
-                                        : colors.info,
-                                    },
-                                  ]}
-                                />
-                              </View>
-                            </View>
-
-                            {/* Team Progress */}
-                            <View
-                              style={[
-                                styles.teamProgressRow,
-                                { borderTopColor: colors.border },
-                              ]}
-                            >
-                              <Text
-                                style={[
-                                  styles.teamProgressLabel,
-                                  { color: colors.textSecondary },
-                                ]}
-                              >
-                                Progreso del equipo:
-                              </Text>
-                              <Text
-                                style={[
-                                  styles.teamProgressValue,
-                                  { color: colors.text },
-                                ]}
-                              >
-                                {survey.totalResponses} / {survey.totalTarget}
-                              </Text>
-                            </View>
-
                             {/* Action Button */}
                             <TouchableOpacity
                               style={[
@@ -865,7 +707,6 @@ export default function BrigadistaSurveysScreen() {
                                       survey.allowRejectedEdit
                                     )
                                       return colors.warning;
-                                    if (isCompleted) return colors.border;
                                     return colors.success;
                                   })(),
                                 },
@@ -875,7 +716,6 @@ export default function BrigadistaSurveysScreen() {
                               }
                               activeOpacity={0.8}
                               disabled={
-                                isCompleted ||
                                 survey.responseStatus === "synced" ||
                                 (survey.responseStatus === "rejected" &&
                                   !survey.allowRejectedEdit)
@@ -900,7 +740,6 @@ export default function BrigadistaSurveysScreen() {
                                     return "create-outline";
                                   if (survey.responseStatus === "completed")
                                     return "checkmark-circle-outline";
-                                  if (isCompleted) return "checkmark-circle";
                                   return "add-circle";
                                 })()}
                                 size={20}
@@ -930,7 +769,6 @@ export default function BrigadistaSurveysScreen() {
                                     return "Continuar Borrador";
                                   if (survey.responseStatus === "completed")
                                     return "Editar Respuesta";
-                                  if (isCompleted) return "Meta Completada";
                                   return "Llenar Encuesta";
                                 })()}
                               </Text>

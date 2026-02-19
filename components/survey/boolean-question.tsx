@@ -18,7 +18,11 @@ interface BooleanQuestionProps {
   colors?: ReturnType<typeof useThemeColors>;
 }
 
-export function BooleanQuestion({ value, onChange, colors: colorsProp }: BooleanQuestionProps) {
+export function BooleanQuestion({
+  value,
+  onChange,
+  colors: colorsProp,
+}: BooleanQuestionProps) {
   const themeColors = useThemeColors();
   const colors = colorsProp ?? themeColors;
 
@@ -77,12 +81,7 @@ export function BooleanQuestion({ value, onChange, colors: colorsProp }: Boolean
               {label}
             </Text>
             {selected && (
-              <View
-                style={[
-                  styles.dot,
-                  { backgroundColor: selectedBorder },
-                ]}
-              />
+              <View style={[styles.dot, { backgroundColor: selectedBorder }]} />
             )}
           </TouchableOpacity>
         );
@@ -100,14 +99,18 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: 96,
     borderRadius: 16,
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
+    justifyContent: "flex-start",
+    gap: 10,
+    paddingHorizontal: 14,
     paddingVertical: 20,
     position: "relative",
   },
   label: {
+    flex: 1,
     fontSize: 18,
+    textAlign: "left",
   },
   dot: {
     position: "absolute",

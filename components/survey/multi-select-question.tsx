@@ -25,7 +25,12 @@ interface MultiSelectQuestionProps {
   colors?: ReturnType<typeof useThemeColors>;
 }
 
-export function MultiSelectQuestion({ value, options, onChange, colors: colorsProp }: MultiSelectQuestionProps) {
+export function MultiSelectQuestion({
+  value,
+  options,
+  onChange,
+  colors: colorsProp,
+}: MultiSelectQuestionProps) {
   const themeColors = useThemeColors();
   const colors = colorsProp ?? themeColors;
 
@@ -83,7 +88,9 @@ export function MultiSelectQuestion({ value, options, onChange, colors: colorsPr
                   styles.checkbox,
                   {
                     borderColor: isSelected ? colors.primary : colors.border,
-                    backgroundColor: isSelected ? colors.primary : "transparent",
+                    backgroundColor: isSelected
+                      ? colors.primary
+                      : "transparent",
                   },
                 ]}
               >

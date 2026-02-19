@@ -42,7 +42,7 @@ export default function BrigadistaLayout() {
         <Tabs.Screen
           name="responses/index"
           options={{
-            title: "Mis Respuestas",
+            title: "Respuestas",
             tabBarIcon: ({ color }) => (
               <Ionicons name="checkmark-circle" size={24} color={color} />
             ),
@@ -76,6 +76,13 @@ export default function BrigadistaLayout() {
           name="surveys/index"
           options={{
             href: null, // Hidden from tabs
+          }}
+        />
+        <Tabs.Screen
+          name="surveys/fill"
+          options={{
+            href: null, // Hidden from tabs
+            tabBarStyle: { display: "none" },
           }}
         />
       </Tabs>
