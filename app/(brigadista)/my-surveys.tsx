@@ -160,13 +160,16 @@ export default function BrigadistaSurveysScreen() {
   const [surveys, setSurveys] = useState<MySurvey[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(false);
 
   const fetchSurveys = async () => {
+    setFetchError(false);
     try {
       const data = await getAssignedSurveys("active");
       setSurveys(data.map(mapApiSurvey));
     } catch (err) {
       console.error("Error fetching assigned surveys:", err);
+      setFetchError(true);
     } finally {
       setIsLoading(false);
     }
@@ -266,14 +269,8 @@ export default function BrigadistaSurveysScreen() {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    try {
-      const data = await getAssignedSurveys("active");
-      setSurveys(data.map(mapApiSurvey));
-    } catch (err) {
-      console.error("Error refreshing surveys:", err);
-    } finally {
-      setRefreshing(false);
-    }
+    await fetchSurveys();
+    setRefreshing(false);
   };
 
   const handleStartSurvey = (
@@ -401,6 +398,24 @@ export default function BrigadistaSurveysScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <AppHeader title="Mis Encuestas" />
+
+      {/* Network error banner */}
+      {!isLoading && fetchError && (
+        <TouchableOpacity
+          style={[
+            styles.errorBanner,
+            { backgroundColor: colors.error + "15", borderColor: colors.error },
+          ]}
+          onPress={() => { setIsLoading(true); fetchSurveys(); }}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="cloud-offline-outline" size={20} color={colors.error} />
+          <Text style={[styles.errorBannerText, { color: colors.error }]}>
+            No se pudo cargar. Toca para reintentar.
+          </Text>
+          <Ionicons name="refresh-outline" size={18} color={colors.error} />
+        </TouchableOpacity>
+      )}
 
       {isLoading ? (
         <View style={styles.loadingContainer}>
@@ -583,7 +598,8 @@ export default function BrigadistaSurveysScreen() {
                     surveysByTimeWindow.active.map((survey) => {
                       const timeWindow = getTimeWindowStatus(survey);
                       const windowConfig = TIME_WINDOW_CONFIG[timeWindow];
-                      const statusConfig = STATUS_CONFIG[survey.status];
+                      const statusConfig =
+                        STATUS_CONFIG[survey.status] ?? STATUS_CONFIG.ACTIVE;
                       const myProgress = calculateMyProgress(
                         survey.myResponses,
                         survey.myTarget,
@@ -675,7 +691,8 @@ export default function BrigadistaSurveysScreen() {
                               </View>
                             )}
                             {/* RULE 3: Response Status Badge */}
-                            {survey.responseStatus && (
+                            {survey.responseStatus &&
+                              RESPONSE_STATUS_CONFIG[survey.responseStatus] && (
                               <View
                                 style={[
                                   styles.responseStatusBadge,
@@ -683,7 +700,7 @@ export default function BrigadistaSurveysScreen() {
                                     backgroundColor:
                                       RESPONSE_STATUS_CONFIG[
                                         survey.responseStatus
-                                      ].color,
+                                      ]!.color,
                                   },
                                 ]}
                               >
@@ -691,7 +708,7 @@ export default function BrigadistaSurveysScreen() {
                                   name={
                                     RESPONSE_STATUS_CONFIG[
                                       survey.responseStatus
-                                    ].icon
+                                    ]!.icon
                                   }
                                   size={14}
                                   color={colors.background}
@@ -705,7 +722,7 @@ export default function BrigadistaSurveysScreen() {
                                   {
                                     RESPONSE_STATUS_CONFIG[
                                       survey.responseStatus
-                                    ].label
+                                    ]!.label
                                   }
                                 </Text>
                               </View>
@@ -1255,6 +1272,21 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+  },
+  errorBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginHorizontal: 20,
+    marginTop: 12,
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  errorBannerText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: "500",
   },
   content: {
     padding: 20,
