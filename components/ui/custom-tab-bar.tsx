@@ -12,7 +12,6 @@ import React from "react";
 import {
   Animated,
   Easing,
-  Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -241,12 +240,10 @@ export function CustomTabBar({
         {
           paddingBottom: Math.max(insets.bottom, 4),
           borderTopColor: colors.border,
-          // On Android BlurView has no blur, so use opaque surface color.
-          // On iOS surface with ~80% opacity lets the blur show through.
-          backgroundColor:
-            Platform.OS === "android"
-              ? colors.surface
-              : colors.surface + "CC",
+          // Fully opaque surface color on all platforms so the theme color
+          // is always faithfully reflected. The BlurView still provides the
+          // frosted-glass texture on iOS as a subtle background layer.
+          backgroundColor: colors.surface,
         },
       ]}
     >
