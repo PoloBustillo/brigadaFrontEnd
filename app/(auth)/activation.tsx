@@ -39,6 +39,7 @@ import Animated, {
 
 import { toastManager } from "@/components/ui/toast-enhanced";
 import { typography } from "@/constants/typography";
+import { validateActivationCode } from "@/lib/api";
 
 // Decorative elements similar to welcome screen
 const DECORATIVE_ELEMENTS = [
@@ -378,30 +379,16 @@ export default function ActivationScreen() {
         return;
       }
 
-      // TODO: Implement whitelist validation (Rule 5)
-      // 1. Query whitelist table for invitation_code = code
-      // 2. Check if code exists and is valid
-      // 3. Verify not already used
-      // 4. Create or update user with role from invitation
-      // 5. Generate offline token (7 days)
-      // 6. Navigate to appropriate dashboard based on role
+      // Validate code against the real backend whitelist
+      const result = await validateActivationCode(code);
 
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-
-      // Mock validation - replace with actual DB query
-      const isValid = code === "123456"; // TODO: Check against whitelist
-
-      if (isValid) {
+      if (result.valid) {
         // Haptic feedback for success
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-        // Navigate to create password screen
-        toastManager.success(
-          "Código válido. Tu cuenta ha sido activada correctamente",
-        );
+        toastManager.success("Código válido. Ahora define tu contraseña");
         setTimeout(() => {
-          router.replace("/(auth)/create-password" as any);
+          router.replace(`/(auth)/create-password?code=${code}` as any);
         }, 1500);
       } else {
         setError(true);
@@ -411,7 +398,8 @@ export default function ActivationScreen() {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
 
         toastManager.error(
-          "El código ingresado no es válido. Verifica e intenta nuevamente",
+          result.error ||
+            "El código ingresado no es válido. Verifica e intenta nuevamente",
         );
       }
     } catch {

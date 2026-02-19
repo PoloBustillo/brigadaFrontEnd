@@ -207,3 +207,80 @@ export async function deleteUser(userId: number): Promise<void> {
     );
   }
 }
+
+// ============================================================================
+// Activation (Public endpoints — no auth required)
+// ============================================================================
+
+export interface ValidateCodeResult {
+  valid: boolean;
+  whitelist_entry?: {
+    full_name: string;
+    assigned_role: string;
+    identifier: string;
+  };
+  remaining_hours?: number;
+  error?: string;
+}
+
+export interface CompleteActivationResult {
+  success: boolean;
+  user_id: number;
+  access_token: string;
+  token_type: string;
+  user_info: {
+    id: number;
+    email: string;
+    full_name: string;
+    role: string;
+  };
+}
+
+/**
+ * Step 1: Validate a 6-digit activation code
+ * POST /public/activate/validate-code
+ */
+export async function validateActivationCode(
+  code: string,
+): Promise<ValidateCodeResult> {
+  try {
+    const response = await api.post<ValidateCodeResult>(
+      "/public/activate/validate-code",
+      { code },
+    );
+    return response.data;
+  } catch (error: any) {
+    const detail = error.response?.data?.detail;
+    if (typeof detail === "string") throw new Error(detail);
+    throw new Error("Error al validar el código de activación");
+  }
+}
+
+/**
+ * Step 2: Complete activation — creates the user account
+ * POST /public/activate/complete
+ * Automatically stores the returned access token.
+ */
+export async function completeActivation(data: {
+  code: string;
+  identifier: string;
+  password: string;
+  password_confirm: string;
+  agree_to_terms: boolean;
+}): Promise<CompleteActivationResult> {
+  try {
+    const response = await api.post<CompleteActivationResult>(
+      "/public/activate/complete",
+      data,
+    );
+    const result = response.data;
+    if (result.access_token) {
+      await setAccessToken(result.access_token);
+    }
+    return result;
+  } catch (error: any) {
+    const detail = error.response?.data?.detail;
+    if (typeof detail === "string") throw new Error(detail);
+    throw new Error("Error al completar la activación");
+  }
+}

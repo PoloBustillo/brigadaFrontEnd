@@ -20,7 +20,8 @@ import { Ionicons } from "@expo/vector-icons";
 import NetInfo from "@react-native-community/netinfo";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { completeActivation } from "@/lib/api";
 import { useEffect, useState } from "react";
 import {
   Platform,
@@ -113,6 +114,7 @@ function checkPasswordStrength(password: string): PasswordStrength {
 export default function CreatePasswordScreen() {
   const router = useRouter();
   const { pendingEmail, setPendingEmail } = useAuth();
+  const { code: activationCode } = useLocalSearchParams<{ code?: string }>();
   const colors = useThemeColors();
 
   const [email, setEmail] = useState(pendingEmail || "");
@@ -205,30 +207,32 @@ export default function CreatePasswordScreen() {
     setLoading(true);
 
     try {
-      // TODO: Implement password creation
-      // 1. Hash password with bcrypt
-      // 2. Update user in DB: password_hash, state = ACTIVE
-      // 3. Generate offline token (7 days)
-      // 4. Save token in AsyncStorage
-      // 5. Navigate to dashboard based on role
+      // Complete activation with real backend
+      const result = await completeActivation({
+        code: activationCode ?? "",
+        identifier: email.trim(),
+        password,
+        password_confirm: confirmPassword,
+        agree_to_terms: true,
+      });
 
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-
-      // Mock success
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      toastManager.success("Tu contraseña ha sido configurada exitosamente");
+      toastManager.success("¡Cuenta activada! Bienvenido a Brigada Digital");
 
-      // Limpiar email pendiente
+      // Clear pending email
       setPendingEmail(null);
 
+      const roleRoutes: Record<string, string> = {
+        admin: "/(admin)/",
+        encargado: "/(encargado)/",
+        brigadista: "/(brigadista)/",
+      };
+      const destination =
+        roleRoutes[result.user_info?.role] ?? "/(auth)/login-enhanced";
+
       setTimeout(() => {
-        // TODO: Navigate based on role from whitelist
-        // router.replace("/(admin)/" as any);
-        // router.replace("/(encargado)/" as any);
-        // router.replace("/(brigadista)/" as any);
-        router.replace("/(auth)/login-enhanced" as any);
-      }, 1500);
+        router.replace(destination as any);
+      }, 1000);
     } catch {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       toastManager.error(
