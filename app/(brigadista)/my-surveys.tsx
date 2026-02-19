@@ -21,8 +21,10 @@ import { typography } from "@/constants/typography";
 import { useThemeColors } from "@/contexts/theme-context";
 import { useTabBarHeight } from "@/hooks/use-tab-bar-height";
 import { Ionicons } from "@expo/vector-icons";
-import { useMemo, useState } from "react";
+import { getAssignedSurveys } from "@/lib/api/mobile";
+import { useEffect, useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -54,153 +56,30 @@ type TimeWindowStatus = "upcoming" | "active" | "expired";
 // RULE 3: Response status types
 type ResponseStatus = "draft" | "completed" | "synced" | "rejected";
 
-// Mock data - Includes all RULE 1, RULE 2, and RULE 3 scenarios
-const mockMySurveys: MySurvey[] = [
-  // ✅ ACTIVE + EDITABLE - Started, not expired + DRAFT response
-  {
-    id: 1,
-    title: "Encuesta de Satisfacción Ciudadana 2026",
-    description:
-      "Evaluar la satisfacción de los ciudadanos con los servicios públicos",
-    encargadoName: "María González",
-    myResponses: 12,
-    myTarget: 20,
-    totalResponses: 45,
-    totalTarget: 100,
-    status: "ACTIVE",
-    assignedAt: "2026-02-01",
-    startDate: "2026-02-05",
-    deadline: "2026-03-15",
-    responseStatus: "draft", // RULE 3: Can edit
-  },
-  // 🔜 ACTIVE + UPCOMING - Not started yet + NO response yet
-  {
-    id: 2,
-    title: "Censo de Vivienda Marzo",
-    description: "Relevamiento integral de condiciones habitacionales",
-    encargadoName: "María González",
-    myResponses: 0,
-    myTarget: 25,
-    totalResponses: 0,
-    totalTarget: 100,
-    status: "ACTIVE",
-    assignedAt: "2026-02-10",
-    startDate: "2026-02-20",
-    deadline: "2026-03-20",
-    // No responseStatus - not started yet
-  },
-  // ⏰ ACTIVE + EXPIRED - Deadline passed + SYNCED (read-only)
-  {
-    id: 3,
-    title: "Encuesta Vencida de Enero",
-    description: "Encuesta de prueba que ya venció - solo lectura",
-    encargadoName: "María González",
-    myResponses: 5,
-    myTarget: 15,
-    totalResponses: 20,
-    totalTarget: 50,
-    status: "ACTIVE",
-    assignedAt: "2026-01-05",
-    startDate: "2026-01-10",
-    deadline: "2026-02-10",
-    responseStatus: "synced", // RULE 3: Cannot edit, already sent
-  },
-  // ✅ ACTIVE + EDITABLE - No deadline + COMPLETED (ready to send)
-  {
-    id: 4,
-    title: "Registro Continuo de Incidencias",
-    description: "Encuesta sin fecha límite, siempre disponible",
-    encargadoName: "María González",
-    myResponses: 8,
-    myTarget: 15,
-    totalResponses: 30,
-    totalTarget: 50,
-    status: "ACTIVE",
-    assignedAt: "2026-02-01",
-    startDate: "2026-02-01",
-    // No deadline - always active
-    responseStatus: "completed", // RULE 3: Can still edit before syncing
-  },
-  // 🔴 ACTIVE + REJECTED - Requires correction (supervisor allows edit)
-  {
-    id: 8,
-    title: "Encuesta de Infraestructura (Corrección Requerida)",
-    description: "Respuesta rechazada por el supervisor - necesita corrección",
-    encargadoName: "María González",
-    myResponses: 3,
-    myTarget: 10,
-    totalResponses: 15,
-    totalTarget: 40,
-    status: "ACTIVE",
-    assignedAt: "2026-02-01",
-    startDate: "2026-02-05",
-    deadline: "2026-03-10",
-    responseStatus: "rejected", // RULE 3: Rejected
-    allowRejectedEdit: true, // RULE 3: Supervisor allows correction
-  },
-  // 🔴 ACTIVE + REJECTED - Requires correction (supervisor does NOT allow edit)
-  {
-    id: 9,
-    title: "Encuesta Rechazada Bloqueada",
-    description: "Respuesta rechazada - esperando decisión del supervisor",
-    encargadoName: "María González",
-    myResponses: 2,
-    myTarget: 8,
-    totalResponses: 10,
-    totalTarget: 30,
-    status: "ACTIVE",
-    assignedAt: "2026-02-03",
-    startDate: "2026-02-07",
-    deadline: "2026-03-05",
-    responseStatus: "rejected", // RULE 3: Rejected
-    allowRejectedEdit: false, // RULE 3: Cannot edit yet
-  },
-  // ⏸️ PAUSED - Should not show (Rule 1)
-  {
-    id: 5,
-    title: "Encuesta Pausada",
-    description: "Esta encuesta fue pausada temporalmente",
-    encargadoName: "María González",
-    myResponses: 3,
-    myTarget: 10,
-    totalResponses: 15,
-    totalTarget: 40,
-    status: "PAUSED",
-    assignedAt: "2026-01-15",
-    startDate: "2026-01-20",
-    deadline: "2026-03-01",
-  },
-  // ✅ COMPLETED - Should not show (Rule 1)
-  {
-    id: 6,
-    title: "Encuesta Completada",
-    description: "Encuesta que ya fue completada por el equipo",
-    encargadoName: "María González",
-    myResponses: 20,
-    myTarget: 20,
-    totalResponses: 100,
-    totalTarget: 100,
-    status: "COMPLETED",
-    assignedAt: "2026-01-01",
-    startDate: "2026-01-05",
-    deadline: "2026-02-05",
-  },
-  // 🔜 UPCOMING + Will expire soon after starting
-  {
-    id: 7,
-    title: "Encuesta Express Próxima Semana",
-    description: "Ventana corta de 3 días",
-    encargadoName: "María González",
-    myResponses: 0,
-    myTarget: 10,
-    totalResponses: 0,
-    totalTarget: 30,
-    status: "ACTIVE",
-    assignedAt: "2026-02-12",
-    startDate: "2026-02-18",
-    deadline: "2026-02-21",
-  },
-];
+/**
+ * Map an AssignedSurveyResponse from the backend to the MySurvey UI model.
+ */
+function mapApiSurvey(raw: Awaited<ReturnType<typeof getAssignedSurveys>>[number]): MySurvey {
+  return {
+    id: raw.assignment_id,
+    title: raw.survey_title,
+    description: raw.survey_description ?? "",
+    encargadoName: "", // Not returned by API yet
+    myResponses: 0,    // Not returned by API yet
+    myTarget: 1,       // Default
+    totalResponses: 0, // Not returned by API yet
+    totalTarget: 1,    // Default
+    status: raw.assignment_status === "active" ? "ACTIVE" : "COMPLETED",
+    assignedAt: raw.assigned_at,
+    // startDate / deadline not in AssignedSurveyResponse — left undefined so
+    // time-window logic defaults to "active" (always fillable when assignment is active)
+  };
+}
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // Legacy item kept so STATUS_CONFIG reference below compiles (PAUSED value):
+  // ──────────────────────────────────────────────────────────────────────────
+
 
 const STATUS_CONFIG = {
   ACTIVE: {
@@ -278,8 +157,24 @@ export default function BrigadistaSurveysScreen() {
   const colors = useThemeColors();
   const { contentPadding } = useTabBarHeight();
 
-  const [surveys, setSurveys] = useState<MySurvey[]>(mockMySurveys);
+  const [surveys, setSurveys] = useState<MySurvey[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const fetchSurveys = async () => {
+    try {
+      const data = await getAssignedSurveys("active");
+      setSurveys(data.map(mapApiSurvey));
+    } catch (err) {
+      console.error("Error fetching assigned surveys:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchSurveys();
+  }, []);
 
   // Estado para controlar secciones expandidas/colapsadas
   const [expandedSections, setExpandedSections] = useState({
@@ -371,11 +266,14 @@ export default function BrigadistaSurveysScreen() {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    // TODO: Fetch my assigned surveys from database
-    // Filter by brigadista_id = user.id
-    setTimeout(() => {
+    try {
+      const data = await getAssignedSurveys("active");
+      setSurveys(data.map(mapApiSurvey));
+    } catch (err) {
+      console.error("Error refreshing surveys:", err);
+    } finally {
       setRefreshing(false);
-    }, 1000);
+    }
   };
 
   const handleStartSurvey = (
@@ -504,6 +402,11 @@ export default function BrigadistaSurveysScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <AppHeader title="Mis Encuestas" />
 
+      {isLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      ) : (
       <ScrollView
         contentContainerStyle={[
           styles.content,
@@ -1339,6 +1242,7 @@ export default function BrigadistaSurveysScreen() {
           )}
         </View>
       </ScrollView>
+      )}
     </View>
   );
 }
@@ -1346,6 +1250,11 @@ export default function BrigadistaSurveysScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
   },
   content: {
     padding: 20,
