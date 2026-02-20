@@ -39,26 +39,10 @@ export function SignatureQuestion({
 }: SignatureQuestionProps) {
   const themeColors = useThemeColors();
   const colors = colorsProp ?? themeColors;
-  const signatureRef = useRef<SignatureCanvas>(null);
   const fullscreenSignatureRef = useRef<SignatureCanvas>(null);
   const [isEmpty, setIsEmpty] = useState(!value);
   const [fullscreenOpen, setFullscreenOpen] = useState(false);
   const insets = useSafeAreaInsets();
-  const screenWidth = Dimensions.get("window").width;
-  const screenHeight = Dimensions.get("window").height;
-
-  const handleEnd = () => {
-    // Read the current signature
-    signatureRef.current?.readSignature();
-  };
-
-  const handleOK = (signature: string) => {
-    if (signature) {
-      setIsEmpty(false);
-      onChange(signature);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    }
-  };
 
   const handleEmpty = () => {
     setIsEmpty(true);
@@ -66,14 +50,13 @@ export function SignatureQuestion({
 
   const handleClear = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    signatureRef.current?.clearSignature();
     setIsEmpty(true);
     onChange(null);
   };
 
   const handleUndo = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    signatureRef.current?.undo();
+    fullscreenSignatureRef.current?.undo();
   };
 
   // --- Fullscreen handlers ---
@@ -120,139 +103,66 @@ export function SignatureQuestion({
 
   return (
     <View style={styles.container}>
-      {/* Instructions */}
-      <View style={[styles.hintRow, { backgroundColor: colors.overlay }]}>
-        <Ionicons name="pencil" size={16} color={colors.primary} />
-        <Text style={[styles.hintText, { color: colors.textSecondary }]}>
-          Dibuja tu firma dentro del recuadro con el dedo
-        </Text>
-      </View>
-
-      {/* Signature canvas */}
-      <View
-        style={[
-          styles.canvasContainer,
-          {
-            borderColor: isEmpty ? colors.border : colors.primary,
-            backgroundColor: "#fff",
-          },
-        ]}
-      >
-        {/* Placeholder hint */}
-        {isEmpty && (
-          <View style={styles.placeholderOverlay} pointerEvents="none">
-            <Ionicons name="finger-print-outline" size={32} color="#ddd" />
-            <Text style={styles.placeholderText}>Firma aquí</Text>
-            <View style={styles.placeholderLine} />
-          </View>
-        )}
-
-        <SignatureCanvas
-          ref={signatureRef}
-          onEnd={handleEnd}
-          onOK={handleOK}
-          onEmpty={handleEmpty}
-          webStyle={webStyle}
-          backgroundColor="rgba(255,255,255,0)"
-          penColor="#1a1a1a"
-          minWidth={1.5}
-          maxWidth={3.5}
-          dotSize={2}
-          autoClear={false}
-          descriptionText=""
-          imageType="image/png"
-          dataURL
-          style={styles.canvas}
-        />
-      </View>
-
-      {/* Action buttons */}
-      <View style={styles.actionRow}>
+      {/* ── No signature yet: big "Sign" button ── */}
+      {isEmpty ? (
         <TouchableOpacity
-          style={[
-            styles.actionBtn,
-            { borderColor: colors.border, backgroundColor: colors.surface },
-          ]}
-          onPress={handleUndo}
-          activeOpacity={0.7}
-          accessibilityLabel="Deshacer último trazo"
-          accessibilityRole="button"
-        >
-          <Ionicons name="arrow-undo" size={18} color={colors.textSecondary} />
-          <Text style={[styles.actionBtnText, { color: colors.textSecondary }]}>
-            Deshacer
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[
-            styles.actionBtn,
-            {
-              borderColor: colors.error + "40",
-              backgroundColor: colors.surface,
-            },
-          ]}
-          onPress={handleClear}
-          activeOpacity={0.7}
-          accessibilityLabel="Limpiar firma"
-          accessibilityRole="button"
-        >
-          <Ionicons name="trash-outline" size={18} color={colors.error} />
-          <Text style={[styles.actionBtnText, { color: colors.error }]}>
-            Limpiar
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[
-            styles.actionBtn,
-            {
-              borderColor: colors.primary + "40",
-              backgroundColor: colors.surface,
-            },
-          ]}
+          style={[styles.signBtn, { backgroundColor: colors.primary }]}
           onPress={handleFullscreenOpen}
-          activeOpacity={0.7}
-          accessibilityLabel="Abrir firma en pantalla completa"
+          activeOpacity={0.8}
+          accessibilityLabel="Abrir panel de firma"
           accessibilityRole="button"
         >
-          <Ionicons name="expand-outline" size={18} color={colors.primary} />
-          <Text style={[styles.actionBtnText, { color: colors.primary }]}>
-            Expandir
-          </Text>
+          <Ionicons name="create-outline" size={32} color="#fff" />
+          <Text style={styles.signBtnText}>Firmar</Text>
+          <Text style={styles.signBtnHint}>Toca para abrir el panel de firma</Text>
         </TouchableOpacity>
-      </View>
-
-      {/* Status + mini-preview */}
-      {!isEmpty && value && (
+      ) : (
+        /* ── Signature captured: preview + actions ── */
         <View
           style={[
-            styles.statusCard,
-            {
-              backgroundColor: colors.success + "10",
-              borderColor: colors.success,
-            },
+            styles.previewCard,
+            { backgroundColor: colors.success + "10", borderColor: colors.success },
           ]}
         >
-          <View style={styles.statusHeader}>
-            <Ionicons
-              name="checkmark-circle"
-              size={16}
-              color={colors.success}
-            />
-            <Text style={[styles.statusText, { color: colors.success }]}>
+          <View style={styles.previewHeader}>
+            <Ionicons name="checkmark-circle" size={16} color={colors.success} />
+            <Text style={[styles.previewLabel, { color: colors.success }]}>
               Firma capturada
             </Text>
           </View>
-          <Image
-            source={{ uri: value }}
-            style={styles.miniPreview}
-            resizeMode="contain"
-          />
+          {value && (
+            <Image
+              source={{ uri: value }}
+              style={styles.previewImage}
+              resizeMode="contain"
+            />
+          )}
+          <View style={styles.actionRow}>
+            <TouchableOpacity
+              style={[styles.actionBtn, { borderColor: colors.border, backgroundColor: colors.surface }]}
+              onPress={handleFullscreenOpen}
+              activeOpacity={0.7}
+              accessibilityLabel="Editar firma"
+              accessibilityRole="button"
+            >
+              <Ionicons name="create-outline" size={18} color={colors.primary} />
+              <Text style={[styles.actionBtnText, { color: colors.primary }]}>Editar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.actionBtn, { borderColor: colors.error + "40", backgroundColor: colors.surface }]}
+              onPress={handleClear}
+              activeOpacity={0.7}
+              accessibilityLabel="Eliminar firma"
+              accessibilityRole="button"
+            >
+              <Ionicons name="trash-outline" size={18} color={colors.error} />
+              <Text style={[styles.actionBtnText, { color: colors.error }]}>Eliminar</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       )}
 
-      {/* Fullscreen Modal */}
+      {/* ── Fullscreen modal ── */}
       <Modal
         visible={fullscreenOpen}
         animationType="slide"
@@ -385,46 +295,46 @@ const styles = StyleSheet.create({
   container: {
     gap: 12,
   },
-  hintRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 12,
-  },
-  hintText: {
-    fontSize: 13,
-    fontWeight: "500",
-    flex: 1,
-  },
-  canvasContainer: {
-    height: 240,
-    borderRadius: 16,
-    borderWidth: 2,
-    overflow: "hidden",
-    position: "relative",
-  },
-  canvas: {
-    flex: 1,
-  },
-  placeholderOverlay: {
-    ...StyleSheet.absoluteFillObject,
+
+  // ── Sign button (empty state) ─────────────────
+  signBtn: {
     alignItems: "center",
     justifyContent: "center",
-    zIndex: 1,
-    gap: 8,
+    paddingVertical: 28,
+    borderRadius: 16,
+    gap: 6,
   },
-  placeholderText: {
+  signBtnText: {
+    color: "#fff",
     fontSize: 18,
-    fontWeight: "300",
-    color: "#ccc",
-    letterSpacing: 1,
+    fontWeight: "700",
   },
-  placeholderLine: {
-    width: "60%",
-    height: 1,
-    backgroundColor: "#ddd",
+  signBtnHint: {
+    color: "rgba(255,255,255,0.7)",
+    fontSize: 13,
+  },
+
+  // ── Signed preview ────────────────────────────
+  previewCard: {
+    borderRadius: 14,
+    borderWidth: 1.5,
+    padding: 12,
+    gap: 10,
+  },
+  previewHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  previewLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  previewImage: {
+    width: "100%",
+    height: 80,
+    borderRadius: 10,
+    backgroundColor: "#fafafa",
   },
   actionRow: {
     flexDirection: "row",
@@ -444,28 +354,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
   },
-  statusCard: {
-    borderRadius: 14,
-    borderWidth: 1,
-    padding: 12,
-    gap: 8,
-  },
-  statusHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  statusText: {
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  miniPreview: {
-    width: "100%",
-    height: 60,
-    borderRadius: 8,
-    backgroundColor: "#fafafa",
-  },
-  // Fullscreen modal styles
+
+  // ── Fullscreen modal ──────────────────────────
   fullscreenContainer: {
     flex: 1,
   },

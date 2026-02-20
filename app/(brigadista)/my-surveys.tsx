@@ -20,16 +20,13 @@ import { AppHeader } from "@/components/shared";
 import { typography } from "@/constants/typography";
 import { useSync } from "@/contexts/sync-context";
 import { useThemeColors } from "@/contexts/theme-context";
-import { useTabBarHeight } from "@/hooks/use-tab-bar-height";
 import {
   RESPONSE_STATUS_CONFIG,
   STATUS_CONFIG,
   TIME_WINDOW_CONFIG,
   useMysurveys,
-  type MySurvey,
-  type ResponseStatus,
-  type TimeWindowStatus,
 } from "@/hooks/use-my-surveys";
+import { useTabBarHeight } from "@/hooks/use-tab-bar-height";
 import { Ionicons } from "@expo/vector-icons";
 import {
   ActivityIndicator,

@@ -36,26 +36,71 @@ export type ResponseStatus = "draft" | "completed" | "synced" | "rejected";
 
 export const STATUS_CONFIG = {
   ACTIVE: { label: "Activa", color: "#06D6A0", icon: "play-circle" as const },
-  COMPLETED: { label: "Completada", color: "#00B4D8", icon: "checkmark-circle" as const },
+  COMPLETED: {
+    label: "Completada",
+    color: "#00B4D8",
+    icon: "checkmark-circle" as const,
+  },
   PAUSED: { label: "Pausada", color: "#FF9F1C", icon: "pause-circle" as const },
 };
 
 export const TIME_WINDOW_CONFIG = {
-  upcoming: { label: "Próximamente", color: "#6366F1", icon: "time-outline" as const, description: "Aún no inicia" },
-  active: { label: "Disponible", color: "#06D6A0", icon: "checkbox-outline" as const, description: "Puedes responder" },
-  expired: { label: "Vencida", color: "#EF4444", icon: "close-circle-outline" as const, description: "Solo lectura" },
+  upcoming: {
+    label: "Próximamente",
+    color: "#6366F1",
+    icon: "time-outline" as const,
+    description: "Aún no inicia",
+  },
+  active: {
+    label: "Disponible",
+    color: "#06D6A0",
+    icon: "checkbox-outline" as const,
+    description: "Puedes responder",
+  },
+  expired: {
+    label: "Vencida",
+    color: "#EF4444",
+    icon: "close-circle-outline" as const,
+    description: "Solo lectura",
+  },
 };
 
 export const RESPONSE_STATUS_CONFIG = {
-  draft: { label: "Borrador", color: "#94A3B8", icon: "create-outline" as const, description: "Borrador local", editable: true },
-  completed: { label: "Completada", color: "#06D6A0", icon: "checkmark-done-outline" as const, description: "Lista para enviar", editable: true },
-  synced: { label: "Sincronizada", color: "#00B4D8", icon: "cloud-done-outline" as const, description: "Ya enviada", editable: false },
-  rejected: { label: "Rechazada", color: "#EF4444", icon: "alert-circle-outline" as const, description: "Requiere corrección", editable: false },
+  draft: {
+    label: "Borrador",
+    color: "#94A3B8",
+    icon: "create-outline" as const,
+    description: "Borrador local",
+    editable: true,
+  },
+  completed: {
+    label: "Completada",
+    color: "#06D6A0",
+    icon: "checkmark-done-outline" as const,
+    description: "Lista para enviar",
+    editable: true,
+  },
+  synced: {
+    label: "Sincronizada",
+    color: "#00B4D8",
+    icon: "cloud-done-outline" as const,
+    description: "Ya enviada",
+    editable: false,
+  },
+  rejected: {
+    label: "Rechazada",
+    color: "#EF4444",
+    icon: "alert-circle-outline" as const,
+    description: "Requiere corrección",
+    editable: false,
+  },
 };
 
 // ── Mapper ────────────────────────────────────────────────────────────────────
 
-function mapApiSurvey(raw: Awaited<ReturnType<typeof getAssignedSurveys>>[number]): MySurvey {
+function mapApiSurvey(
+  raw: Awaited<ReturnType<typeof getAssignedSurveys>>[number],
+): MySurvey {
   return {
     id: raw.assignment_id,
     title: raw.survey_title,
@@ -143,14 +188,21 @@ export function useMysurveys() {
 
   const surveysByTimeWindow = useMemo(
     () => ({
-      upcoming: visibleSurveys.filter((s) => getTimeWindowStatus(s) === "upcoming"),
+      upcoming: visibleSurveys.filter(
+        (s) => getTimeWindowStatus(s) === "upcoming",
+      ),
       active: visibleSurveys.filter((s) => getTimeWindowStatus(s) === "active"),
-      expired: visibleSurveys.filter((s) => getTimeWindowStatus(s) === "expired"),
+      expired: visibleSurveys.filter(
+        (s) => getTimeWindowStatus(s) === "expired",
+      ),
     }),
     [visibleSurveys],
   );
 
-  const handleStartSurvey = (survey: MySurvey, timeWindow: TimeWindowStatus) => {
+  const handleStartSurvey = (
+    survey: MySurvey,
+    timeWindow: TimeWindowStatus,
+  ) => {
     if (timeWindow === "upcoming" || timeWindow === "expired") return;
     if (!canEditResponse(survey)) return;
 

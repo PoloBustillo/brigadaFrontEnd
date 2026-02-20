@@ -13,7 +13,9 @@ import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 // Importar componentes específicos por tipo
 import { BooleanQuestion } from "./boolean-question";
 import { DateQuestion } from "./date-question";
+import { FileQuestion } from "./file-question";
 import { INEQuestion } from "./ine-question";
+import { LocationQuestion } from "./location-question";
 import { MultiSelectQuestion } from "./multi-select-question";
 import { NumberQuestion } from "./number-question";
 import { PhotoQuestion } from "./photo-question";
@@ -145,13 +147,29 @@ export function QuestionRenderer({
         return <BooleanQuestion {...commonProps} />;
 
       case "photo":
-        return <PhotoQuestion {...commonProps} responseId={responseId} />;
+        return (
+          <PhotoQuestion
+            {...commonProps}
+            responseId={responseId}
+            mode={
+              (question.validation_rules as any)?.mode === "document"
+                ? "document"
+                : "field"
+            }
+          />
+        );
 
       case "signature":
         return <SignatureQuestion {...commonProps} responseId={responseId} />;
 
       case "ine":
         return <INEQuestion {...commonProps} responseId={responseId} />;
+
+      case "file":
+        return <FileQuestion {...commonProps} />;
+
+      case "location":
+        return <LocationQuestion {...commonProps} />;
 
       default:
         return (

@@ -11,9 +11,9 @@
  * on derived values (visibleQuestions, currentIndex) that live there.
  */
 
+import { offlineSyncService } from "@/lib/services/offline-sync";
 import type { FillQuestion } from "@/types/survey-schema.types";
 import type { User } from "@/types/user";
-import { offlineSyncService } from "@/lib/services/offline-sync";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 type Answers = Record<number, any>;
@@ -84,7 +84,10 @@ export function useFillSurvey({
               );
               if (firstUnanswered > 0) {
                 setInitialIndex(firstUnanswered);
-              } else if (firstUnanswered === -1 && visibleWithAnswers.length > 0) {
+              } else if (
+                firstUnanswered === -1 &&
+                visibleWithAnswers.length > 0
+              ) {
                 setInitialIndex(visibleWithAnswers.length - 1);
               }
             }

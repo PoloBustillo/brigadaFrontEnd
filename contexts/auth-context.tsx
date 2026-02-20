@@ -9,7 +9,13 @@ import { clearTokens, getAccessToken, isTokenExpired } from "@/lib/api/client";
 import { sessionEvents } from "@/lib/session-events";
 import type { User, UserRole } from "@/types/user";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
 
 interface AuthContextType {
   user: User | null;

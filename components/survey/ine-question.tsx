@@ -12,31 +12,8 @@
 import { useThemeColors } from "@/contexts/theme-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-
-// Lazy-load the native ML Kit module so the component doesn't crash in
-// Expo Go (where native modules aren't linked). In a real dev/production
-// build the module is present via auto-linking and works normally.
-type TextRecognitionResult = { text: string; blocks: { text: string; lines: { text: string; confidence?: number }[] }[] };
-type TextRecognitionModule = { recognize(uri: string): Promise<TextRecognitionResult> };
-function getTextRecognition(): TextRecognitionModule | null {
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    return require("@react-native-ml-kit/text-recognition").default;
-  } catch {
-    return null;
-  }
-}
-
-/** Returns true when the native ML Kit module is present but not linked (Expo Go). */
-function isNotLinkedError(err: unknown): boolean {
-  return (
-    err instanceof Error &&
-    err.message.includes("doesn't seem to be linked")
-  );
-}
 import * as ImageManipulator from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
-import DocumentScanner from "react-native-document-scanner-plugin";
 import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
@@ -49,6 +26,33 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import DocumentScanner from "react-native-document-scanner-plugin";
+
+// Lazy-load the native ML Kit module so the component doesn't crash in
+// Expo Go (where native modules aren't linked). In a real dev/production
+// build the module is present via auto-linking and works normally.
+type TextRecognitionResult = {
+  text: string;
+  blocks: { text: string; lines: { text: string; confidence?: number }[] }[];
+};
+type TextRecognitionModule = {
+  recognize(uri: string): Promise<TextRecognitionResult>;
+};
+function getTextRecognition(): TextRecognitionModule | null {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    return require("@react-native-ml-kit/text-recognition").default;
+  } catch {
+    return null;
+  }
+}
+
+/** Returns true when the native ML Kit module is present but not linked (Expo Go). */
+function isNotLinkedError(err: unknown): boolean {
+  return (
+    err instanceof Error && err.message.includes("doesn't seem to be linked")
+  );
+}
 
 interface INEQuestionProps {
   value: any; // { front?: string; back?: string; ocrData?: INEOcrResult } or string

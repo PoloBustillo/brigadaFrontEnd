@@ -47,10 +47,14 @@ export function ChangePasswordScreen({ profileRoute }: Props) {
   const [loading, setLoading] = useState(false);
 
   const validatePassword = (password: string): string | null => {
-    if (password.length < 8) return "La contraseña debe tener al menos 8 caracteres";
-    if (!/[A-Z]/.test(password)) return "La contraseña debe contener al menos una mayúscula";
-    if (!/[a-z]/.test(password)) return "La contraseña debe contener al menos una minúscula";
-    if (!/[0-9]/.test(password)) return "La contraseña debe contener al menos un número";
+    if (password.length < 8)
+      return "La contraseña debe tener al menos 8 caracteres";
+    if (!/[A-Z]/.test(password))
+      return "La contraseña debe contener al menos una mayúscula";
+    if (!/[a-z]/.test(password))
+      return "La contraseña debe contener al menos una minúscula";
+    if (!/[0-9]/.test(password))
+      return "La contraseña debe contener al menos un número";
     return null;
   };
 
@@ -73,7 +77,10 @@ export function ChangePasswordScreen({ profileRoute }: Props) {
       return;
     }
     if (currentPassword === newPassword) {
-      Alert.alert("Error", "La nueva contraseña debe ser diferente a la actual");
+      Alert.alert(
+        "Error",
+        "La nueva contraseña debe ser diferente a la actual",
+      );
       return;
     }
 
@@ -83,11 +90,19 @@ export function ChangePasswordScreen({ profileRoute }: Props) {
       Alert.alert(
         "Éxito",
         "Contraseña actualizada correctamente. Por favor inicia sesión nuevamente.",
-        [{ text: "OK", onPress: () => router.replace("/(auth)/login-enhanced" as any) }],
+        [
+          {
+            text: "OK",
+            onPress: () => router.replace("/(auth)/login-enhanced" as any),
+          },
+        ],
       );
     } catch (error) {
       console.error("Error changing password:", error);
-      Alert.alert("Error", (error as Error).message || "No se pudo cambiar la contraseña");
+      Alert.alert(
+        "Error",
+        (error as Error).message || "No se pudo cambiar la contraseña",
+      );
     } finally {
       setLoading(false);
     }
@@ -102,45 +117,79 @@ export function ChangePasswordScreen({ profileRoute }: Props) {
     if (/[0-9]/.test(password)) strength++;
     if (/[^A-Za-z0-9]/.test(password)) strength++;
 
-    if (strength <= 2) return { strength: 33, label: "Débil", color: colors.error };
-    if (strength <= 4) return { strength: 66, label: "Media", color: colors.warning };
+    if (strength <= 2)
+      return { strength: 33, label: "Débil", color: colors.error };
+    if (strength <= 4)
+      return { strength: 66, label: "Media", color: colors.warning };
     return { strength: 100, label: "Fuerte", color: colors.success };
   };
 
-  const passwordStrength = newPassword ? getPasswordStrength(newPassword) : null;
+  const passwordStrength = newPassword
+    ? getPasswordStrength(newPassword)
+    : null;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
       <View
-        style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }]}
+        style={[
+          styles.header,
+          {
+            backgroundColor: colors.background,
+            borderBottomColor: colors.border,
+          },
+        ]}
       >
         <TouchableOpacity onPress={handleBack} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Cambiar Contraseña</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>
+          Cambiar Contraseña
+        </Text>
         <View style={styles.headerRight} />
       </View>
 
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
         <ScrollView
           style={styles.scrollView}
-          contentContainerStyle={[styles.scrollContent, { paddingBottom: contentPadding }]}
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingBottom: contentPadding },
+          ]}
           showsVerticalScrollIndicator={false}
         >
           {/* Info Card */}
-          <View style={[styles.infoCard, { backgroundColor: colors.info + "10", borderColor: colors.border }]}>
+          <View
+            style={[
+              styles.infoCard,
+              {
+                backgroundColor: colors.info + "10",
+                borderColor: colors.border,
+              },
+            ]}
+          >
             <Ionicons name="shield-checkmark" size={20} color={colors.info} />
             <Text style={[styles.infoText, { color: colors.info }]}>
-              Por tu seguridad, te pediremos que inicies sesión nuevamente después de cambiar tu contraseña.
+              Por tu seguridad, te pediremos que inicies sesión nuevamente
+              después de cambiar tu contraseña.
             </Text>
           </View>
 
           {/* Password Form */}
-          <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View
+            style={[
+              styles.card,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+            ]}
+          >
             {/* Current Password */}
             <View style={styles.fieldContainer}>
-              <Text style={[styles.label, { color: colors.textSecondary }]}>Contraseña Actual *</Text>
+              <Text style={[styles.label, { color: colors.textSecondary }]}>
+                Contraseña Actual *
+              </Text>
               <View style={styles.passwordContainer}>
                 <Input
                   value={currentPassword}
@@ -151,15 +200,24 @@ export function ChangePasswordScreen({ profileRoute }: Props) {
                   autoComplete="password"
                   style={styles.passwordInput}
                 />
-                <TouchableOpacity onPress={() => setShowCurrentPassword(!showCurrentPassword)} style={styles.eyeButton}>
-                  <Ionicons name={showCurrentPassword ? "eye-off" : "eye"} size={20} color={(colors as any).textTertiary} />
+                <TouchableOpacity
+                  onPress={() => setShowCurrentPassword(!showCurrentPassword)}
+                  style={styles.eyeButton}
+                >
+                  <Ionicons
+                    name={showCurrentPassword ? "eye-off" : "eye"}
+                    size={20}
+                    color={(colors as any).textTertiary}
+                  />
                 </TouchableOpacity>
               </View>
             </View>
 
             {/* New Password */}
             <View style={styles.fieldContainer}>
-              <Text style={[styles.label, { color: colors.textSecondary }]}>Nueva Contraseña *</Text>
+              <Text style={[styles.label, { color: colors.textSecondary }]}>
+                Nueva Contraseña *
+              </Text>
               <View style={styles.passwordContainer}>
                 <Input
                   value={newPassword}
@@ -170,23 +228,52 @@ export function ChangePasswordScreen({ profileRoute }: Props) {
                   autoComplete="password-new"
                   style={styles.passwordInput}
                 />
-                <TouchableOpacity onPress={() => setShowNewPassword(!showNewPassword)} style={styles.eyeButton}>
-                  <Ionicons name={showNewPassword ? "eye-off" : "eye"} size={20} color={(colors as any).textTertiary} />
+                <TouchableOpacity
+                  onPress={() => setShowNewPassword(!showNewPassword)}
+                  style={styles.eyeButton}
+                >
+                  <Ionicons
+                    name={showNewPassword ? "eye-off" : "eye"}
+                    size={20}
+                    color={(colors as any).textTertiary}
+                  />
                 </TouchableOpacity>
               </View>
               {passwordStrength && (
                 <View style={styles.strengthContainer}>
-                  <View style={[styles.strengthBar, { backgroundColor: colors.border }]}>
-                    <View style={[styles.strengthFill, { width: `${passwordStrength.strength}%`, backgroundColor: passwordStrength.color }]} />
+                  <View
+                    style={[
+                      styles.strengthBar,
+                      { backgroundColor: colors.border },
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.strengthFill,
+                        {
+                          width: `${passwordStrength.strength}%`,
+                          backgroundColor: passwordStrength.color,
+                        },
+                      ]}
+                    />
                   </View>
-                  <Text style={[styles.strengthLabel, { color: passwordStrength.color }]}>{passwordStrength.label}</Text>
+                  <Text
+                    style={[
+                      styles.strengthLabel,
+                      { color: passwordStrength.color },
+                    ]}
+                  >
+                    {passwordStrength.label}
+                  </Text>
                 </View>
               )}
             </View>
 
             {/* Confirm Password */}
             <View style={styles.fieldContainer}>
-              <Text style={[styles.label, { color: colors.textSecondary }]}>Confirmar Nueva Contraseña *</Text>
+              <Text style={[styles.label, { color: colors.textSecondary }]}>
+                Confirmar Nueva Contraseña *
+              </Text>
               <View style={styles.passwordContainer}>
                 <Input
                   value={confirmPassword}
@@ -197,28 +284,67 @@ export function ChangePasswordScreen({ profileRoute }: Props) {
                   autoComplete="password-new"
                   style={styles.passwordInput}
                 />
-                <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)} style={styles.eyeButton}>
-                  <Ionicons name={showConfirmPassword ? "eye-off" : "eye"} size={20} color={(colors as any).textTertiary} />
+                <TouchableOpacity
+                  onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                  style={styles.eyeButton}
+                >
+                  <Ionicons
+                    name={showConfirmPassword ? "eye-off" : "eye"}
+                    size={20}
+                    color={(colors as any).textTertiary}
+                  />
                 </TouchableOpacity>
               </View>
-              {confirmPassword.length > 0 && confirmPassword !== newPassword && (
-                <Text style={[styles.errorText, { color: colors.error }]}>Las contraseñas no coinciden</Text>
-              )}
+              {confirmPassword.length > 0 &&
+                confirmPassword !== newPassword && (
+                  <Text style={[styles.errorText, { color: colors.error }]}>
+                    Las contraseñas no coinciden
+                  </Text>
+                )}
             </View>
           </View>
 
           {/* Password Requirements */}
-          <View style={[styles.requirementsCard, { backgroundColor: colors.surface }]}>
-            <Text style={[styles.requirementsTitle, { color: colors.text }]}>Requisitos de contraseña:</Text>
+          <View
+            style={[
+              styles.requirementsCard,
+              { backgroundColor: colors.surface },
+            ]}
+          >
+            <Text style={[styles.requirementsTitle, { color: colors.text }]}>
+              Requisitos de contraseña:
+            </Text>
             <View style={styles.requirementsList}>
-              <RequirementItem met={newPassword.length >= 8} text="Mínimo 8 caracteres" colors={colors} />
-              <RequirementItem met={/[A-Z]/.test(newPassword)} text="Al menos una letra mayúscula" colors={colors} />
-              <RequirementItem met={/[a-z]/.test(newPassword)} text="Al menos una letra minúscula" colors={colors} />
-              <RequirementItem met={/[0-9]/.test(newPassword)} text="Al menos un número" colors={colors} />
+              <RequirementItem
+                met={newPassword.length >= 8}
+                text="Mínimo 8 caracteres"
+                colors={colors}
+              />
+              <RequirementItem
+                met={/[A-Z]/.test(newPassword)}
+                text="Al menos una letra mayúscula"
+                colors={colors}
+              />
+              <RequirementItem
+                met={/[a-z]/.test(newPassword)}
+                text="Al menos una letra minúscula"
+                colors={colors}
+              />
+              <RequirementItem
+                met={/[0-9]/.test(newPassword)}
+                text="Al menos un número"
+                colors={colors}
+              />
             </View>
           </View>
 
-          <Button title="Cambiar Contraseña" onPress={handleChangePassword} loading={loading} disabled={loading} style={styles.saveButton} />
+          <Button
+            title="Cambiar Contraseña"
+            onPress={handleChangePassword}
+            loading={loading}
+            disabled={loading}
+            style={styles.saveButton}
+          />
           <View style={styles.bottomSpacer} />
         </ScrollView>
       </KeyboardAvoidingView>
@@ -226,7 +352,15 @@ export function ChangePasswordScreen({ profileRoute }: Props) {
   );
 }
 
-function RequirementItem({ met, text, colors }: { met: boolean; text: string; colors: any }) {
+function RequirementItem({
+  met,
+  text,
+  colors,
+}: {
+  met: boolean;
+  text: string;
+  colors: any;
+}) {
   return (
     <View style={styles.requirementItem}>
       <Ionicons
@@ -234,7 +368,14 @@ function RequirementItem({ met, text, colors }: { met: boolean; text: string; co
         size={16}
         color={met ? colors.success : (colors as any).textTertiary}
       />
-      <Text style={[styles.requirementText, { color: met ? colors.text : (colors as any).textTertiary }]}>{text}</Text>
+      <Text
+        style={[
+          styles.requirementText,
+          { color: met ? colors.text : (colors as any).textTertiary },
+        ]}
+      >
+        {text}
+      </Text>
     </View>
   );
 }
@@ -256,7 +397,13 @@ const styles = StyleSheet.create({
   headerRight: { width: 24 },
   scrollView: { flex: 1 },
   scrollContent: { paddingVertical: 20, paddingHorizontal: 16 },
-  infoCard: { flexDirection: "row", padding: 16, borderRadius: 12, marginBottom: 16, borderWidth: 1 },
+  infoCard: {
+    flexDirection: "row",
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+  },
   infoText: { flex: 1, fontSize: 13, marginLeft: 12, lineHeight: 18 },
   card: { borderRadius: 12, padding: 16, marginBottom: 16, borderWidth: 1 },
   fieldContainer: { marginBottom: 20 },
@@ -265,14 +412,24 @@ const styles = StyleSheet.create({
   passwordInput: { paddingRight: 48 },
   eyeButton: { position: "absolute", right: 12, top: 12, padding: 8 },
   strengthContainer: { marginTop: 8 },
-  strengthBar: { height: 4, borderRadius: 2, overflow: "hidden", marginBottom: 4 },
+  strengthBar: {
+    height: 4,
+    borderRadius: 2,
+    overflow: "hidden",
+    marginBottom: 4,
+  },
   strengthFill: { height: "100%", borderRadius: 2 },
   strengthLabel: { fontSize: 12, fontWeight: "500" },
   errorText: { fontSize: 12, marginTop: 4 },
   requirementsCard: {
-    borderRadius: 12, padding: 16, marginBottom: 16,
-    shadowColor: "#000", shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1, shadowRadius: 4, elevation: 3,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   requirementsTitle: { fontSize: 14, fontWeight: "600", marginBottom: 12 },
   requirementsList: { gap: 8 },

@@ -13,7 +13,6 @@ import { useThemeColors } from "@/contexts/theme-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
-import DocumentScanner from "react-native-document-scanner-plugin";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
@@ -24,6 +23,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import DocumentScanner from "react-native-document-scanner-plugin";
 
 interface PhotoQuestionProps {
   value: string | null; // URI of the captured image
@@ -213,7 +213,11 @@ export function PhotoQuestion({
             accessibilityLabel="Tomar foto con la cámara"
             accessibilityRole="button"
           >
-            <Ionicons name={mode === "document" ? "scan-outline" : "camera"} size={32} color="#fff" />
+            <Ionicons
+              name={mode === "document" ? "scan-outline" : "camera"}
+              size={32}
+              color="#fff"
+            />
             <Text style={styles.cameraBtnText}>
               {mode === "document" ? "Escanear documento" : "Tomar foto"}
             </Text>

@@ -22,10 +22,11 @@ import { TextQuestion as TextQuestionComp } from "@/components/survey/text-quest
 import { useAuth } from "@/contexts/auth-context";
 import { useSync } from "@/contexts/sync-context";
 import { useThemeColors } from "@/contexts/theme-context";
-import { useTabBarHeight } from "@/hooks/use-tab-bar-height";
 import { useFillSurvey } from "@/hooks/use-fill-survey";
+import { useTabBarHeight } from "@/hooks/use-tab-bar-height";
 import type { AnswerOptionResponse, QuestionResponse } from "@/lib/api/mobile";
 import { offlineSyncService } from "@/lib/services/offline-sync";
+import type { FillQuestion } from "@/types/survey-schema.types";
 import { getErrorMessage } from "@/utils/translate-error";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
@@ -52,7 +53,6 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import type { FillQuestion } from "@/types/survey-schema.types";
 
 // ─── Internal types ───────────────────────────────────────────────────────────
 

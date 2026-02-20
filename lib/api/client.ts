@@ -6,12 +6,12 @@
 import { APP_CONFIG } from "@/constants/config";
 import { sessionEvents } from "@/lib/session-events";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import * as SecureStore from "expo-secure-store";
 import axios, {
   AxiosError,
   AxiosInstance,
   InternalAxiosRequestConfig,
 } from "axios";
+import * as SecureStore from "expo-secure-store";
 
 // Storage keys
 const STORAGE_KEYS = {
