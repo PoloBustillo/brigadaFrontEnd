@@ -875,6 +875,26 @@ export function compareVersions(v1: string, v2: string): number {
 // EXPORTS
 // ============================================================================
 
+// ─── Fill-screen question model ───────────────────────────────────────────────
+
+/**
+ * Normalised question data used throughout the survey fill flow.
+ * Derived from the API QuestionResponse and stored in the fill screen + hook.
+ */
+export interface FillQuestion {
+  id: number;
+  type: string;
+  label: string;
+  description?: string;
+  required: boolean;
+  options: { label: string; value: string }[];
+  conditional?: {
+    questionId: number;
+    operator: "equals" | "not_equals";
+    value: any;
+  };
+}
+
 export default {
   QuestionType,
   ConditionalOperator,

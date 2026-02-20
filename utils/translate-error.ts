@@ -3,6 +3,8 @@
  * Falls through to the original message if no translation matches.
  */
 
+import * as Sentry from "@sentry/react-native";
+
 const ERROR_MAP: [RegExp, string][] = [
   // Auth
   [/incorrect.*username.*password/i, "Usuario o contraseña incorrectos"],
@@ -62,8 +64,9 @@ export function translateError(message: string | undefined | null): string {
 }
 
 /**
- * Extract readable error message from an API error object
- * Handles axios-like errors, standard Error objects, and strings
+ * Extract readable error message from an API error object.
+ * Handles axios-like errors, standard Error objects, and strings.
+ * Unexpected / unrecognised errors are forwarded to Sentry automatically.
  */
 export function getErrorMessage(err: unknown): string {
   if (typeof err === "string") return translateError(err);
@@ -79,11 +82,24 @@ export function getErrorMessage(err: unknown): string {
         .join(". ");
       return translateError(msgs || "Error de validación");
     }
-    // Standard Error
-    if (err instanceof Error) return translateError(err.message);
+    // Standard Error — capture unexpected ones in Sentry
+    if (err instanceof Error) {
+      const translated = translateError(err.message);
+      // Only capture truly unexpected errors (not auth / network / validation)
+      const isExpected =
+        /sesión|conexión|servidor|credenciales|autoriza|permiso|encuesta|asignada|publicada|encontrado|validaci/i.test(
+          translated,
+        );
+      if (!isExpected) {
+        Sentry.captureException(err);
+      }
+      return translated;
+    }
     // Any .message property
     const msg = (err as any)?.message;
     if (typeof msg === "string") return translateError(msg);
   }
+  // Completely unknown — capture in Sentry
+  Sentry.captureException(err);
   return "Ocurrió un error inesperado";
 }

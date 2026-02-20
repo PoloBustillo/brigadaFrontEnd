@@ -4,7 +4,9 @@
  */
 
 import { APP_CONFIG } from "@/constants/config";
+import { sessionEvents } from "@/lib/session-events";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as SecureStore from "expo-secure-store";
 import axios, {
   AxiosError,
   AxiosInstance,
@@ -14,9 +16,12 @@ import axios, {
 // Storage keys
 const STORAGE_KEYS = {
   ACCESS_TOKEN: "@brigada:access_token",
-  REFRESH_TOKEN: "@brigada:refresh_token",
+  REFRESH_TOKEN: "@brigada:refresh_token", // AsyncStorage key (legacy / migration source)
   TOKEN_EXPIRY: "@brigada:token_expiry",
 };
+
+// SecureStore key (alphanumeric + ".", "-", "_" only — no "@" or ":")
+const SECURE_REFRESH_KEY = "brigada_refresh_token";
 
 // Token state (in-memory)
 let accessToken: string | null = null;
@@ -74,13 +79,23 @@ export async function getAccessToken(): Promise<string | null> {
 }
 
 /**
- * Get stored refresh token
+ * Get stored refresh token (SecureStore, with one-time migration from AsyncStorage)
  */
 export async function getRefreshToken(): Promise<string | null> {
   if (refreshToken) return refreshToken;
 
   try {
-    const stored = await AsyncStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
+    // One-time migration: move token from AsyncStorage → SecureStore if needed
+    const legacy = await AsyncStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
+    if (legacy) {
+      await SecureStore.setItemAsync(SECURE_REFRESH_KEY, legacy);
+      await AsyncStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
+      console.log("[auth] Refresh token migrated to SecureStore");
+      refreshToken = legacy;
+      return legacy;
+    }
+
+    const stored = await SecureStore.getItemAsync(SECURE_REFRESH_KEY);
     refreshToken = stored;
     return stored;
   } catch (error) {
@@ -107,16 +122,16 @@ export async function setAccessToken(token: string | null): Promise<void> {
 }
 
 /**
- * Set refresh token in memory and storage
+ * Set refresh token in memory and SecureStore
  */
 export async function setRefreshToken(token: string | null): Promise<void> {
   refreshToken = token;
 
   try {
     if (token) {
-      await AsyncStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, token);
+      await SecureStore.setItemAsync(SECURE_REFRESH_KEY, token);
     } else {
-      await AsyncStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
+      await SecureStore.deleteItemAsync(SECURE_REFRESH_KEY);
     }
   } catch (error) {
     console.error("Error setting refresh token:", error);
@@ -170,8 +185,8 @@ export async function clearTokens(): Promise<void> {
   try {
     await Promise.all([
       AsyncStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN),
-      AsyncStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN),
       AsyncStorage.removeItem(STORAGE_KEYS.TOKEN_EXPIRY),
+      SecureStore.deleteItemAsync(SECURE_REFRESH_KEY),
     ]);
   } catch (error) {
     console.error("Error clearing tokens:", error);
@@ -212,6 +227,7 @@ async function attemptTokenRefresh(): Promise<string | null> {
   } catch (error) {
     console.log("Token refresh failed, clearing session");
     await clearTokens();
+    sessionEvents.emit("session:expired");
     return null;
   }
 }
@@ -292,6 +308,7 @@ apiClient.interceptors.response.use(
       // Refresh failed — clear and reject
       onTokenRefreshFailed();
       await clearTokens();
+      sessionEvents.emit("session:expired");
       return Promise.reject(error);
     }
 

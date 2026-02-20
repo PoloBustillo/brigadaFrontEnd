@@ -3,10 +3,11 @@ import {
   DefaultTheme,
   ThemeProvider,
 } from "@react-navigation/native";
-import { Stack } from "expo-router";
+import * as Sentry from "@sentry/react-native";
+import { Stack, useRouter } from "expo-router";
 import * as ExpoSplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import "react-native-reanimated";
 
 import { SplashScreen } from "@/components/layout";
@@ -17,6 +18,20 @@ import { ThemeProvider as CustomThemeProvider } from "@/contexts/theme-context";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { initializeDatabase } from "@/lib/db";
 
+// ─── Sentry ────────────────────────────────────────────────────────────────
+const SENTRY_DSN = process.env.EXPO_PUBLIC_SENTRY_DSN ?? "";
+
+Sentry.init({
+  dsn: SENTRY_DSN,
+  // Only send events in production builds
+  enabled: process.env.NODE_ENV === "production",
+  // Capture 20 % of traces in production for performance monitoring
+  tracesSampleRate: 0.2,
+  // Attach breadcrumbs from navigation (expo-router uses react-navigation)
+  integrations: [Sentry.reactNativeTracingIntegration()],
+  debug: false,
+});
+
 // Prevenir que el splash nativo se oculte automáticamente
 ExpoSplashScreen.preventAutoHideAsync();
 
@@ -24,7 +39,7 @@ export const unstable_settings = {
   anchor: "(tabs)",
 };
 
-export default function RootLayout() {
+function RootLayout() {
   return (
     <CustomThemeProvider>
       <AuthProvider>
@@ -40,6 +55,10 @@ function RootNavigator() {
   const colorScheme = useColorScheme();
   const [appReady, setAppReady] = useState(false);
   const { user, loading: authLoading } = useAuth();
+  const router = useRouter();
+  // Track if the user was ever authenticated so we only redirect on session loss,
+  // not on the initial unauthenticated load.
+  const wasAuthed = useRef(false);
 
   useEffect(() => {
     if (appReady) {
@@ -47,6 +66,16 @@ function RootNavigator() {
       ExpoSplashScreen.hideAsync();
     }
   }, [appReady]);
+
+  // Navigation guard: redirect to /(auth) when session is cleared at runtime
+  useEffect(() => {
+    if (user) {
+      wasAuthed.current = true;
+    } else if (appReady && wasAuthed.current) {
+      // User was authenticated but is now null — session expired or logout
+      router.replace("/(auth)");
+    }
+  }, [user, appReady]);
 
   const handleLoadComplete = async (state: any) => {
     console.log("[App] Splash completed:", state);
@@ -111,3 +140,5 @@ function RootNavigator() {
     </ThemeProvider>
   );
 }
+
+export default Sentry.wrap(RootLayout);

@@ -1,10 +1,10 @@
 /**
  * 📷 PHOTO QUESTION — Camera / Gallery capture
  * UX:
- * - Big camera button (primary action for field work)
+ * - mode="field"    → standard camera (default, field surveys)
+ * - mode="document" → Document Scanner with edge detection + perspective correction
  * - Gallery as secondary option
- * - Image preview with retake option
- * - Compressed to 0.6 quality to save bandwidth
+ * - Compressed to save bandwidth
  * - Works fully offline — stores URI locally
  * - Haptic feedback
  */
@@ -13,6 +13,7 @@ import { useThemeColors } from "@/contexts/theme-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
+import DocumentScanner from "react-native-document-scanner-plugin";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
@@ -28,12 +29,15 @@ interface PhotoQuestionProps {
   value: string | null; // URI of the captured image
   onChange: (value: string | null) => void;
   colors?: ReturnType<typeof useThemeColors>;
+  /** "field" (default) = standard camera; "document" = edge-detection + perspective correction */
+  mode?: "field" | "document";
 }
 
 export function PhotoQuestion({
   value,
   onChange,
   colors: colorsProp,
+  mode = "field",
 }: PhotoQuestionProps) {
   const themeColors = useThemeColors();
   const colors = colorsProp ?? themeColors;
@@ -51,16 +55,30 @@ export function PhotoQuestion({
       }
 
       setLoading(true);
-      const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ["images"],
-        quality: 0.7,
-        allowsEditing: true,
-        exif: false,
-      });
 
-      if (!result.canceled && result.assets[0]) {
+      if (mode === "document") {
+        // ★ Document mode: edge detection + perspective warp
+        const { scannedImages, status: scanStatus } =
+          await DocumentScanner.scanDocument({
+            maxNumDocuments: 1,
+            croppedImageQuality: 85,
+            letUserAdjustCrop: true,
+          } as any);
+        if (scanStatus === "cancel" || !scannedImages?.length) return;
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        onChange(result.assets[0].uri);
+        onChange(scannedImages[0]);
+      } else {
+        // Field mode: standard camera
+        const result = await ImagePicker.launchCameraAsync({
+          mediaTypes: ["images"],
+          quality: 0.7,
+          allowsEditing: true,
+          exif: false,
+        });
+        if (!result.canceled && result.assets[0]) {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          onChange(result.assets[0].uri);
+        }
       }
     } catch (err) {
       Alert.alert("Error", "No se pudo abrir la cámara.");
@@ -195,10 +213,14 @@ export function PhotoQuestion({
             accessibilityLabel="Tomar foto con la cámara"
             accessibilityRole="button"
           >
-            <Ionicons name="camera" size={32} color="#fff" />
-            <Text style={styles.cameraBtnText}>Tomar foto</Text>
+            <Ionicons name={mode === "document" ? "scan-outline" : "camera"} size={32} color="#fff" />
+            <Text style={styles.cameraBtnText}>
+              {mode === "document" ? "Escanear documento" : "Tomar foto"}
+            </Text>
             <Text style={styles.cameraBtnHint}>
-              Abre la cámara del dispositivo
+              {mode === "document"
+                ? "Corrección automática de perspectiva"
+                : "Abre la cámara del dispositivo"}
             </Text>
           </TouchableOpacity>
 

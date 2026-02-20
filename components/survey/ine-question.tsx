@@ -1,10 +1,8 @@
 /**
  * 🪪 INE QUESTION — Document credential capture + OCR
  * UX:
- * - Camera capture with visual guide overlay for card alignment
- * - Gallery fallback for pre-taken photos
- * - Auto-crop via allowsEditing
- * - Image manipulation: auto-rotate, resize, compress
+ * - Document Scanner with real-time edge detection + perspective correction
+ * - Gallery fallback for pre-taken photos (still processed through ImageManipulator)
  * - Front & back capture support
  * - Preview with retake option
  * - ML Kit OCR: extract text from captured image and parse INE fields
@@ -13,12 +11,32 @@
 
 import { useThemeColors } from "@/contexts/theme-context";
 import { Ionicons } from "@expo/vector-icons";
-import TextRecognition, {
-  type TextRecognitionResult,
-} from "@react-native-ml-kit/text-recognition";
 import * as Haptics from "expo-haptics";
+
+// Lazy-load the native ML Kit module so the component doesn't crash in
+// Expo Go (where native modules aren't linked). In a real dev/production
+// build the module is present via auto-linking and works normally.
+type TextRecognitionResult = { text: string; blocks: { text: string; lines: { text: string; confidence?: number }[] }[] };
+type TextRecognitionModule = { recognize(uri: string): Promise<TextRecognitionResult> };
+function getTextRecognition(): TextRecognitionModule | null {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    return require("@react-native-ml-kit/text-recognition").default;
+  } catch {
+    return null;
+  }
+}
+
+/** Returns true when the native ML Kit module is present but not linked (Expo Go). */
+function isNotLinkedError(err: unknown): boolean {
+  return (
+    err instanceof Error &&
+    err.message.includes("doesn't seem to be linked")
+  );
+}
 import * as ImageManipulator from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
+import DocumentScanner from "react-native-document-scanner-plugin";
 import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
@@ -119,6 +137,12 @@ async function extractIneOcr(
   let totalConfidence = 0;
   let blockCount = 0;
 
+  const TextRecognition = getTextRecognition();
+  if (!TextRecognition) {
+    // Running in Expo Go — OCR not available
+    return { ...result, confidence: 0 };
+  }
+
   // Process front side
   if (frontUri) {
     try {
@@ -136,6 +160,7 @@ async function extractIneOcr(
         blockCount++;
       }
     } catch (err) {
+      if (isNotLinkedError(err)) return { ...result, confidence: 0 };
       console.error("OCR front error:", err);
     }
   }
@@ -153,6 +178,7 @@ async function extractIneOcr(
         blockCount++;
       }
     } catch (err) {
+      if (isNotLinkedError(err)) return { ...result, confidence: 0 };
       console.error("OCR back error:", err);
     }
   }
@@ -290,6 +316,23 @@ export function INEQuestion({
           );
           return;
         }
+
+        setLoading(side);
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+        // ★ Document Scanner: edge detection + perspective correction
+        const { scannedImages, status: scanStatus } =
+          await DocumentScanner.scanDocument({
+            maxNumDocuments: 1,
+            croppedImageQuality: 90,
+            letUserAdjustCrop: true, // shows draggable corner handles
+          } as any);
+
+        if (scanStatus === "cancel" || !scannedImages?.length) return;
+
+        const processed = await processDocumentImage(scannedImages[0]);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        setPendingCapture({ side, uri: processed });
       } else {
         const { status } =
           await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -297,31 +340,23 @@ export function INEQuestion({
           Alert.alert("Permiso requerido", "Necesitamos acceso a la galería.");
           return;
         }
-      }
 
-      setLoading(side);
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        setLoading(side);
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-      const launchFn =
-        source === "camera"
-          ? ImagePicker.launchCameraAsync
-          : ImagePicker.launchImageLibraryAsync;
+        const result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ["images"],
+          quality: 0.9,
+          allowsEditing: true,
+          aspect: [85.6, 53.98] as [number, number],
+          exif: false,
+        });
 
-      const result = await launchFn({
-        mediaTypes: ["images"],
-        quality: 0.9,
-        allowsEditing: true, // Enables crop rectangle for document alignment
-        aspect: [85.6, 53.98] as [number, number], // Standard ID card ratio (ISO/IEC 7810)
-        exif: false,
-      });
-
-      if (!result.canceled && result.assets[0]) {
-        // Process: resize + compress (quality 0.9 for OCR accuracy)
-        const processed = await processDocumentImage(result.assets[0].uri);
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-
-        // Show preview for confirmation BEFORE running OCR
-        setPendingCapture({ side, uri: processed });
+        if (!result.canceled && result.assets[0]) {
+          const processed = await processDocumentImage(result.assets[0].uri);
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          setPendingCapture({ side, uri: processed });
+        }
       }
     } catch (err) {
       Alert.alert("Error", "No se pudo capturar la imagen del documento.");

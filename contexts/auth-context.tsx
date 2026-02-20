@@ -6,9 +6,10 @@
 
 import * as authAPI from "@/lib/api/auth";
 import { clearTokens, getAccessToken, isTokenExpired } from "@/lib/api/client";
+import { sessionEvents } from "@/lib/session-events";
 import type { User, UserRole } from "@/types/user";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
 
 interface AuthContextType {
   user: User | null;
@@ -37,7 +38,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [pendingEmail, setPendingEmailState] = useState<string | null>(null);
 
-  const clearSession = async () => {
+  const clearSession = useCallback(async () => {
     await Promise.all([
       AsyncStorage.removeItem(STORAGE_KEYS.USER),
       clearTokens(), // Clear JWT tokens from API client
@@ -46,7 +47,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
     setToken(null);
     setPendingEmailState(null);
-  };
+  }, [setUser, setToken, setPendingEmailState]);
 
   const loadSession = async () => {
     // 🧪 MOCK SESSION - Uncomment to test without backend
@@ -116,6 +117,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     loadSession();
   }, []);
+
+  // Auto-logout when the API client can no longer refresh tokens
+  useEffect(() => {
+    const handleExpired = () => {
+      console.log("⚠️ Session expired — auto-logging out");
+      clearSession();
+    };
+    sessionEvents.on("session:expired", handleExpired);
+    return () => sessionEvents.off("session:expired", handleExpired);
+  }, [clearSession]);
 
   const login = async (email: string, password: string): Promise<User> => {
     try {

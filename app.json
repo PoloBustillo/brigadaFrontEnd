@@ -15,6 +15,16 @@
     },
     "android": {
       "package": "com.brigadadigital.app",
+      "minSdkVersion": 26,
+      "permissions": [
+        "CAMERA",
+        "READ_MEDIA_IMAGES",
+        "INTERNET",
+        "ACCESS_NETWORK_STATE",
+        "VIBRATE",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION"
+      ],
       "adaptiveIcon": {
         "backgroundColor": "#FF1B8D",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -31,6 +41,15 @@
     "plugins": [
       "expo-router",
       [
+        "@sentry/react-native/expo",
+        {
+          "url": "https://sentry.io/",
+          "organization": "brigada-app",
+          "project": "brigada-app",
+          "uploadSourceMaps": true
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "image": "./assets/images/splash-icon.png",
@@ -44,7 +63,13 @@
       ],
       "expo-sqlite",
       "react-native-document-scanner-plugin",
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Permite registrar tu ubicación en las encuestas de campo."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

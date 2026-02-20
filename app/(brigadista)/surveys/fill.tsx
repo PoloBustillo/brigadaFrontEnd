@@ -23,6 +23,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { useSync } from "@/contexts/sync-context";
 import { useThemeColors } from "@/contexts/theme-context";
 import { useTabBarHeight } from "@/hooks/use-tab-bar-height";
+import { useFillSurvey } from "@/hooks/use-fill-survey";
 import type { AnswerOptionResponse, QuestionResponse } from "@/lib/api/mobile";
 import { offlineSyncService } from "@/lib/services/offline-sync";
 import { getErrorMessage } from "@/utils/translate-error";
@@ -51,24 +52,12 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import type { FillQuestion } from "@/types/survey-schema.types";
 
 // ─── Internal types ───────────────────────────────────────────────────────────
 
-/** Normalised question used throughout the fill flow */
-export interface FillQuestion {
-  id: number;
-  type: string;
-  label: string;
-  description?: string;
-  required: boolean;
-  options: { label: string; value: string }[];
-  /** If all required answers to a conditional are satisfied */
-  conditional?: {
-    questionId: number;
-    operator: "equals" | "not_equals";
-    value: any;
-  };
-}
+// Re-export so any existing consumers importing FillQuestion from this file keep working.
+export type { FillQuestion } from "@/types/survey-schema.types";
 
 type Answers = Record<number, any>; // questionId → value
 
@@ -194,7 +183,6 @@ export default function FillSurveyScreen() {
   }, [params.questionsJson]);
 
   // ── State ──────────────────────────────────────────────────────────────────
-  const [answers, setAnswers] = useState<Answers>({});
   const [currentIndex, setCurrentIndex] = useState(0);
   const [submitLoading, setSubmitLoading] = useState(false);
   const [startedAt] = useState(() => new Date().toISOString());
@@ -202,83 +190,26 @@ export default function FillSurveyScreen() {
   const [showSuccess, setShowSuccess] = useState(false);
   const [syncedOnSubmit, setSyncedOnSubmit] = useState(false);
 
-  // ── Offline draft management ───────────────────────────────────────────────
-  const draftIdRef = useRef<string | null>(null);
-  const saveFailCountRef = useRef(0);
-  const [showSaveWarning, setShowSaveWarning] = useState(false);
-  const [draftLoading, setDraftLoading] = useState(true);
+  // ── Offline draft management (via hook) ────────────────────────────────────
+  const {
+    answers,
+    setAnswers,
+    draftIdRef,
+    draftLoading,
+    showSaveWarning,
+    saveAnswer,
+    initialIndex,
+  } = useFillSurvey({
+    allQuestions,
+    surveyId: params.surveyId ?? "",
+    versionId: params.versionId ?? "",
+    user,
+  });
 
-  // Create a local draft or resume an existing one
+  // When a draft is resumed, jump to the saved position
   useEffect(() => {
-    if (allQuestions.length === 0) {
-      setDraftLoading(false);
-      return;
-    }
-    (async () => {
-      try {
-        const userId = user?.id ? String(user.id) : "anonymous";
-        const surveyId = params.surveyId ?? params.versionId ?? "unknown";
-
-        // 1. Check for existing draft for this survey
-        const drafts = await offlineSyncService.getDraftResponses(userId);
-        const existingDraft = drafts.find(
-          (d) => d.survey_id === surveyId && d.status === "draft",
-        );
-
-        if (existingDraft) {
-          // Resume existing draft
-          draftIdRef.current = existingDraft.response_id;
-          try {
-            const savedAnswers = JSON.parse(existingDraft.answers_json || "{}");
-            const numericAnswers: Record<number, any> = {};
-            for (const [key, val] of Object.entries(savedAnswers)) {
-              numericAnswers[Number(key)] = val;
-            }
-            if (Object.keys(numericAnswers).length > 0) {
-              setAnswers(numericAnswers);
-              // Navigate to the first unanswered visible question
-              const visibleWithAnswers = allQuestions.filter((q) =>
-                shouldShowQuestion(q, numericAnswers),
-              );
-              const firstUnanswered = visibleWithAnswers.findIndex(
-                (q) => numericAnswers[q.id] === undefined,
-              );
-              if (firstUnanswered > 0) {
-                setCurrentIndex(firstUnanswered);
-              } else if (
-                firstUnanswered === -1 &&
-                visibleWithAnswers.length > 0
-              ) {
-                // All answered — go to last question
-                setCurrentIndex(visibleWithAnswers.length - 1);
-              }
-            }
-          } catch {
-            /* ignore parse errors */
-          }
-          console.log("📋 Resumed draft:", existingDraft.response_id);
-          setDraftLoading(false);
-          return;
-        }
-
-        // 2. No existing draft → create new
-        const id = await offlineSyncService.createDraftResponse({
-          surveyId,
-          surveyVersion: params.versionId ?? "1",
-          userId,
-          userName: user?.name ?? "Brigadista",
-          userRole: user?.role ?? "BRIGADISTA",
-        });
-        draftIdRef.current = id;
-        console.log("💾 Draft response created:", id);
-      } catch (err) {
-        console.error("⚠️ Failed to create/resume local draft:", err);
-      } finally {
-        setDraftLoading(false);
-      }
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allQuestions.length]);
+    if (initialIndex > 0) setCurrentIndex(initialIndex);
+  }, [initialIndex]);
 
   // Animated progress value
   const progressAnim = useRef(new Animated.Value(0)).current;
@@ -325,27 +256,8 @@ export default function FillSurveyScreen() {
       setFieldError(null);
       if (!current) return;
 
-      setAnswers((prev) => ({ ...prev, [current.id]: value }));
-
-      // Auto-save to SQLite with failure tracking
-      if (draftIdRef.current) {
-        offlineSyncService
-          .saveAnswer({
-            responseId: draftIdRef.current,
-            questionId: current.id,
-            value,
-          })
-          .then(() => {
-            saveFailCountRef.current = 0;
-            if (showSaveWarning) setShowSaveWarning(false);
-          })
-          .catch(() => {
-            saveFailCountRef.current += 1;
-            if (saveFailCountRef.current >= 3) {
-              setShowSaveWarning(true);
-            }
-          });
-      }
+      // Persist answer to SQLite draft (state update is inside saveAnswer)
+      saveAnswer(current.id, value);
 
       if (advance && !isLast) {
         // Slight delay so user sees their selection highlighted before moving
@@ -355,7 +267,7 @@ export default function FillSurveyScreen() {
         }, 380);
       }
     },
-    [current, isLast],
+    [current, isLast, saveAnswer],
   );
 
   const handleAutoAdvance = useCallback(() => {

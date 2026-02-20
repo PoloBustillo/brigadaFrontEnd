@@ -21,10 +21,16 @@ import { typography } from "@/constants/typography";
 import { useSync } from "@/contexts/sync-context";
 import { useThemeColors } from "@/contexts/theme-context";
 import { useTabBarHeight } from "@/hooks/use-tab-bar-height";
-import { getAssignedSurveys } from "@/lib/api/mobile";
+import {
+  RESPONSE_STATUS_CONFIG,
+  STATUS_CONFIG,
+  TIME_WINDOW_CONFIG,
+  useMysurveys,
+  type MySurvey,
+  type ResponseStatus,
+  type TimeWindowStatus,
+} from "@/hooks/use-my-surveys";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   RefreshControl,
@@ -35,299 +41,30 @@ import {
   View,
 } from "react-native";
 
-interface MySurvey {
-  id: number;
-  title: string;
-  description: string;
-  encargadoName: string;
-  myResponses: number;
-  myTarget: number;
-  totalResponses: number;
-  totalTarget: number;
-  status: "ACTIVE" | "COMPLETED" | "PAUSED";
-  assignedAt: string;
-  startDate?: string; // RULE 2: Survey starts from this date
-  deadline?: string; // RULE 2: Survey ends at this date
-  responseStatus?: ResponseStatus; // RULE 3: Current response status
-  allowRejectedEdit?: boolean; // RULE 3: Supervisor allows editing rejected response
-  versionId: number;
-  questionsJson: string;
-}
-
-// Time window status for surveys
-type TimeWindowStatus = "upcoming" | "active" | "expired";
-
-// RULE 3: Response status types
-type ResponseStatus = "draft" | "completed" | "synced" | "rejected";
-
-/**
- * Map an AssignedSurveyResponse from the backend to the MySurvey UI model.
- */
-function mapApiSurvey(
-  raw: Awaited<ReturnType<typeof getAssignedSurveys>>[number],
-): MySurvey {
-  return {
-    id: raw.assignment_id,
-    title: raw.survey_title,
-    description: raw.survey_description ?? "",
-    encargadoName: "", // Not returned by API yet
-    myResponses: 0, // Not returned by API yet
-    myTarget: 1, // Default
-    totalResponses: 0, // Not returned by API yet
-    totalTarget: 1, // Default
-    status: raw.assignment_status === "active" ? "ACTIVE" : "COMPLETED",
-    assignedAt: raw.assigned_at,
-    // startDate / deadline not in AssignedSurveyResponse — left undefined so
-    // time-window logic defaults to "active" (always fillable when assignment is active)
-    versionId: raw.latest_version?.id ?? 0,
-    questionsJson: JSON.stringify(raw.latest_version?.questions ?? []),
-  };
-}
-
-// ──────────────────────────────────────────────────────────────────────────
-// Legacy item kept so STATUS_CONFIG reference below compiles (PAUSED value):
-// ──────────────────────────────────────────────────────────────────────────
-
-const STATUS_CONFIG = {
-  ACTIVE: {
-    label: "Activa",
-    color: "#06D6A0",
-    icon: "play-circle" as const,
-  },
-  COMPLETED: {
-    label: "Completada",
-    color: "#00B4D8",
-    icon: "checkmark-circle" as const,
-  },
-  PAUSED: {
-    label: "Pausada",
-    color: "#FF9F1C",
-    icon: "pause-circle" as const,
-  },
-};
-
-// RULE 2: Time window status configuration
-const TIME_WINDOW_CONFIG = {
-  upcoming: {
-    label: "Próximamente",
-    color: "#6366F1", // Indigo
-    icon: "time-outline" as const,
-    description: "Aún no inicia",
-  },
-  active: {
-    label: "Disponible",
-    color: "#06D6A0", // Green
-    icon: "checkbox-outline" as const,
-    description: "Puedes responder",
-  },
-  expired: {
-    label: "Vencida",
-    color: "#EF4444", // Red
-    icon: "close-circle-outline" as const,
-    description: "Solo lectura",
-  },
-};
-
-// RULE 3: Response status configuration
-const RESPONSE_STATUS_CONFIG = {
-  draft: {
-    label: "Borrador",
-    color: "#94A3B8", // Gray
-    icon: "create-outline" as const,
-    description: "Borrador local",
-    editable: true,
-  },
-  completed: {
-    label: "Completada",
-    color: "#06D6A0", // Green
-    icon: "checkmark-done-outline" as const,
-    description: "Lista para enviar",
-    editable: true,
-  },
-  synced: {
-    label: "Sincronizada",
-    color: "#00B4D8", // Blue
-    icon: "cloud-done-outline" as const,
-    description: "Ya enviada",
-    editable: false,
-  },
-  rejected: {
-    label: "Rechazada",
-    color: "#EF4444", // Red
-    icon: "alert-circle-outline" as const,
-    description: "Requiere corrección",
-    editable: false, // Only if supervisor allows (check allowRejectedEdit)
-  },
-};
-
 export default function BrigadistaSurveysScreen() {
   const colors = useThemeColors();
-  const router = useRouter();
   const { contentPadding } = useTabBarHeight();
   const { isOnline, pendingItems, isSyncing } = useSync();
 
-  const [surveys, setSurveys] = useState<MySurvey[]>([]);
-  const [refreshing, setRefreshing] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [fetchError, setFetchError] = useState(false);
+  const {
+    surveys,
+    refreshing,
+    isLoading,
+    fetchError,
+    expandedSections,
+    surveysByTimeWindow,
+    visibleSurveys,
+    onRefresh,
+    retryLoad,
+    toggleSection,
+    getTimeWindowStatus,
+    canEditResponse,
+    handleStartSurvey,
+  } = useMysurveys();
 
-  const fetchSurveys = async () => {
-    setFetchError(false);
-    try {
-      const data = await getAssignedSurveys("active");
-      setSurveys(data.map(mapApiSurvey));
-    } catch (err) {
-      console.error("Error fetching assigned surveys:", err);
-      setFetchError(true);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchSurveys();
-  }, []);
-
-  // Estado para controlar secciones expandidas/colapsadas
-  const [expandedSections, setExpandedSections] = useState({
-    active: true, // Disponibles - expandidas por defecto
-    upcoming: false, // Próximamente - colapsadas por defecto
-    expired: false, // Vencidas - colapsadas por defecto
-  });
-
-  const toggleSection = (section: keyof typeof expandedSections) => {
-    setExpandedSections((prev) => ({
-      ...prev,
-      [section]: !prev[section],
-    }));
-  };
-
-  // 🔒 RULE 2: Determine time window status
-  const getTimeWindowStatus = (survey: MySurvey): TimeWindowStatus => {
-    const now = new Date();
-
-    // Check if survey has started
-    if (survey.startDate) {
-      const startDate = new Date(survey.startDate);
-      if (startDate > now) {
-        return "upcoming"; // Not started yet
-      }
-    }
-
-    // Check if survey has expired
-    if (survey.deadline) {
-      const deadlineDate = new Date(survey.deadline);
-      if (deadlineDate < now) {
-        return "expired"; // Past deadline
-      }
-    }
-
-    // Survey is active (started and not expired)
-    return "active";
-  };
-
-  // 🔒 RULE 3: Determine if response can be edited
-  const canEditResponse = (survey: MySurvey): boolean => {
-    // No response status = not started = can start new
-    if (!survey.responseStatus) return true;
-
-    const status = survey.responseStatus;
-
-    // Draft: Always editable
-    if (status === "draft") return true;
-
-    // Completed: Can still edit before syncing
-    if (status === "completed") return true;
-
-    // Synced: Never editable (already sent)
-    if (status === "synced") return false;
-
-    // Rejected: Only if supervisor allows
-    if (status === "rejected") {
-      return survey.allowRejectedEdit === true;
-    }
-
-    return false;
-  };
-
-  // 🔒 RULE 1 + RULE 2: Filter surveys - Only ACTIVE status, show all time windows
-  const visibleSurveys = useMemo(() => {
-    return surveys.filter((survey) => {
-      // Rule 1.1: Must be ACTIVE status
-      if (survey.status !== "ACTIVE") return false;
-
-      // Rule 1.3: Must be assigned by encargado (implicitly true in mockData)
-      // In real implementation: survey.encargadoId === brigadista.encargadoId
-
-      return true;
-    });
-  }, [surveys]);
-
-  // Separate surveys by time window
-  const surveysByTimeWindow = useMemo(() => {
-    return {
-      upcoming: visibleSurveys.filter(
-        (s) => getTimeWindowStatus(s) === "upcoming",
-      ),
-      active: visibleSurveys.filter((s) => getTimeWindowStatus(s) === "active"),
-      expired: visibleSurveys.filter(
-        (s) => getTimeWindowStatus(s) === "expired",
-      ),
-    };
-  }, [visibleSurveys]);
-
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await fetchSurveys();
-    setRefreshing(false);
-  };
-
-  const handleStartSurvey = (
-    survey: MySurvey,
-    timeWindow: TimeWindowStatus,
-  ) => {
-    const windowConfig = TIME_WINDOW_CONFIG[timeWindow];
-    const isEditable = canEditResponse(survey);
-
-    if (timeWindow === "upcoming") {
-      // TODO: Show preview or notification
-      console.log("Survey not started yet:", survey.id);
-      return;
-    }
-
-    if (timeWindow === "expired") {
-      // TODO: Navigate to read-only view
-      console.log("Survey expired - read only:", survey.id);
-      return;
-    }
-
-    // RULE 3: Check if response can be edited
-    if (!isEditable) {
-      if (survey.responseStatus === "synced") {
-        console.log("Response already synced - read only:", survey.id);
-        // TODO: Navigate to read-only view
-        return;
-      }
-      if (survey.responseStatus === "rejected" && !survey.allowRejectedEdit) {
-        console.log(
-          "Response rejected - waiting for supervisor approval:",
-          survey.id,
-        );
-        // TODO: Show message about waiting for approval
-        return;
-      }
-    }
-
-    // Active survey with editable response - navigate to fill screen
-    router.push({
-      pathname: "/(brigadista)/surveys/fill",
-      params: {
-        surveyTitle: survey.title,
-        surveyId: String(survey.id),
-        versionId: String(survey.versionId),
-        questionsJson: survey.questionsJson,
-      },
-    });
+  const calculateMyProgress = (responses: number, target: number): number => {
+    if (target <= 0) return 0;
+    return Math.min(responses / target, 1);
   };
 
   const getDaysUntilDeadline = (deadline?: string) => {
@@ -434,10 +171,7 @@ export default function BrigadistaSurveysScreen() {
             styles.errorBanner,
             { backgroundColor: colors.error + "15", borderColor: colors.error },
           ]}
-          onPress={() => {
-            setIsLoading(true);
-            fetchSurveys();
-          }}
+          onPress={retryLoad}
           activeOpacity={0.8}
         >
           <Ionicons
