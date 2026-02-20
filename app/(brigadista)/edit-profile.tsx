@@ -6,8 +6,10 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/contexts/auth-context";
+import { getErrorMessage } from "@/utils/translate-error";
 import { useThemeColors } from "@/contexts/theme-context";
 import { useTabBarHeight } from "@/hooks/use-tab-bar-height";
+import { updateProfile } from "@/lib/api/auth";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
@@ -45,24 +47,14 @@ export default function EditProfileScreen() {
     setLoading(true);
 
     try {
-      // TODO: Implement API call to update user profile
-      // const response = await fetch(`${API_URL}/users/${user?.id}`, {
-      //   method: 'PATCH',
-      //   headers: {
-      //     'Content-Type': 'application/json',
-      //     'Authorization': `Bearer ${token}`
-      //   },
-      //   body: JSON.stringify({ name, email, phone })
-      // });
+      // Call backend API to persist profile changes
+      const updatedUser = await updateProfile({
+        full_name: name.trim(),
+        phone: phone.trim() || undefined,
+      });
 
-      // Temporary: Update local state
-      if (user) {
-        await updateUser({
-          ...user,
-          name,
-          email: user.email,
-        });
-      }
+      // Update local session state with the response
+      await updateUser(updatedUser);
 
       Alert.alert("Éxito", "Perfil actualizado correctamente", [
         {
@@ -70,9 +62,9 @@ export default function EditProfileScreen() {
           onPress: () => router.back(),
         },
       ]);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error updating profile:", error);
-      Alert.alert("Error", "No se pudo actualizar el perfil");
+      Alert.alert("Error", getErrorMessage(error));
     } finally {
       setLoading(false);
     }

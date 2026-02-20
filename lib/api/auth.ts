@@ -4,61 +4,77 @@
  */
 
 import type { User } from "@/types/user";
-import { api, clearTokens, decodeToken, setAccessToken } from "./client";
+import * as Application from "expo-application";
+import * as Crypto from "expo-crypto";
+import { Platform } from "react-native";
+import { api, clearTokens, setAccessToken, setRefreshToken } from "./client";
 import type {
   LoginResponse,
-  TokenData,
   UserCreateRequest,
   UserResponse,
   UserUpdateRequest,
 } from "./types";
 
+const APP_VERSION = Application.nativeApplicationVersion ?? "1.0.0";
+
+/** Stable device identifier (persisted across sessions) */
+let _deviceId: string | null = null;
+async function getDeviceId(): Promise<string> {
+  if (_deviceId) return _deviceId;
+  try {
+    const { default: AsyncStorage } =
+      await import("@react-native-async-storage/async-storage");
+    const stored = await AsyncStorage.getItem("@brigada:device_id");
+    if (stored) {
+      _deviceId = stored;
+      return stored;
+    }
+    const id =
+      Platform.OS === "android"
+        ? (Application.getAndroidId() ?? Crypto.randomUUID())
+        : Crypto.randomUUID();
+    await AsyncStorage.setItem("@brigada:device_id", id);
+    _deviceId = id;
+    return id;
+  } catch {
+    return Crypto.randomUUID();
+  }
+}
+
 /**
- * Login with email and password
+ * Login with email and password via /mobile/login (JSON body)
  */
 export async function login(
   email: string,
   password: string,
 ): Promise<{ user: User; token: string }> {
   try {
-    // Backend uses OAuth2PasswordRequestForm: must send form-urlencoded with 'username' field
-    const formData = new URLSearchParams();
-    formData.append("username", email);
-    formData.append("password", password);
+    const response = await api.post<LoginResponse>("/mobile/login", {
+      email,
+      password,
+      device_id: await getDeviceId(),
+      app_version: APP_VERSION,
+    });
 
-    const response = await api.post<LoginResponse>(
-      "/auth/login",
-      formData.toString(),
-      {
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      },
-    );
+    const { access_token, refresh_token, user: apiUser } = response.data;
 
-    const { access_token } = response.data;
-
-    // Store token
+    // Store both tokens
     await setAccessToken(access_token);
+    if (refresh_token) {
+      await setRefreshToken(refresh_token);
+    }
 
-    // Decode token to get user info
-    const tokenData = decodeToken(access_token) as TokenData;
-
-    // Fetch full user profile
-    const userResponse = await api.get<UserResponse>("/users/me");
-    const userProfile = userResponse.data;
-
-    // Convert API user to app User type
+    // Build User from the login response (no extra /users/me call needed)
     const user: User = {
-      id: userProfile.id,
-      email: userProfile.email,
-      name: userProfile.full_name,
-      phone: userProfile.phone,
-      avatar_url: userProfile.avatar_url,
-      role: (userProfile.role as string).toUpperCase() as User["role"],
-      state: userProfile.is_active ? "ACTIVE" : "DISABLED",
-      created_at: new Date(userProfile.created_at).getTime(),
-      updated_at: userProfile.updated_at
-        ? new Date(userProfile.updated_at).getTime()
-        : Date.now(),
+      id: apiUser.id,
+      email: apiUser.email,
+      name: `${apiUser.nombre} ${apiUser.apellido}`.trim(),
+      phone: apiUser.telefono,
+      avatar_url: null,
+      role: (apiUser.rol as string).toUpperCase() as User["role"],
+      state: apiUser.activo ? "ACTIVE" : "DISABLED",
+      created_at: new Date(apiUser.created_at).getTime(),
+      updated_at: Date.now(),
     };
 
     return { user, token: access_token };

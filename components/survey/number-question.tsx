@@ -85,6 +85,9 @@ export function NumberQuestion({
                   onChange(n);
                 }}
                 activeOpacity={0.7}
+                accessibilityLabel={`Valor ${n}`}
+                accessibilityRole="button"
+                accessibilityState={{ selected: isSelected }}
               >
                 <Text
                   style={[
@@ -151,6 +154,8 @@ export function NumberQuestion({
           onPress={decrement}
           disabled={min !== undefined && current <= min}
           activeOpacity={0.7}
+          accessibilityLabel="Disminuir valor"
+          accessibilityRole="button"
         >
           <Text style={[styles.stepBtnText, { color: colors.primary }]}>−</Text>
         </TouchableOpacity>
@@ -175,6 +180,8 @@ export function NumberQuestion({
               setEditing(true);
             }}
             activeOpacity={0.6}
+            accessibilityLabel={`Valor actual: ${current}. Toca para editar`}
+            accessibilityRole="button"
           >
             <Text style={[styles.valueText, { color: colors.text }]}>
               {current}
@@ -197,6 +204,8 @@ export function NumberQuestion({
           onPress={increment}
           disabled={max !== undefined && current >= max}
           activeOpacity={0.7}
+          accessibilityLabel="Aumentar valor"
+          accessibilityRole="button"
         >
           <Text style={[styles.stepBtnText, { color: colors.primary }]}>+</Text>
         </TouchableOpacity>

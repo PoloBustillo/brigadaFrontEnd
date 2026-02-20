@@ -19,6 +19,7 @@
 import { AppHeader } from "@/components/shared";
 import { typography } from "@/constants/typography";
 import { useThemeColors } from "@/contexts/theme-context";
+import { useSync } from "@/contexts/sync-context";
 import { useTabBarHeight } from "@/hooks/use-tab-bar-height";
 import { getAssignedSurveys } from "@/lib/api/mobile";
 import { Ionicons } from "@expo/vector-icons";
@@ -163,6 +164,7 @@ export default function BrigadistaSurveysScreen() {
   const colors = useThemeColors();
   const router = useRouter();
   const { contentPadding } = useTabBarHeight();
+  const { isOnline, pendingItems, isSyncing } = useSync();
 
   const [surveys, setSurveys] = useState<MySurvey[]>([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -321,6 +323,7 @@ export default function BrigadistaSurveysScreen() {
       pathname: "/(brigadista)/surveys/fill",
       params: {
         surveyTitle: survey.title,
+        surveyId: String(survey.id),
         versionId: String(survey.versionId),
         questionsJson: survey.questionsJson,
       },
@@ -392,6 +395,24 @@ export default function BrigadistaSurveysScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <AppHeader title="Mis Encuestas" />
+
+      {/* Offline / sync status banner */}
+      {!isOnline && (
+        <View style={[styles.offlineBanner, { backgroundColor: colors.warning ?? "#f59e0b" }]}>
+          <Ionicons name="cloud-offline-outline" size={16} color="#fff" />
+          <Text style={styles.offlineBannerText}>
+            Sin conexión{pendingItems.length > 0 ? ` — ${pendingItems.length} pendiente(s)` : ""}
+          </Text>
+        </View>
+      )}
+      {isOnline && isSyncing && (
+        <View style={[styles.syncBanner, { backgroundColor: colors.primary + "18" }]}>
+          <ActivityIndicator size="small" color={colors.primary} />
+          <Text style={[styles.syncBannerText, { color: colors.primary }]}>
+            Sincronizando respuestas…
+          </Text>
+        </View>
+      )}
 
       {/* Network error banner */}
       {!isLoading && fetchError && (
@@ -671,22 +692,24 @@ export default function BrigadistaSurveysScreen() {
                                 )}
                             </View>
 
-                            {/* Encargado */}
-                            <View style={styles.infoRow}>
-                              <Ionicons
-                                name="person-outline"
-                                size={16}
-                                color={colors.textSecondary}
-                              />
-                              <Text
-                                style={[
-                                  styles.infoText,
-                                  { color: colors.textSecondary },
-                                ]}
-                              >
-                                Encargado: {survey.encargadoName}
-                              </Text>
-                            </View>
+                            {/* Encargado — only show when name available */}
+                            {!!survey.encargadoName && (
+                              <View style={styles.infoRow}>
+                                <Ionicons
+                                  name="person-outline"
+                                  size={16}
+                                  color={colors.textSecondary}
+                                />
+                                <Text
+                                  style={[
+                                    styles.infoText,
+                                    { color: colors.textSecondary },
+                                  ]}
+                                >
+                                  Encargado: {survey.encargadoName}
+                                </Text>
+                              </View>
+                            )}
 
                             {/* Action Button */}
                             <TouchableOpacity
@@ -925,22 +948,24 @@ export default function BrigadistaSurveysScreen() {
                               </Text>
                             </View>
 
-                            {/* Encargado */}
-                            <View style={styles.infoRow}>
-                              <Ionicons
-                                name="person-outline"
-                                size={16}
-                                color={colors.textSecondary}
-                              />
-                              <Text
-                                style={[
-                                  styles.infoText,
-                                  { color: colors.textSecondary },
-                                ]}
-                              >
-                                Encargado: {survey.encargadoName}
-                              </Text>
-                            </View>
+                            {/* Encargado — only show when name available */}
+                            {!!survey.encargadoName && (
+                              <View style={styles.infoRow}>
+                                <Ionicons
+                                  name="person-outline"
+                                  size={16}
+                                  color={colors.textSecondary}
+                                />
+                                <Text
+                                  style={[
+                                    styles.infoText,
+                                    { color: colors.textSecondary },
+                                  ]}
+                                >
+                                  Encargado: {survey.encargadoName}
+                                </Text>
+                              </View>
+                            )}
                           </TouchableOpacity>
                         );
                       })}
@@ -1152,6 +1177,31 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+  },
+  offlineBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+  },
+  offlineBannerText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#fff",
+  },
+  syncBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+  },
+  syncBannerText: {
+    fontSize: 12,
+    fontWeight: "600",
   },
   errorBanner: {
     flexDirection: "row",

@@ -15,8 +15,9 @@ import { InputEnhanced } from "@/components/ui/input-enhanced";
 import { ThemeToggleIcon } from "@/components/ui/theme-toggle";
 import { useAuth } from "@/contexts/auth-context";
 import { useThemeColors } from "@/contexts/theme-context";
-import type { UserRole, UserState } from "@/types/user";
+import type { UserRole } from "@/types/user";
 import { Ionicons } from "@expo/vector-icons";
+import { getErrorMessage } from "@/utils/translate-error";
 import NetInfo from "@react-native-community/netinfo";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
@@ -30,20 +31,6 @@ import Animated, {
   withSequence,
   withTiming,
 } from "react-native-reanimated";
-
-interface AuthResult {
-  success: boolean;
-  user?: {
-    id: number;
-    email: string;
-    role: UserRole;
-    state: UserState;
-  };
-  error?: {
-    code: string;
-    message: string;
-  };
-}
 
 /**
  * Retry function with exponential backoff
@@ -150,122 +137,6 @@ export default function LoginScreen() {
     }
   };
 
-  const checkWhitelist = async (email: string): Promise<boolean> => {
-    // TODO: Query whitelist table
-    // Mock data para pruebas - Primera vez: llevar a activación
-    const mockWhitelist = [
-      "test@brigada.com",
-      "admin@brigada.com",
-      "encargado@brigada.com",
-      "brigadista@brigada.com",
-    ];
-
-    // const whitelisted = await db
-    //   .select()
-    //   .from(whitelist)
-    //   .where(eq(whitelist.email, email))
-    //   .limit(1);
-    //
-    // return whitelisted.length > 0;
-
-    // Mock: Allow any email for now
-    return mockWhitelist.includes(email); // Solo emails en la whitelist de prueba
-  };
-
-  const authenticateUser = async (
-    email: string,
-    password: string,
-  ): Promise<AuthResult> => {
-    // TODO: Implement real authentication with database
-    // 1. Query user by email
-    // 2. Verify password hash
-    // 3. Return user data
-
-    // Mock authentication
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-
-    // ⚠️ DATOS DE PRUEBA - Usuarios por rol
-    // ===========================================
-
-    // 1. test@brigada.com - Para probar flujo de activación
-    if (email === "test@brigada.com") {
-      return {
-        success: true,
-        user: {
-          id: 1,
-          email,
-          role: "BRIGADISTA",
-          state: "INVITED", // ← Primera vez: necesita activación
-        },
-      };
-    }
-
-    // 2. admin@brigada.com - Usuario administrador
-    if (email === "admin@brigada.com" && password === "admin123") {
-      return {
-        success: true,
-        user: {
-          id: 2,
-          email,
-          role: "ADMIN",
-          state: "ACTIVE",
-        },
-      };
-    }
-
-    // 3. encargado@brigada.com - Usuario encargado de equipo
-    if (email === "encargado@brigada.com" && password === "encargado123") {
-      return {
-        success: true,
-        user: {
-          id: 3,
-          email,
-          role: "ENCARGADO",
-          state: "ACTIVE",
-        },
-      };
-    }
-
-    // 4. brigadista@brigada.com - Usuario brigadista de campo
-    if (email === "brigadista@brigada.com" && password === "brigadista123") {
-      return {
-        success: true,
-        user: {
-          id: 4,
-          email,
-          role: "BRIGADISTA",
-          state: "ACTIVE",
-        },
-      };
-    }
-
-    // Fallback: simulate invalid credentials
-    return {
-      success: false,
-      error: {
-        code: "INVALID_CREDENTIALS",
-        message: "Usuario o contraseña incorrectos",
-      },
-    };
-  };
-
-  const generateOfflineToken = async (userId: number): Promise<string> => {
-    // TODO: Generate and store offline token (7 days expiry)
-    // const token = crypto.randomUUID();
-    // const expiresAt = Date.now() + (7 * 24 * 60 * 60 * 1000);
-    //
-    // await db.insert(offlineTokens).values({
-    //   user_id: userId,
-    //   token: token,
-    //   expires_at: expiresAt,
-    //   created_at: Date.now(),
-    // });
-    //
-    // return token;
-
-    return "mock-token-" + userId;
-  };
-
   const navigateByRole = (role: UserRole) => {
     switch (role) {
       case "ADMIN":
@@ -282,59 +153,9 @@ export default function LoginScreen() {
     }
   };
 
-  const handleUserState = (state: UserState, email: string) => {
-    switch (state) {
-      case "INVITED":
-        // User hasn't activated yet, redirect to activation
-        // GUARDAR email para el flujo de activación
-        setPendingEmail(email);
-        setErrorMessage(
-          "Tu cuenta aún no ha sido activada. Usa el código de activación.",
-        );
-        setShowError(true);
-        setTimeout(() => {
-          router.push("/(auth)/activation" as any);
-        }, 2000);
-        break;
-
-      case "PENDING":
-        // Account created but profile incomplete
-        setErrorMessage("Completa tu perfil para continuar.");
-        setShowError(true);
-        // TODO: Navigate to complete profile screen
-        // setTimeout(() => {
-        //   router.push("/(auth)/complete-profile" as any);
-        // }, 2000);
-        break;
-
-      case "DISABLED":
-        // Account disabled by admin
-        throw new Error(
-          "Tu cuenta ha sido desactivada. Contacta al administrador.",
-        );
-
-      case "ACTIVE":
-        // Normal flow, continue
-        break;
-
-      default:
-        throw new Error("Estado de cuenta desconocido.");
-    }
-  };
-
   const handleLogin = async () => {
     // Haptic feedback on button press
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-
-    // 🧪 HARDCODED LOGIN FOR QUICK TESTING - Comentar para usar autenticación real
-    // setLoading(true);
-    // setTimeout(() => {
-    //   Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    //   navigateByRole("ADMIN"); // 🔧 Cambiar rol: "ADMIN" | "ENCARGADO" | "BRIGADISTA"
-    //   setLoading(false);
-    // }, 500);
-    // return;
-    // 🧪 END HARDCODED
 
     // 1. Validate form
     let hasError = false;
@@ -386,28 +207,7 @@ export default function LoginScreen() {
         navigateByRole(loggedUser.role);
       }, 3); // 3 retry attempts
     } catch (error) {
-      let message = "Error al iniciar sesión";
-
-      if (error instanceof Error) {
-        // Check if it's a network error
-        if (
-          error.message.includes("Network") ||
-          error.message.includes("timeout") ||
-          error.message.includes("ECONNREFUSED")
-        ) {
-          message =
-            "No pudimos conectar con el servidor. Verifica tu conexión e intenta nuevamente.";
-        } else if (
-          error.message.includes("500") ||
-          error.message.includes("502")
-        ) {
-          message = "Error del servidor. Por favor, intenta más tarde.";
-        } else {
-          message = error.message;
-        }
-      }
-
-      setErrorMessage(message);
+      setErrorMessage(getErrorMessage(error));
       setShowError(true);
       shake();
 
@@ -503,9 +303,6 @@ export default function LoginScreen() {
               <Text style={[styles.title, { color: colors.text }]}>
                 Inicia sesión
               </Text>
-              <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-                Accede con tu cuenta autorizada
-              </Text>
             </View>
 
             {/* Error Alert */}
@@ -524,30 +321,6 @@ export default function LoginScreen() {
                 />
               </View>
             )}
-
-            {/* Info Box - Whitelist */}
-            <View
-              style={[
-                styles.infoBox,
-                {
-                  backgroundColor: colors.info + "20",
-                  borderLeftColor: colors.info,
-                },
-              ]}
-              accessible={true}
-              accessibilityRole="text"
-              accessibilityLabel="Información importante: Solo usuarios autorizados con código activado pueden acceder"
-            >
-              <Ionicons
-                name="information-circle-outline"
-                size={20}
-                color={colors.info}
-                importantForAccessibility="no"
-              />
-              <Text style={[styles.infoText, { color: colors.info }]}>
-                Solo usuarios autorizados con código activado pueden acceder
-              </Text>
-            </View>
 
             {/* Form */}
             <Animated.View style={[styles.form, shakeAnimatedStyle]}>
@@ -711,29 +484,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 32,
   },
-  subtitle: {
-    fontSize: 16,
-    fontWeight: "400",
-    // color now comes from inline style (colors.textSecondary)
-    textAlign: "center",
-    lineHeight: 24,
-  },
-  infoBox: {
-    flexDirection: "row",
-    alignItems: "center",
-    // backgroundColor and borderLeftColor now come from inline style
-    padding: 12,
-    borderRadius: 8,
-    gap: 8,
-    marginBottom: 16,
-    borderLeftWidth: 3,
-  },
-  infoText: {
-    flex: 1,
-    fontSize: 13,
-    // color now comes from inline style (colors.info)
-    lineHeight: 18,
-  },
+
   alertContainer: {
     marginBottom: 20,
     marginHorizontal: 0, // Mismo ancho que los demás elementos (infoBox, forms, etc.)

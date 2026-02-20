@@ -19,10 +19,13 @@ import { PhotoQuestion } from "@/components/survey/photo-question";
 import { SelectQuestion } from "@/components/survey/select-question";
 import { SignatureQuestion } from "@/components/survey/signature-question";
 import { TextQuestion as TextQuestionComp } from "@/components/survey/text-question";
+import { useAuth } from "@/contexts/auth-context";
+import { useSync } from "@/contexts/sync-context";
 import { useThemeColors } from "@/contexts/theme-context";
 import { useTabBarHeight } from "@/hooks/use-tab-bar-height";
 import type { AnswerOptionResponse, QuestionResponse } from "@/lib/api/mobile";
-import { submitBatchResponses } from "@/lib/api/mobile";
+import { offlineSyncService } from "@/lib/services/offline-sync";
+import { getErrorMessage } from "@/utils/translate-error";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -37,6 +40,7 @@ import {
   ActivityIndicator,
   Alert,
   Animated,
+  BackHandler,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
@@ -81,6 +85,61 @@ const AUTO_ADVANCE_TYPES = new Set([
 /** Question types that use a text input and should auto-focus keyboard */
 const TEXT_INPUT_TYPES = new Set(["text", "textarea", "email", "phone"]);
 
+/** Validators by question type — return error string or null */
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE_RE = /^[\d+\-() ]{7,20}$/;
+
+function validateAnswer(
+  type: string,
+  value: any,
+  required: boolean,
+): string | null {
+  // Required check (all types)
+  if (required && (value === undefined || value === null || value === "")) {
+    return "Este campo es obligatorio";
+  }
+
+  // If optional and empty, no further validation
+  if (!required && (value === undefined || value === null || value === "")) {
+    return null;
+  }
+
+  switch (type) {
+    case "email":
+      if (typeof value === "string" && !EMAIL_RE.test(value)) {
+        return "Ingresa un correo electrónico válido";
+      }
+      break;
+    case "phone":
+      if (typeof value === "string" && !PHONE_RE.test(value)) {
+        return "Ingresa un número de teléfono válido (7-20 dígitos)";
+      }
+      break;
+    case "text":
+      if (typeof value === "string" && value.trim().length < 2) {
+        return "La respuesta debe tener al menos 2 caracteres";
+      }
+      break;
+    case "number":
+    case "slider":
+    case "scale":
+    case "rating":
+      if (typeof value !== "number" || isNaN(value)) {
+        return "Ingresa un número válido";
+      }
+      break;
+    case "multiple_choice":
+    case "multi_select":
+    case "checkbox":
+      if (required && Array.isArray(value) && value.length === 0) {
+        return "Selecciona al menos una opción";
+      }
+      break;
+  }
+
+  return null;
+}
+
 function mapApiQuestion(q: QuestionResponse): FillQuestion {
   return {
     id: q.id,
@@ -115,8 +174,11 @@ export default function FillSurveyScreen() {
   const insets = useSafeAreaInsets();
   const { contentPadding } = useTabBarHeight();
   const router = useRouter();
+  const { user } = useAuth();
+  const { addPendingItem, isOnline } = useSync();
   const params = useLocalSearchParams<{
     surveyTitle: string;
+    surveyId: string;
     versionId: string;
     questionsJson: string;
   }>();
@@ -138,6 +200,87 @@ export default function FillSurveyScreen() {
   const [startedAt] = useState(() => new Date().toISOString());
   const [fieldError, setFieldError] = useState<string | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [syncedOnSubmit, setSyncedOnSubmit] = useState(false);
+
+  // ── Offline draft management ───────────────────────────────────────────────
+  const draftIdRef = useRef<string | null>(null);
+  const saveFailCountRef = useRef(0);
+  const [showSaveWarning, setShowSaveWarning] = useState(false);
+  const [draftLoading, setDraftLoading] = useState(true);
+
+  // Create a local draft or resume an existing one
+  useEffect(() => {
+    if (allQuestions.length === 0) {
+      setDraftLoading(false);
+      return;
+    }
+    (async () => {
+      try {
+        const userId = user?.id ? String(user.id) : "anonymous";
+        const surveyId = params.surveyId ?? params.versionId ?? "unknown";
+
+        // 1. Check for existing draft for this survey
+        const drafts = await offlineSyncService.getDraftResponses(userId);
+        const existingDraft = drafts.find(
+          (d) => d.survey_id === surveyId && d.status === "draft",
+        );
+
+        if (existingDraft) {
+          // Resume existing draft
+          draftIdRef.current = existingDraft.response_id;
+          try {
+            const savedAnswers = JSON.parse(
+              existingDraft.answers_json || "{}",
+            );
+            const numericAnswers: Record<number, any> = {};
+            for (const [key, val] of Object.entries(savedAnswers)) {
+              numericAnswers[Number(key)] = val;
+            }
+            if (Object.keys(numericAnswers).length > 0) {
+              setAnswers(numericAnswers);
+              // Navigate to the first unanswered visible question
+              const visibleWithAnswers = allQuestions.filter((q) =>
+                shouldShowQuestion(q, numericAnswers),
+              );
+              const firstUnanswered = visibleWithAnswers.findIndex(
+                (q) => numericAnswers[q.id] === undefined,
+              );
+              if (firstUnanswered > 0) {
+                setCurrentIndex(firstUnanswered);
+              } else if (
+                firstUnanswered === -1 &&
+                visibleWithAnswers.length > 0
+              ) {
+                // All answered — go to last question
+                setCurrentIndex(visibleWithAnswers.length - 1);
+              }
+            }
+          } catch {
+            /* ignore parse errors */
+          }
+          console.log("📋 Resumed draft:", existingDraft.response_id);
+          setDraftLoading(false);
+          return;
+        }
+
+        // 2. No existing draft → create new
+        const id = await offlineSyncService.createDraftResponse({
+          surveyId,
+          surveyVersion: params.versionId ?? "1",
+          userId,
+          userName: user?.name ?? "Brigadista",
+          userRole: user?.role ?? "BRIGADISTA",
+        });
+        draftIdRef.current = id;
+        console.log("💾 Draft response created:", id);
+      } catch (err) {
+        console.error("⚠️ Failed to create/resume local draft:", err);
+      } finally {
+        setDraftLoading(false);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allQuestions.length]);
 
   // Animated progress value
   const progressAnim = useRef(new Animated.Value(0)).current;
@@ -164,6 +307,20 @@ export default function FillSurveyScreen() {
     }).start();
   }, [progressPercent, progressAnim]);
 
+  // Android hardware back button → same as handleBack
+  useEffect(() => {
+    if (Platform.OS !== "android" || showSuccess) return;
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      handleBack();
+      return true; // prevent default
+    });
+    return () => sub.remove();
+  }, [isFirst, showSuccess]);
+
+  // Countdown: remaining questions
+  const remaining = total - currentIndex - 1;
+  const showCountdown = remaining > 0 && remaining <= 3;
+
   // ── Answer handling ────────────────────────────────────────────────────────
   const handleAnswer = useCallback(
     (value: any, advance = false) => {
@@ -171,6 +328,26 @@ export default function FillSurveyScreen() {
       if (!current) return;
 
       setAnswers((prev) => ({ ...prev, [current.id]: value }));
+
+      // Auto-save to SQLite with failure tracking
+      if (draftIdRef.current) {
+        offlineSyncService
+          .saveAnswer({
+            responseId: draftIdRef.current,
+            questionId: current.id,
+            value,
+          })
+          .then(() => {
+            saveFailCountRef.current = 0;
+            if (showSaveWarning) setShowSaveWarning(false);
+          })
+          .catch(() => {
+            saveFailCountRef.current += 1;
+            if (saveFailCountRef.current >= 3) {
+              setShowSaveWarning(true);
+            }
+          });
+      }
 
       if (advance && !isLast) {
         // Slight delay so user sees their selection highlighted before moving
@@ -198,13 +375,11 @@ export default function FillSurveyScreen() {
   const handleNext = () => {
     if (!current) return;
 
-    // Validate required
+    // Type-specific validation
     const value = answers[current.id];
-    if (
-      current.required &&
-      (value === undefined || value === null || value === "")
-    ) {
-      setFieldError("Este campo es obligatorio");
+    const error = validateAnswer(current.type, value, current.required);
+    if (error) {
+      setFieldError(error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       return;
     }
@@ -224,7 +399,9 @@ export default function FillSurveyScreen() {
     if (isFirst) {
       Alert.alert(
         "¿Salir de la encuesta?",
-        "Tus respuestas parciales no se guardarán.",
+        draftIdRef.current
+          ? "Tus respuestas se guardarán localmente y podrás continuarlas después."
+          : "Tus respuestas parciales no se guardarán.",
         [
           { text: "Continuar llenando", style: "cancel" },
           { text: "Salir", style: "destructive", onPress: () => router.back() },
@@ -265,25 +442,35 @@ export default function FillSurveyScreen() {
 
     setSubmitLoading(true);
     try {
-      await submitBatchResponses({
-        client_id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-        version_id: versionId,
-        started_at: startedAt,
-        completed_at: new Date().toISOString(),
+      const responseId = draftIdRef.current ?? "no-draft";
+
+      const result = await offlineSyncService.submitResponse({
+        responseId,
+        versionId,
+        startedAt,
         answers: answersPayload,
       });
 
-      setShowSuccess(true);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-
-      setTimeout(() => {
-        router.back();
-      }, 1800);
+      if (result.synced) {
+        // Online — sent to server
+        setSyncedOnSubmit(true);
+        setShowSuccess(true);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } else {
+        // Offline — saved locally, will sync later
+        addPendingItem({
+          id: responseId,
+          type: "response",
+        });
+        setSyncedOnSubmit(false);
+        setShowSuccess(true);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
     } catch (err: any) {
-      const msg = err?.response?.data?.detail ?? err?.message;
+      const msg = getErrorMessage(err);
       Alert.alert(
         "No se pudo enviar",
-        msg ?? "Se guardará localmente y se enviará cuando tengas conexión.",
+        msg,
         [{ text: "OK" }],
       );
     } finally {
@@ -309,10 +496,10 @@ export default function FillSurveyScreen() {
           Esta encuesta no tiene preguntas disponibles.
         </Text>
         <TouchableOpacity
-          style={[styles.backBtn, { borderColor: colors.border }]}
+          style={[styles.backBtn, { backgroundColor: colors.primary }]}
           onPress={() => router.back()}
         >
-          <Text style={[styles.backBtnText, { color: colors.primary }]}>
+          <Text style={[styles.backBtnText, { color: "#fff" }]}>
             Volver
           </Text>
         </TouchableOpacity>
@@ -320,16 +507,49 @@ export default function FillSurveyScreen() {
     );
   }
 
-  if (showSuccess) {
+  if (draftLoading) {
     return (
       <View style={[styles.centered, { backgroundColor: colors.background }]}>
-        <Ionicons name="checkmark-circle" size={80} color={colors.success} />
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+          Cargando encuesta...
+        </Text>
+      </View>
+    );
+  }
+
+  if (showSuccess) {
+    const answeredCount = Object.keys(answers).filter(
+      (k) => answers[Number(k)] !== undefined && answers[Number(k)] !== null,
+    ).length;
+    return (
+      <View style={[styles.centered, { backgroundColor: colors.background }]}>
+        <Ionicons
+          name={syncedOnSubmit ? "checkmark-circle" : "cloud-offline-outline"}
+          size={80}
+          color={syncedOnSubmit ? colors.success : colors.warning ?? "#f59e0b"}
+        />
         <Text style={[styles.successTitle, { color: colors.text }]}>
           ¡Encuesta completada!
         </Text>
         <Text style={[styles.successSubtitle, { color: colors.textSecondary }]}>
-          Respuestas enviadas correctamente
+          {params.surveyTitle ?? "Encuesta"}
         </Text>
+        <Text style={[styles.successSubtitle, { color: colors.textSecondary }]}>
+          {answeredCount} respuesta{answeredCount !== 1 ? "s" : ""}{" "}
+          {syncedOnSubmit
+            ? "enviadas correctamente"
+            : "guardadas localmente — se enviarán con conexión"}
+        </Text>
+        <TouchableOpacity
+          style={[styles.backBtn, { backgroundColor: colors.primary }]}
+          onPress={() => router.back()}
+          activeOpacity={0.85}
+        >
+          <Text style={[styles.backBtnText, { color: "#fff" }]}>
+            Volver a encuestas
+          </Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -393,7 +613,34 @@ export default function FillSurveyScreen() {
         <Text style={[styles.progressLabel, { color: colors.textSecondary }]}>
           {currentIndex + 1} de {total}
         </Text>
+        {showCountdown && (
+          <Text style={[styles.countdownText, { color: colors.success }]}>
+            {remaining === 1
+              ? "¡Última pregunta!"
+              : `¡Solo faltan ${remaining} preguntas!`}
+          </Text>
+        )}
       </View>
+
+      {/* ── Offline banner ──────────────────────────────────────────────── */}
+      {!isOnline && (
+        <View style={[styles.offlineBanner, { backgroundColor: colors.warning ?? "#f59e0b" }]}>
+          <Ionicons name="cloud-offline-outline" size={16} color="#fff" />
+          <Text style={styles.offlineBannerText}>
+            Sin conexión — las respuestas se guardan localmente
+          </Text>
+        </View>
+      )}
+
+      {/* ── Auto-save failure warning ─────────────────────────────────── */}
+      {showSaveWarning && (
+        <View style={[styles.offlineBanner, { backgroundColor: colors.error ?? "#ef4444" }]}>
+          <Ionicons name="alert-circle-outline" size={16} color="#fff" />
+          <Text style={styles.offlineBannerText}>
+            No se pudo guardar automáticamente. Tus respuestas podrían perderse.
+          </Text>
+        </View>
+      )}
 
       {/* ── Question area ────────────────────────────────────────────────── */}
       <ScrollView
@@ -509,20 +756,25 @@ export default function FillSurveyScreen() {
         <TouchableOpacity
           onPress={handleNext}
           disabled={submitLoading}
-          style={[styles.navBtnPrimary, { backgroundColor: colors.primary }]}
+          style={[
+            styles.navBtnPrimary,
+            {
+              backgroundColor: isLast ? colors.success : colors.primary,
+            },
+          ]}
           activeOpacity={0.85}
         >
           {submitLoading ? (
-            <ActivityIndicator color="#fff" size="small" />
+            <ActivityIndicator color={colors.background} size="small" />
           ) : (
             <>
-              <Text style={styles.navBtnPrimaryText}>
+              <Text style={[styles.navBtnPrimaryText, { color: colors.background }]}>
                 {isLast ? "Enviar" : "Siguiente"}
               </Text>
               <Ionicons
                 name={isLast ? "send" : "arrow-forward"}
                 size={18}
-                color="#fff"
+                color={colors.background}
               />
             </>
           )}
@@ -607,21 +859,37 @@ function QuestionInput({
     );
   }
 
-  if (type === "date" || type === "datetime") {
+  if (type === "date" || type === "datetime" || type === "time") {
     return <DateQuestion value={value} colors={colors} onChange={onChange} />;
   }
 
-  if (type === "photo" || type === "image") {
+  if (type === "photo" || type === "image" || type === "file") {
     return <PhotoQuestion value={value} colors={colors} onChange={onChange} />;
   }
 
-  if (type === "ine" || type === "credential") {
+  if (type === "ine" || type === "ine_ocr" || type === "credential") {
     return <INEQuestion value={value} colors={colors} onChange={onChange} />;
   }
 
   if (type === "signature") {
     return (
       <SignatureQuestion value={value} colors={colors} onChange={onChange} />
+    );
+  }
+
+  if (type === "location") {
+    // TODO: implement LocationQuestion with expo-location
+    return (
+      <TextQuestionComp
+        value={value}
+        colors={colors}
+        onChange={onChange}
+        multiline={false}
+        keyboardType="default"
+        maxLength={200}
+        optional={!question.required}
+        autoFocus={false}
+      />
     );
   }
 
@@ -666,14 +934,13 @@ const styles = StyleSheet.create({
   },
   backBtn: {
     marginTop: 8,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
+    paddingHorizontal: 32,
+    paddingVertical: 14,
     borderRadius: 24,
-    borderWidth: 1,
   },
   backBtnText: {
-    fontSize: 15,
-    fontWeight: "600",
+    fontSize: 16,
+    fontWeight: "700",
   },
   successTitle: {
     fontSize: 24,
@@ -728,6 +995,12 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     minWidth: 46,
     textAlign: "right",
+  },
+  countdownText: {
+    fontSize: 12,
+    fontWeight: "700",
+    textAlign: "center",
+    paddingTop: 2,
   },
   // Question
   scrollView: {
@@ -813,6 +1086,19 @@ const styles = StyleSheet.create({
   navBtnPrimaryText: {
     fontSize: 15,
     fontWeight: "700",
+  },
+  // Offline banner
+  offlineBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+  },
+  offlineBannerText: {
+    fontSize: 12,
+    fontWeight: "600",
     color: "#fff",
   },
 });

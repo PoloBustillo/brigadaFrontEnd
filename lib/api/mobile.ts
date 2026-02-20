@@ -53,14 +53,25 @@ export interface AssignedSurveyResponse {
 
 // ─── My responses types ───────────────────────────────────────────────────────
 
+export interface QuestionAnswerDetail {
+  id: number;
+  question_id: number;
+  answer_value: any;
+  media_url: string | null;
+  answered_at: string;
+}
+
 export interface SurveyResponseDetail {
   id: number;
-  assignment_id: number;
-  survey_id: number;
-  is_complete: boolean;
-  submitted_at: string | null;
-  created_at: string;
-  answers: unknown[];
+  user_id: number;
+  version_id: number;
+  client_id: string;
+  location: Record<string, any> | null;
+  started_at: string | null;
+  completed_at: string;
+  synced_at: string;
+  device_info: Record<string, any> | null;
+  answers: QuestionAnswerDetail[];
 }
 
 // ─── API calls ───────────────────────────────────────────────────────────────
@@ -132,11 +143,14 @@ export interface BatchResponseResult {
   total: number;
   successful: number;
   failed: number;
+  duplicates: number;
   results: {
     client_id: string;
     status: string;
     response_id?: number;
+    message?: string;
     errors: string[];
+    warnings: string[];
   }[];
 }
 

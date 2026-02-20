@@ -5,6 +5,7 @@
 
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/auth-context";
+import { getErrorMessage } from "@/utils/translate-error";
 import { useThemeColors } from "@/contexts/theme-context";
 import { useTabBarHeight } from "@/hooks/use-tab-bar-height";
 import { updateProfile, uploadAvatar } from "@/lib/api/auth";
@@ -113,7 +114,7 @@ export default function ChangeAvatarScreen() {
       ]);
     } catch (error: any) {
       console.error("Error uploading avatar:", error);
-      Alert.alert("Error", error.message || "No se pudo subir la imagen");
+      Alert.alert("Error", getErrorMessage(error));
     } finally {
       setUploading(false);
     }

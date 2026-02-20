@@ -82,6 +82,9 @@ export function MultiSelectQuestion({
               ]}
               onPress={() => toggle(opt.value)}
               activeOpacity={0.7}
+              accessibilityLabel={opt.label}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: isSelected }}
             >
               <View
                 style={[

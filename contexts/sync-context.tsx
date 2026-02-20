@@ -8,6 +8,8 @@
  * - Manejo de errores parciales por documento
  */
 
+import { offlineSyncService } from "@/lib/services/offline-sync";
+import { syncRepository } from "@/lib/db/repositories/sync.repository";
 import NetInfo, { NetInfoState } from "@react-native-community/netinfo";
 import React, {
   createContext,
@@ -84,6 +86,39 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
   const errorCount = pendingItems.filter(
     (item) => item.status === "error" || item.status === "partial_error",
   ).length;
+
+  // ── Load pending items from SQLite on mount (survive app restart) ──────
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        await offlineSyncService.initialize();
+        const pendingOps = await syncRepository.getPendingOperations(50);
+        if (mounted && pendingOps.length > 0) {
+          const items: SyncItem[] = pendingOps.map((op) => ({
+            id: op.entity_id,
+            type: op.entity_type as "survey" | "response" | "user",
+            timestamp: new Date(op.created_at).getTime(),
+            retryCount: op.retry_count,
+            status: "pending" as const,
+          }));
+          setPendingItems((prev) => {
+            const existingIds = new Set(prev.map((p) => p.id));
+            const newItems = items.filter((i) => !existingIds.has(i.id));
+            return newItems.length > 0 ? [...prev, ...newItems] : prev;
+          });
+          console.log(
+            `📋 Loaded ${pendingOps.length} pending sync items from SQLite`,
+          );
+        }
+      } catch (err) {
+        console.error("⚠️ Failed to load pending sync items:", err);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   // REGLA 6: Sincronizar todos los items pendientes
   const syncAll = useCallback(async () => {
@@ -162,24 +197,21 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
           `🔄 Syncing ${item.type} (${item.id}), attempt ${item.retryCount + 1}`,
         );
 
-        // TODO: Implementar sincronización real con API
-        // Simular llamada API
-        await new Promise((resolve, reject) => {
-          setTimeout(
-            () => {
-              // Simular fallo ocasional
-              const shouldFail = Math.random() < 0.2; // 20% de fallo
-              if (shouldFail) {
-                reject(new Error("Network timeout"));
-              } else {
-                resolve(true);
-              }
-            },
-            1000 + Math.random() * 1000,
-          );
-        });
+        if (item.type === "response") {
+          // Real sync: process the sync queue via offlineSyncService
+          const synced = await offlineSyncService.processSyncQueue();
+          if (synced > 0) {
+            console.log(`✅ Synced ${synced} queued response(s)`);
+            return true;
+          }
+          console.warn(`⚠️ No queued items were synced for ${item.id}`);
+          return false;
+        }
 
-        console.log(`✅ Successfully synced ${item.type} (${item.id})`);
+        // Other item types (survey, user) don't need upstream sync
+        console.log(
+          `ℹ️ Sync type "${item.type}" is read-only — removing from queue.`,
+        );
         return true;
       } catch (error: any) {
         console.error(

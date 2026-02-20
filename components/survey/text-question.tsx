@@ -9,8 +9,33 @@
  */
 
 import { useThemeColors } from "@/contexts/theme-context";
-import React, { useEffect, useRef } from "react";
+import { Ionicons } from "@expo/vector-icons";
+import React, { useEffect, useMemo, useRef } from "react";
 import { StyleSheet, Text, TextInput, View } from "react-native";
+
+// ── Inline validators ─────────────────────────────────────────────────────────
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE_RE = /^[\d+\-() ]{7,20}$/;
+
+function getValidationHint(
+  keyboardType: string,
+  value: string,
+): { message: string; isError: boolean } | null {
+  if (!value || value.length < 3) return null;
+  if (keyboardType === "email-address" && !EMAIL_RE.test(value)) {
+    return { message: "Formato de correo inválido", isError: true };
+  }
+  if (keyboardType === "phone-pad" && !PHONE_RE.test(value)) {
+    return { message: "Formato de teléfono inválido", isError: true };
+  }
+  if (keyboardType === "email-address" && EMAIL_RE.test(value)) {
+    return { message: "Correo válido", isError: false };
+  }
+  if (keyboardType === "phone-pad" && PHONE_RE.test(value)) {
+    return { message: "Teléfono válido", isError: false };
+  }
+  return null;
+}
 
 interface TextQuestionProps {
   value: string | null;
@@ -44,34 +69,55 @@ export function TextQuestion({
   const remaining = maxLength - current.length;
   const showCounter = remaining <= 40;
 
-  // Auto-focus the input with a small delay so the layout settles first
+  const validationHint = useMemo(
+    () => getValidationHint(keyboardType, current),
+    [keyboardType, current],
+  );
+
+  // Auto-focus: use a short delay so the screen transition/layout settles,
+  // then programmatically focus to guarantee keyboard opens.
   useEffect(() => {
     if (autoFocus) {
       const timer = setTimeout(() => {
         inputRef.current?.focus();
-      }, 350);
+      }, 150);
       return () => clearTimeout(timer);
     }
   }, [autoFocus]);
+
+  const defaultPlaceholder =
+    keyboardType === "email-address"
+      ? "correo@ejemplo.com"
+      : keyboardType === "phone-pad"
+        ? "+52 123 456 7890"
+        : optional
+          ? "Opcional..."
+          : "Escribe aquí...";
+
+  const borderColor =
+    validationHint?.isError === true
+      ? colors.error
+      : validationHint?.isError === false
+        ? colors.success
+        : colors.border;
 
   return (
     <View style={styles.container}>
       <TextInput
         ref={inputRef}
+        autoFocus={autoFocus}
         style={[
           styles.input,
           multiline && styles.inputMultiline,
           {
             backgroundColor: colors.surface,
-            borderColor: colors.border,
+            borderColor,
             color: colors.text,
           },
         ]}
         value={current}
         onChangeText={onChange}
-        placeholder={
-          placeholder ?? (optional ? "Opcional..." : "Escribe aquí...")
-        }
+        placeholder={placeholder ?? defaultPlaceholder}
         placeholderTextColor={colors.textTertiary}
         keyboardType={keyboardType}
         maxLength={maxLength}
@@ -81,7 +127,49 @@ export function TextQuestion({
         autoCapitalize={keyboardType === "email-address" ? "none" : "sentences"}
         autoCorrect={keyboardType === "default"}
         returnKeyType={multiline ? "default" : "done"}
+        autoComplete={
+          keyboardType === "email-address"
+            ? "email"
+            : keyboardType === "phone-pad"
+              ? "tel"
+              : "off"
+        }
+        accessibilityLabel={
+          keyboardType === "email-address"
+            ? "Correo electrónico"
+            : keyboardType === "phone-pad"
+              ? "Número de teléfono"
+              : multiline
+                ? "Respuesta de texto largo"
+                : "Respuesta de texto"
+        }
+        accessibilityHint={optional ? "Campo opcional" : "Campo obligatorio"}
       />
+      {/* Validation hint */}
+      {validationHint && (
+        <View style={styles.validationRow}>
+          <Ionicons
+            name={
+              validationHint.isError
+                ? "alert-circle-outline"
+                : "checkmark-circle-outline"
+            }
+            size={14}
+            color={validationHint.isError ? colors.error : colors.success}
+          />
+          <Text
+            style={[
+              styles.validationText,
+              {
+                color: validationHint.isError ? colors.error : colors.success,
+              },
+            ]}
+          >
+            {validationHint.message}
+          </Text>
+        </View>
+      )}
+
       <View style={styles.footer}>
         {optional && (
           <Text style={[styles.optionalHint, { color: colors.textTertiary }]}>
@@ -132,5 +220,15 @@ const styles = StyleSheet.create({
   counter: {
     fontSize: 12,
     fontWeight: "500",
+  },
+  validationRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 4,
+  },
+  validationText: {
+    fontSize: 12,
+    fontWeight: "600",
   },
 });

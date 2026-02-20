@@ -63,6 +63,9 @@ export function BooleanQuestion({
               onChange(v);
             }}
             activeOpacity={0.7}
+            accessibilityLabel={`Responder ${label}`}
+            accessibilityRole="button"
+            accessibilityState={{ selected }}
           >
             <Ionicons
               name={selected ? icon : (`${icon}-outline` as any)}

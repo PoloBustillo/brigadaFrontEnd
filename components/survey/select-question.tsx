@@ -73,6 +73,9 @@ export function SelectQuestion({
               ]}
               onPress={() => handlePress(opt)}
               activeOpacity={0.7}
+              accessibilityLabel={opt.label}
+              accessibilityRole="radio"
+              accessibilityState={{ selected }}
             >
               <View
                 style={[
@@ -128,6 +131,9 @@ export function SelectQuestion({
             ]}
             onPress={() => handlePress(opt)}
             activeOpacity={0.6}
+            accessibilityLabel={opt.label}
+            accessibilityRole="radio"
+            accessibilityState={{ selected }}
           >
             <View
               style={[

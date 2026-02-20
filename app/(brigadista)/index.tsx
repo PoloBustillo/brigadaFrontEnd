@@ -11,14 +11,16 @@
 
 import { ThemeToggleIcon } from "@/components/ui/theme-toggle";
 import { useAuth } from "@/contexts/auth-context";
+import { useSync } from "@/contexts/sync-context";
 import { useThemeColors } from "@/contexts/theme-context";
 import { useTabBarHeight } from "@/hooks/use-tab-bar-height";
+import { cacheRepository } from "@/lib/db/repositories/cache.repository";
 import {
   getAssignedSurveys,
   type AssignedSurveyResponse,
 } from "@/lib/api/mobile";
+import { offlineSyncService } from "@/lib/services/offline-sync";
 import { Ionicons } from "@expo/vector-icons";
-import NetInfo from "@react-native-community/netinfo";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
@@ -207,67 +209,93 @@ export default function BrigadistaHome() {
   const { contentPadding } = useTabBarHeight();
   const router = useRouter();
   const { user, logout } = useAuth();
+  const { isOnline, isSyncing, pendingCount, syncAll } = useSync();
   const [refreshing, setRefreshing] = useState(false);
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [isOnline, setIsOnline] = useState(true);
   const [assignments, setAssignments] = useState<AssignedSurveyResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [fetchError, setFetchError] = useState(false);
+  const [pendingSyncCount, setPendingSyncCount] = useState(0);
 
-  const fetchAssignments = async () => {
+  const CACHE_KEY = "assignments_active";
+  const CACHE_TTL = 30 * 60 * 1000; // 30 min
+
+  // Load cached assignments immediately, then fetch from API
+  const fetchAssignments = async (showLoading = true) => {
     setFetchError(false);
+
+    // 1. Load from cache instantly (stale-while-revalidate)
     try {
-      const netState = await NetInfo.fetch();
-      if (!netState.isConnected) {
-        setFetchError(true);
-        return;
+      const cached = await cacheRepository.get<AssignedSurveyResponse[]>(
+        CACHE_KEY,
+        true,
+      );
+      if (cached && cached.length > 0) {
+        setAssignments(cached);
+        if (showLoading) setIsLoading(false); // Show cached data immediately
       }
+    } catch {}
 
-      let data: AssignedSurveyResponse[] = [];
-      try {
-        data = await getAssignedSurveys("active");
-      } catch {
-        await new Promise((resolve) => setTimeout(resolve, 1500));
-        data = await getAssignedSurveys("active");
-      }
+    // 2. Try API fetch if online
+    if (!isOnline) {
+      // If we have cached data, don't show error
+      setIsLoading(false);
+      if (assignments.length === 0) setFetchError(true);
+      return;
+    }
 
+    try {
+      const data = await getAssignedSurveys("active");
       setAssignments(data);
+      // Cache the response
+      await cacheRepository.set(CACHE_KEY, data, CACHE_TTL);
     } catch (err) {
       console.error("Error fetching assignments:", err);
-      setFetchError(true);
+      // Only show error if we have no cached data
+      if (assignments.length === 0) setFetchError(true);
     } finally {
       setIsLoading(false);
     }
   };
 
+  // Load pending sync count
+  const loadPendingSyncCount = async () => {
+    try {
+      const count = await offlineSyncService.getPendingSyncCount();
+      setPendingSyncCount(count);
+    } catch {}
+  };
+
   useEffect(() => {
     fetchAssignments();
+    loadPendingSyncCount();
   }, []);
 
-  // Monitor network connectivity
+  // Refresh sync count when syncing changes
   useEffect(() => {
-    const unsubscribe = NetInfo.addEventListener((state) => {
-      setIsOnline(state.isConnected ?? false);
-    });
-
-    return () => unsubscribe();
-  }, []);
+    if (!isSyncing) loadPendingSyncCount();
+  }, [isSyncing]);
 
   const onRefresh = async () => {
     setRefreshing(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    await fetchAssignments();
+    await fetchAssignments(false);
+    await loadPendingSyncCount();
     setRefreshing(false);
   };
 
   const handleSync = async () => {
-    setIsSyncing(true);
+    if (!isOnline) {
+      Alert.alert("Sin conexión", "Necesitas conexión a internet para sincronizar.");
+      return;
+    }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    // TODO: Sync data with server
-    setTimeout(() => {
-      setIsSyncing(false);
+    try {
+      await syncAll();
+      await loadPendingSyncCount();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    }, 2000);
+    } catch {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    }
   };
 
   const handleLogout = () => {
@@ -295,7 +323,10 @@ export default function BrigadistaHome() {
     );
   };
 
-  // Stats derived from real assignments
+  // Stats derived from real assignments + real sync data
+  const activeCount = assignments.filter(
+    (a) => a.assignment_status === "active",
+  ).length;
   const stats = [
     {
       icon: "checkmark-circle" as const,
@@ -305,31 +336,30 @@ export default function BrigadistaHome() {
     },
     {
       icon: "time" as const,
-      value: String(
-        assignments.filter((a) => a.assignment_status === "active").length,
-      ),
+      value: String(activeCount),
       label: "Activas",
       color: colors.warning,
     },
     {
       icon: "document-text" as const,
-      value: String(assignments.length),
-      label: "Total",
+      value: String(assignments.length - activeCount),
+      label: "Completadas",
       color: colors.primary,
     },
     {
       icon: "cloud-upload" as const,
-      value: "–",
+      value: String(pendingSyncCount + pendingCount),
       label: "Sin Sync",
-      color: colors.info,
+      color: pendingSyncCount + pendingCount > 0 ? colors.error : colors.info,
     },
   ];
 
-  // Sync status — placeholder until /mobile/sync-status endpoint is wired
+  // Real sync status
+  const totalPending = pendingSyncCount + pendingCount;
   const syncStatus = {
-    lastSync: "–",
-    pendingResponses: 0,
-    isSynced: true,
+    lastSync: totalPending === 0 ? "Todo al día" : `${totalPending} pendientes`,
+    pendingResponses: totalPending,
+    isSynced: totalPending === 0 && !isSyncing,
   };
 
   // Map API assignments to card props
@@ -351,6 +381,7 @@ export default function BrigadistaHome() {
       router.push({
         pathname: "/(brigadista)/surveys/fill",
         params: {
+          surveyId: String(a.survey_id),
           surveyTitle: a.survey_title,
           versionId: String(a.latest_version.id),
           questionsJson: JSON.stringify(a.latest_version.questions ?? []),
@@ -408,6 +439,21 @@ export default function BrigadistaHome() {
           </Text>
           <Ionicons name="refresh-outline" size={18} color={colors.error} />
         </TouchableOpacity>
+      )}
+
+      {/* Offline banner */}
+      {!isOnline && (
+        <View
+          style={[
+            styles.offlineBanner,
+            { backgroundColor: colors.warning ?? "#f59e0b" },
+          ]}
+        >
+          <Ionicons name="cloud-offline-outline" size={16} color="#fff" />
+          <Text style={styles.offlineBannerText}>
+            Sin conexión — mostrando datos guardados
+          </Text>
+        </View>
       )}
       {/* Header */}
       <View style={styles.header}>
@@ -560,9 +606,35 @@ export default function BrigadistaHome() {
         </View>
 
         <View style={styles.assignmentsList}>
-          {assignmentCards.map((assignment) => (
-            <SurveyAssignmentCard key={assignment.id} {...assignment} />
-          ))}
+          {assignmentCards.length > 0 ? (
+            assignmentCards.map((assignment) => (
+              <SurveyAssignmentCard key={assignment.id} {...assignment} />
+            ))
+          ) : !isLoading && !fetchError ? (
+            <View
+              style={[
+                styles.emptyState,
+                { backgroundColor: colors.surface, borderColor: colors.border },
+              ]}
+            >
+              <Ionicons
+                name="clipboard-outline"
+                size={40}
+                color={colors.textTertiary}
+              />
+              <Text
+                style={[styles.emptyStateTitle, { color: colors.textSecondary }]}
+              >
+                Sin encuestas asignadas
+              </Text>
+              <Text
+                style={[styles.emptyStateText, { color: colors.textTertiary }]}
+              >
+                Tu encargado te asignará encuestas pronto. Usa el gesto de
+                arrastrar hacia abajo para actualizar.
+              </Text>
+            </View>
+          ) : null}
         </View>
       </View>
 
@@ -867,5 +939,38 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     textAlign: "center",
     lineHeight: 18,
+  },
+  emptyState: {
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 32,
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 10,
+  },
+  emptyStateTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  emptyStateText: {
+    fontSize: 13,
+    textAlign: "center",
+    lineHeight: 19,
+  },
+  offlineBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginHorizontal: 20,
+    marginTop: 8,
+    borderRadius: 10,
+  },
+  offlineBannerText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#fff",
   },
 });

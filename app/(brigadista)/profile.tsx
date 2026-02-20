@@ -22,7 +22,7 @@ export default function BrigadistaProfileScreen() {
   const colors = useThemeColors();
   const { contentPadding } = useTabBarHeight();
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
 
   const handleEditProfile = () => {
     router.push("/(brigadista)/edit-profile" as any);
@@ -40,7 +40,12 @@ export default function BrigadistaProfileScreen() {
     router.push("/theme-settings" as any);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (_) {
+      // Force navigate even if backend logout fails
+    }
     router.replace("/(auth)/welcome" as any);
   };
 
@@ -88,7 +93,7 @@ export default function BrigadistaProfileScreen() {
       icon: "notifications",
       title: "Notificaciones",
       subtitle: "Gestiona tus preferencias",
-      onPress: () => console.log("Notifications"),
+      onPress: () => router.push("/(brigadista)/notifications" as any),
       color: colors.info,
     },
     {

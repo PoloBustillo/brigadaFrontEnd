@@ -53,8 +53,8 @@ export function PhotoQuestion({
       setLoading(true);
       const result = await ImagePicker.launchCameraAsync({
         mediaTypes: ["images"],
-        quality: 0.6,
-        allowsEditing: false,
+        quality: 0.7,
+        allowsEditing: true,
         exif: false,
       });
 
@@ -84,8 +84,8 @@ export function PhotoQuestion({
       setLoading(true);
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ["images"],
-        quality: 0.6,
-        allowsEditing: false,
+        quality: 0.7,
+        allowsEditing: true,
         exif: false,
       });
 
@@ -138,6 +138,8 @@ export function PhotoQuestion({
             ]}
             onPress={launchCamera}
             activeOpacity={0.7}
+            accessibilityLabel="Tomar otra foto"
+            accessibilityRole="button"
           >
             <Ionicons name="camera-outline" size={18} color={colors.primary} />
             <Text style={[styles.retakeBtnText, { color: colors.primary }]}>
@@ -155,6 +157,8 @@ export function PhotoQuestion({
             ]}
             onPress={clearPhoto}
             activeOpacity={0.7}
+            accessibilityLabel="Eliminar foto"
+            accessibilityRole="button"
           >
             <Ionicons name="trash-outline" size={18} color={colors.error} />
             <Text style={[styles.retakeBtnText, { color: colors.error }]}>
@@ -188,6 +192,8 @@ export function PhotoQuestion({
             style={[styles.cameraBtn, { backgroundColor: colors.primary }]}
             onPress={launchCamera}
             activeOpacity={0.8}
+            accessibilityLabel="Tomar foto con la cámara"
+            accessibilityRole="button"
           >
             <Ionicons name="camera" size={32} color="#fff" />
             <Text style={styles.cameraBtnText}>Tomar foto</Text>
@@ -204,6 +210,8 @@ export function PhotoQuestion({
             ]}
             onPress={launchGallery}
             activeOpacity={0.7}
+            accessibilityLabel="Seleccionar foto de la galería"
+            accessibilityRole="button"
           >
             <Ionicons
               name="images-outline"

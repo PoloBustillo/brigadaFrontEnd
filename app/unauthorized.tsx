@@ -30,7 +30,7 @@ export default function UnauthorizedScreen() {
           router.replace("/(brigadista)");
           break;
         default:
-          router.replace("/(auth)/login");
+          router.replace("/(auth)/login-enhanced");
       }
     }
   };

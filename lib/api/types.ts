@@ -13,7 +13,18 @@ export interface LoginRequest {
 
 export interface LoginResponse {
   access_token: string;
+  refresh_token: string;
   token_type: string;
+  user: {
+    id: number;
+    email: string;
+    nombre: string;
+    apellido: string;
+    rol: string;
+    telefono: string | null;
+    activo: boolean;
+    created_at: string;
+  };
 }
 
 export interface TokenData {

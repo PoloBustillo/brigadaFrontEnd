@@ -105,7 +105,7 @@ export default function ChangePasswordScreen() {
             text: "OK",
             onPress: () => {
               // Log out user and redirect to login
-              router.replace("/(auth)/login" as any);
+              router.replace("/(auth)/login-enhanced" as any);
             },
           },
         ],

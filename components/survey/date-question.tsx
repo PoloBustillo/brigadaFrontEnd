@@ -1,20 +1,30 @@
 /**
- * 📅 DATE QUESTION — Field-friendly date picker
+ * 📅 DATE QUESTION — Hybrid date picker (native + manual steppers)
  * UX:
  * - "Hoy" quick-fill button (most common field use-case)
- * - Day / Month / Year stepper rows (thumb-friendly, no tiny calendar)
+ * - Native OS date picker as primary selection method
+ * - Day / Month / Year stepper rows for fine-tuning
  * - Large readable date display
- * - Works perfectly offline, no native picker dependency
+ * - Works offline
  * - date-fns for reliable formatting
  */
 
 import { useThemeColors } from "@/contexts/theme-context";
 import { Ionicons } from "@expo/vector-icons";
+import DateTimePicker, {
+  type DateTimePickerEvent,
+} from "@react-native-community/datetimepicker";
 import { format, isValid, parse } from "date-fns";
 import { es } from "date-fns/locale";
 import * as Haptics from "expo-haptics";
-import React, { useCallback, useMemo } from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import React, { useCallback, useMemo, useState } from "react";
+import {
+  Platform,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 interface DateQuestionProps {
   value: string | null; // ISO date string YYYY-MM-DD
@@ -49,6 +59,7 @@ export function DateQuestion({
 }: DateQuestionProps) {
   const themeColors = useThemeColors();
   const colors = colorsProp ?? themeColors;
+  const [showPicker, setShowPicker] = useState(false);
 
   // Parse current value or default to null (no selection yet)
   const parsed = useMemo(() => {
@@ -79,6 +90,41 @@ export function DateQuestion({
     const now = new Date();
     emit(now.getDate(), now.getMonth() + 1, now.getFullYear());
   };
+
+  // ── Native picker handlers ─────────────────────────────────────────────────
+
+  const handlePickerChange = (
+    event: DateTimePickerEvent,
+    selectedDate?: Date,
+  ) => {
+    // Android auto-dismisses; iOS stays open
+    if (Platform.OS === "android") {
+      setShowPicker(false);
+    }
+    if (event.type === "dismissed") {
+      setShowPicker(false);
+      return;
+    }
+    if (selectedDate) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      emit(
+        selectedDate.getDate(),
+        selectedDate.getMonth() + 1,
+        selectedDate.getFullYear(),
+      );
+    }
+  };
+
+  const openPicker = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setShowPicker(true);
+  };
+
+  const closePicker = () => {
+    setShowPicker(false);
+  };
+
+  // ── Stepper handlers ───────────────────────────────────────────────────────
 
   const adjustDay = (delta: number) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -126,6 +172,9 @@ export function DateQuestion({
     ? format(parsed, "EEEE d 'de' MMMM, yyyy", { locale: es })
     : "Sin fecha seleccionada";
 
+  // The date to open the picker with (defaults to today if nothing selected)
+  const pickerDate = parsed ?? new Date();
+
   return (
     <View style={styles.container}>
       {/* Quick "Hoy" button */}
@@ -136,6 +185,8 @@ export function DateQuestion({
         ]}
         onPress={setToday}
         activeOpacity={0.8}
+        accessibilityLabel="Seleccionar fecha de hoy"
+        accessibilityRole="button"
       >
         <Ionicons name="today-outline" size={20} color="#fff" />
         <Text style={styles.todayText}>Hoy</Text>
@@ -151,6 +202,7 @@ export function DateQuestion({
             borderWidth: hasValue ? 2 : 1.5,
           },
         ]}
+        accessibilityLabel={hasValue ? `Fecha seleccionada: ${displayText}` : "Sin fecha seleccionada"}
       >
         <Ionicons
           name="calendar"
@@ -170,33 +222,79 @@ export function DateQuestion({
         </Text>
       </View>
 
-      {/* Stepper rows */}
-      <View style={styles.steppersContainer}>
-        {/* Day */}
-        <StepperRow
-          label="Día"
-          value={day !== null ? String(day) : "—"}
-          onDecrement={() => adjustDay(-1)}
-          onIncrement={() => adjustDay(1)}
-          colors={colors}
-        />
-        {/* Month */}
-        <StepperRow
-          label="Mes"
-          value={month !== null ? MONTHS[month - 1] : "—"}
-          onDecrement={() => adjustMonth(-1)}
-          onIncrement={() => adjustMonth(1)}
-          colors={colors}
-        />
-        {/* Year */}
-        <StepperRow
-          label="Año"
-          value={year !== null ? String(year) : "—"}
-          onDecrement={() => adjustYear(-1)}
-          onIncrement={() => adjustYear(1)}
-          colors={colors}
-        />
-      </View>
+      {/* Open native picker button */}
+      <TouchableOpacity
+        style={[
+          styles.pickerBtn,
+          {
+            borderColor: colors.primary,
+            backgroundColor: colors.primary + "10",
+          },
+        ]}
+        onPress={openPicker}
+        activeOpacity={0.7}
+        accessibilityLabel={hasValue ? "Cambiar fecha" : "Seleccionar fecha"}
+        accessibilityRole="button"
+      >
+        <Ionicons name="calendar-outline" size={20} color={colors.primary} />
+        <Text style={[styles.pickerBtnText, { color: colors.primary }]}>
+          {hasValue ? "Cambiar fecha" : "Seleccionar fecha"}
+        </Text>
+      </TouchableOpacity>
+
+      {/* Native DateTimePicker */}
+      {showPicker && (
+        <View>
+          <DateTimePicker
+            value={pickerDate}
+            mode="date"
+            display={Platform.OS === "ios" ? "inline" : "default"}
+            onChange={handlePickerChange}
+            locale="es-ES"
+            maximumDate={new Date(2100, 0, 1)}
+            minimumDate={new Date(1900, 0, 1)}
+          />
+          {Platform.OS === "ios" && (
+            <TouchableOpacity
+              style={[styles.doneBtn, { backgroundColor: colors.primary }]}
+              onPress={closePicker}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.doneBtnText}>Listo</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+
+      {/* Fine-tune steppers (collapsed when picker is shown) */}
+      {!showPicker && hasValue && (
+        <View style={styles.steppersContainer}>
+          <Text style={[styles.steppersHint, { color: colors.textTertiary }]}>
+            Ajuste rápido
+          </Text>
+          <StepperRow
+            label="Día"
+            value={String(day!)}
+            onDecrement={() => adjustDay(-1)}
+            onIncrement={() => adjustDay(1)}
+            colors={colors}
+          />
+          <StepperRow
+            label="Mes"
+            value={MONTHS[month! - 1]}
+            onDecrement={() => adjustMonth(-1)}
+            onIncrement={() => adjustMonth(1)}
+            colors={colors}
+          />
+          <StepperRow
+            label="Año"
+            value={String(year!)}
+            onDecrement={() => adjustYear(-1)}
+            onIncrement={() => adjustYear(1)}
+            colors={colors}
+          />
+        </View>
+      )}
     </View>
   );
 }
@@ -231,7 +329,9 @@ function StepperRow({
           onPress={onDecrement}
           style={styles.stepperBtn}
           activeOpacity={0.6}
-          hitSlop={8}
+          hitSlop={10}
+          accessibilityLabel={`Disminuir ${label}`}
+          accessibilityRole="button"
         >
           <Ionicons name="chevron-back" size={22} color={colors.primary} />
         </TouchableOpacity>
@@ -242,7 +342,9 @@ function StepperRow({
           onPress={onIncrement}
           style={styles.stepperBtn}
           activeOpacity={0.6}
-          hitSlop={8}
+          hitSlop={10}
+          accessibilityLabel={`Aumentar ${label}`}
+          accessibilityRole="button"
         >
           <Ionicons name="chevron-forward" size={22} color={colors.primary} />
         </TouchableOpacity>
@@ -284,16 +386,49 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     textTransform: "capitalize",
   },
-  steppersContainer: {
+  pickerBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     gap: 8,
+    paddingVertical: 14,
+    borderRadius: 14,
+    borderWidth: 1.5,
+  },
+  pickerBtnText: {
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  doneBtn: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    borderRadius: 12,
+    marginTop: 8,
+  },
+  doneBtnText: {
+    color: "#fff",
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  steppersContainer: {
+    gap: 6,
+    marginTop: 4,
+  },
+  steppersHint: {
+    fontSize: 12,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: 2,
   },
   stepperRow: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 14,
-    borderWidth: 1.5,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1,
   },
   stepperLabel: {
     fontSize: 13,
@@ -308,11 +443,11 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   stepperBtn: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 20,
+    borderRadius: 22,
   },
   stepperValue: {
     fontSize: 17,

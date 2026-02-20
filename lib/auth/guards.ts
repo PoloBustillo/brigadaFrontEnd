@@ -31,7 +31,7 @@ export function useProtectedRoute() {
     if (!isAuthenticated && inProtectedGroup) {
       // Redirect to login if trying to access protected route
       console.log("Not authenticated, redirecting to login");
-      router.replace("/(auth)/login");
+      router.replace("/(auth)/login-enhanced");
     } else if (isAuthenticated && inAuthGroup) {
       // Redirect to home if authenticated user tries to access auth screens
       console.log("Already authenticated, redirecting to home");
@@ -73,7 +73,7 @@ export function useRequireRole(allowedRoles: UserRole[]) {
 
     if (!user) {
       console.log("No user, redirecting to login");
-      router.replace("/(auth)/login");
+      router.replace("/(auth)/login-enhanced");
       return;
     }
 
@@ -95,7 +95,7 @@ export function useRequirePermission(requiredPermission: Permission) {
     if (loading) return;
 
     if (!user) {
-      router.replace("/(auth)/login");
+      router.replace("/(auth)/login-enhanced");
       return;
     }
 
@@ -120,7 +120,7 @@ export function useRequireAnyPermission(permissions: Permission[]) {
     if (loading) return;
 
     if (!user) {
-      router.replace("/(auth)/login");
+      router.replace("/(auth)/login-enhanced");
       return;
     }
 
@@ -163,7 +163,7 @@ export function useCheckUserActive() {
     if (user && user.state === "DISABLED") {
       console.log("User is deactivated, logging out");
       logout();
-      router.replace("/(auth)/login");
+      router.replace("/(auth)/login-enhanced");
     }
   }, [user]);
 }
