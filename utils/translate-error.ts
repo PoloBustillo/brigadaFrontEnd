@@ -39,7 +39,11 @@ export function translateError(message: string | undefined | null): string {
   if (!message) return "Ocurrió un error inesperado";
 
   // Already in Spanish? Return as-is (simple heuristic: contains common Spanish words)
-  if (/error de|no se pudo|intenta|inválid|obligatori|conexión|servidor/i.test(message)) {
+  if (
+    /error de|no se pudo|intenta|inválid|obligatori|conexión|servidor/i.test(
+      message,
+    )
+  ) {
     return message;
   }
 

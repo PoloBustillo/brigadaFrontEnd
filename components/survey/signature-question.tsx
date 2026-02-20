@@ -206,7 +206,10 @@ export function SignatureQuestion({
         <TouchableOpacity
           style={[
             styles.actionBtn,
-            { borderColor: colors.primary + "40", backgroundColor: colors.surface },
+            {
+              borderColor: colors.primary + "40",
+              backgroundColor: colors.surface,
+            },
           ]}
           onPress={handleFullscreenOpen}
           activeOpacity={0.7}
@@ -225,7 +228,10 @@ export function SignatureQuestion({
         <View
           style={[
             styles.statusCard,
-            { backgroundColor: colors.success + "10", borderColor: colors.success },
+            {
+              backgroundColor: colors.success + "10",
+              borderColor: colors.success,
+            },
           ]}
         >
           <View style={styles.statusHeader}>
@@ -264,19 +270,32 @@ export function SignatureQuestion({
           ]}
         >
           {/* Fullscreen header */}
-          <View style={[styles.fullscreenHeader, { borderBottomColor: colors.border }]}>
+          <View
+            style={[
+              styles.fullscreenHeader,
+              { borderBottomColor: colors.border },
+            ]}
+          >
             <Text style={[styles.fullscreenTitle, { color: colors.text }]}>
               Firma
             </Text>
             <TouchableOpacity
               onPress={handleFullscreenDone}
-              style={[styles.fullscreenDoneBtn, { backgroundColor: colors.primary }]}
+              style={[
+                styles.fullscreenDoneBtn,
+                { backgroundColor: colors.primary },
+              ]}
               activeOpacity={0.7}
               accessibilityLabel="Guardar firma y cerrar"
               accessibilityRole="button"
             >
               <Ionicons name="checkmark" size={20} color={colors.background} />
-              <Text style={[styles.fullscreenDoneBtnText, { color: colors.background }]}>
+              <Text
+                style={[
+                  styles.fullscreenDoneBtnText,
+                  { color: colors.background },
+                ]}
+              >
                 Listo
               </Text>
             </TouchableOpacity>
@@ -313,15 +332,25 @@ export function SignatureQuestion({
             <TouchableOpacity
               style={[
                 styles.actionBtn,
-                { borderColor: colors.border, backgroundColor: colors.surface, flex: 1 },
+                {
+                  borderColor: colors.border,
+                  backgroundColor: colors.surface,
+                  flex: 1,
+                },
               ]}
               onPress={handleFullscreenUndo}
               activeOpacity={0.7}
               accessibilityLabel="Deshacer último trazo"
               accessibilityRole="button"
             >
-              <Ionicons name="arrow-undo" size={18} color={colors.textSecondary} />
-              <Text style={[styles.actionBtnText, { color: colors.textSecondary }]}>
+              <Ionicons
+                name="arrow-undo"
+                size={18}
+                color={colors.textSecondary}
+              />
+              <Text
+                style={[styles.actionBtnText, { color: colors.textSecondary }]}
+              >
                 Deshacer
               </Text>
             </TouchableOpacity>

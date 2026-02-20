@@ -18,10 +18,9 @@ export class CacheRepository {
       const result = await connection.getFirstAsync<{
         cache_value: string;
         expires_at: string | null;
-      }>(
-        `SELECT cache_value, expires_at FROM kv_cache WHERE cache_key = ?`,
-        [key],
-      );
+      }>(`SELECT cache_value, expires_at FROM kv_cache WHERE cache_key = ?`, [
+        key,
+      ]);
 
       if (!result) return null;
 
@@ -44,10 +43,15 @@ export class CacheRepository {
   /**
    * Set a cached value. Optionally set a TTL in milliseconds.
    */
-  async set(key: string, value: string | object, ttlMs?: number): Promise<void> {
+  async set(
+    key: string,
+    value: string | object,
+    ttlMs?: number,
+  ): Promise<void> {
     try {
       const connection = db.getConnection();
-      const serialized = typeof value === "string" ? value : JSON.stringify(value);
+      const serialized =
+        typeof value === "string" ? value : JSON.stringify(value);
       const expiresAt = ttlMs
         ? new Date(Date.now() + ttlMs).toISOString()
         : null;
@@ -68,10 +72,9 @@ export class CacheRepository {
   async delete(key: string): Promise<void> {
     try {
       const connection = db.getConnection();
-      await connection.runAsync(
-        `DELETE FROM kv_cache WHERE cache_key = ?`,
-        [key],
-      );
+      await connection.runAsync(`DELETE FROM kv_cache WHERE cache_key = ?`, [
+        key,
+      ]);
     } catch (error) {
       console.error(`❌ Cache delete failed for "${key}":`, error);
     }

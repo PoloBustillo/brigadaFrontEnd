@@ -8,8 +8,8 @@
  * - Manejo de errores parciales por documento
  */
 
-import { offlineSyncService } from "@/lib/services/offline-sync";
 import { syncRepository } from "@/lib/db/repositories/sync.repository";
+import { offlineSyncService } from "@/lib/services/offline-sync";
 import NetInfo, { NetInfoState } from "@react-native-community/netinfo";
 import React, {
   createContext,

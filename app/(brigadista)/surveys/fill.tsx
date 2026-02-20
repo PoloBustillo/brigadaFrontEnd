@@ -229,9 +229,7 @@ export default function FillSurveyScreen() {
           // Resume existing draft
           draftIdRef.current = existingDraft.response_id;
           try {
-            const savedAnswers = JSON.parse(
-              existingDraft.answers_json || "{}",
-            );
+            const savedAnswers = JSON.parse(existingDraft.answers_json || "{}");
             const numericAnswers: Record<number, any> = {};
             for (const [key, val] of Object.entries(savedAnswers)) {
               numericAnswers[Number(key)] = val;
@@ -468,11 +466,7 @@ export default function FillSurveyScreen() {
       }
     } catch (err: any) {
       const msg = getErrorMessage(err);
-      Alert.alert(
-        "No se pudo enviar",
-        msg,
-        [{ text: "OK" }],
-      );
+      Alert.alert("No se pudo enviar", msg, [{ text: "OK" }]);
     } finally {
       setSubmitLoading(false);
     }
@@ -499,9 +493,7 @@ export default function FillSurveyScreen() {
           style={[styles.backBtn, { backgroundColor: colors.primary }]}
           onPress={() => router.back()}
         >
-          <Text style={[styles.backBtnText, { color: "#fff" }]}>
-            Volver
-          </Text>
+          <Text style={[styles.backBtnText, { color: "#fff" }]}>Volver</Text>
         </TouchableOpacity>
       </View>
     );
@@ -527,7 +519,9 @@ export default function FillSurveyScreen() {
         <Ionicons
           name={syncedOnSubmit ? "checkmark-circle" : "cloud-offline-outline"}
           size={80}
-          color={syncedOnSubmit ? colors.success : colors.warning ?? "#f59e0b"}
+          color={
+            syncedOnSubmit ? colors.success : (colors.warning ?? "#f59e0b")
+          }
         />
         <Text style={[styles.successTitle, { color: colors.text }]}>
           ¡Encuesta completada!
@@ -624,7 +618,12 @@ export default function FillSurveyScreen() {
 
       {/* ── Offline banner ──────────────────────────────────────────────── */}
       {!isOnline && (
-        <View style={[styles.offlineBanner, { backgroundColor: colors.warning ?? "#f59e0b" }]}>
+        <View
+          style={[
+            styles.offlineBanner,
+            { backgroundColor: colors.warning ?? "#f59e0b" },
+          ]}
+        >
           <Ionicons name="cloud-offline-outline" size={16} color="#fff" />
           <Text style={styles.offlineBannerText}>
             Sin conexión — las respuestas se guardan localmente
@@ -634,7 +633,12 @@ export default function FillSurveyScreen() {
 
       {/* ── Auto-save failure warning ─────────────────────────────────── */}
       {showSaveWarning && (
-        <View style={[styles.offlineBanner, { backgroundColor: colors.error ?? "#ef4444" }]}>
+        <View
+          style={[
+            styles.offlineBanner,
+            { backgroundColor: colors.error ?? "#ef4444" },
+          ]}
+        >
           <Ionicons name="alert-circle-outline" size={16} color="#fff" />
           <Text style={styles.offlineBannerText}>
             No se pudo guardar automáticamente. Tus respuestas podrían perderse.
@@ -768,7 +772,9 @@ export default function FillSurveyScreen() {
             <ActivityIndicator color={colors.background} size="small" />
           ) : (
             <>
-              <Text style={[styles.navBtnPrimaryText, { color: colors.background }]}>
+              <Text
+                style={[styles.navBtnPrimaryText, { color: colors.background }]}
+              >
                 {isLast ? "Enviar" : "Siguiente"}
               </Text>
               <Ionicons

@@ -86,8 +86,7 @@ async function processDocumentImage(uri: string): Promise<string> {
 // ── OCR helpers ────────────────────────────────────────────────────────────────
 
 /** Common INE field patterns */
-const CURP_RE =
-  /[A-Z]{4}\d{6}[HM][A-Z]{5}[A-Z\d]{2}/;
+const CURP_RE = /[A-Z]{4}\d{6}[HM][A-Z]{5}[A-Z\d]{2}/;
 const CLAVE_ELECTOR_RE = /[A-Z]{6}\d{8}[HM]\d{3}/;
 const SECCION_RE = /SECCI[OÓ]N\s*(\d{4})/i;
 const VIGENCIA_RE = /VIGENCIA\s*(\d{4})/i;
@@ -198,16 +197,12 @@ async function extractIneOcr(
   }
 
   // Apellido paterno: look for "APELLIDO PATERNO" or try to extract from name block
-  const apPaternoIdx = lines.findIndex((l) =>
-    /APELLIDO\s*PATERNO/i.test(l),
-  );
+  const apPaternoIdx = lines.findIndex((l) => /APELLIDO\s*PATERNO/i.test(l));
   if (apPaternoIdx >= 0 && apPaternoIdx + 1 < lines.length) {
     result.apellidoPaterno = lines[apPaternoIdx + 1];
   }
 
-  const apMaternoIdx = lines.findIndex((l) =>
-    /APELLIDO\s*MATERNO/i.test(l),
-  );
+  const apMaternoIdx = lines.findIndex((l) => /APELLIDO\s*MATERNO/i.test(l));
   if (apMaternoIdx >= 0 && apMaternoIdx + 1 < lines.length) {
     result.apellidoMaterno = lines[apMaternoIdx + 1];
   }
@@ -243,9 +238,7 @@ export function INEQuestion({
 }: INEQuestionProps) {
   const themeColors = useThemeColors();
   const colors = colorsProp ?? themeColors;
-  const [loading, setLoading] = useState<"front" | "back" | "ocr" | null>(
-    null,
-  );
+  const [loading, setLoading] = useState<"front" | "back" | "ocr" | null>(null);
   const [ocrEditing, setOcrEditing] = useState(false);
   const [editableOcr, setEditableOcr] = useState<INEOcrResult | null>(null);
 
@@ -535,7 +528,8 @@ export function INEQuestion({
           >
             • Coloca el documento sobre una superficie plana{"\n"}• Asegúrate de
             buena iluminación, sin reflejos{"\n"}• Encuadra todo el documento
-            dentro del recuadro{"\n"}• La información se extraerá automáticamente
+            dentro del recuadro{"\n"}• La información se extraerá
+            automáticamente
           </Text>
         </View>
       </View>
@@ -552,26 +546,38 @@ export function INEQuestion({
             ¿La foto se ve bien?
           </Text>
           <Text
-            style={[
-              styles.previewConfirmHint,
-              { color: colors.textSecondary },
-            ]}
+            style={[styles.previewConfirmHint, { color: colors.textSecondary }]}
           >
             Verifica que el texto sea legible y todo el documento sea visible
           </Text>
-          <View style={[styles.previewCard, { borderColor: colors.primary, backgroundColor: colors.surface }]}>
-            <Image source={{ uri: pendingCapture.uri }} style={styles.previewImageLarge} />
+          <View
+            style={[
+              styles.previewCard,
+              { borderColor: colors.primary, backgroundColor: colors.surface },
+            ]}
+          >
+            <Image
+              source={{ uri: pendingCapture.uri }}
+              style={styles.previewImageLarge}
+            />
           </View>
           <View style={styles.previewConfirmActions}>
             <TouchableOpacity
               style={[
                 styles.previewRejectBtn,
-                { borderColor: colors.error, backgroundColor: colors.error + "10" },
+                {
+                  borderColor: colors.error,
+                  backgroundColor: colors.error + "10",
+                },
               ]}
               onPress={rejectCapture}
               activeOpacity={0.7}
             >
-              <Ionicons name="close-circle-outline" size={20} color={colors.error} />
+              <Ionicons
+                name="close-circle-outline"
+                size={20}
+                color={colors.error}
+              />
               <Text style={[styles.previewBtnText, { color: colors.error }]}>
                 Retomar
               </Text>
@@ -594,10 +600,12 @@ export function INEQuestion({
       )}
 
       {/* Front side */}
-      {!pendingCapture && renderSideCapture("front", "Frente", "card-outline", data.front)}
+      {!pendingCapture &&
+        renderSideCapture("front", "Frente", "card-outline", data.front)}
 
       {/* Back side */}
-      {!pendingCapture && renderSideCapture("back", "Reverso", "card", data.back)}
+      {!pendingCapture &&
+        renderSideCapture("back", "Reverso", "card", data.back)}
 
       {/* OCR loading indicator */}
       {loading === "ocr" && (
@@ -654,7 +662,7 @@ export function INEQuestion({
                     editableOcr.confidence > 0.9
                       ? colors.success
                       : editableOcr.confidence > 0.7
-                        ? colors.warning ?? "#f59e0b"
+                        ? (colors.warning ?? "#f59e0b")
                         : colors.error
                   }
                 />
@@ -666,7 +674,7 @@ export function INEQuestion({
                         editableOcr.confidence > 0.9
                           ? colors.success
                           : editableOcr.confidence > 0.7
-                            ? colors.warning ?? "#f59e0b"
+                            ? (colors.warning ?? "#f59e0b")
                             : colors.error,
                     },
                   ]}
@@ -700,13 +708,21 @@ export function INEQuestion({
                   <Text
                     style={[
                       styles.ocrFieldLabel,
-                      { color: isLowConfidence ? colors.error : colors.textSecondary },
+                      {
+                        color: isLowConfidence
+                          ? colors.error
+                          : colors.textSecondary,
+                      },
                     ]}
                   >
                     {label}
                   </Text>
                   {isLowConfidence && (
-                    <Ionicons name="alert-circle" size={14} color={colors.error} />
+                    <Ionicons
+                      name="alert-circle"
+                      size={14}
+                      color={colors.error}
+                    />
                   )}
                 </View>
                 <TextInput
@@ -714,7 +730,9 @@ export function INEQuestion({
                     styles.ocrFieldInput,
                     {
                       color: colors.text,
-                      borderColor: isLowConfidence ? colors.error + "60" : colors.border,
+                      borderColor: isLowConfidence
+                        ? colors.error + "60"
+                        : colors.border,
                       backgroundColor: isLowConfidence
                         ? colors.error + "08"
                         : colors.background,
@@ -745,18 +763,27 @@ export function INEQuestion({
         <View
           style={[
             styles.ocrSummary,
-            { backgroundColor: colors.success + "10", borderColor: colors.success },
+            {
+              backgroundColor: colors.success + "10",
+              borderColor: colors.success,
+            },
           ]}
         >
           <View style={styles.ocrHeader}>
-            <Ionicons name="checkmark-circle" size={18} color={colors.success} />
+            <Ionicons
+              name="checkmark-circle"
+              size={18}
+              color={colors.success}
+            />
             <Text style={[styles.ocrTitle, { color: colors.success }]}>
               Datos confirmados
             </Text>
-            <TouchableOpacity onPress={() => {
-              setEditableOcr(data.ocrData);
-              setOcrEditing(true);
-            }}>
+            <TouchableOpacity
+              onPress={() => {
+                setEditableOcr(data.ocrData);
+                setOcrEditing(true);
+              }}
+            >
               <Text style={[styles.editLink, { color: colors.primary }]}>
                 Editar
               </Text>
@@ -764,16 +791,21 @@ export function INEQuestion({
           </View>
           {data.ocrData.nombre ? (
             <Text style={[styles.ocrSummaryLine, { color: colors.text }]}>
-              {data.ocrData.nombre} {data.ocrData.apellidoPaterno} {data.ocrData.apellidoMaterno}
+              {data.ocrData.nombre} {data.ocrData.apellidoPaterno}{" "}
+              {data.ocrData.apellidoMaterno}
             </Text>
           ) : null}
           {data.ocrData.curp ? (
-            <Text style={[styles.ocrSummaryLine, { color: colors.textSecondary }]}>
+            <Text
+              style={[styles.ocrSummaryLine, { color: colors.textSecondary }]}
+            >
               CURP: {data.ocrData.curp}
             </Text>
           ) : null}
           {data.ocrData.claveElector ? (
-            <Text style={[styles.ocrSummaryLine, { color: colors.textSecondary }]}>
+            <Text
+              style={[styles.ocrSummaryLine, { color: colors.textSecondary }]}
+            >
               Clave: {data.ocrData.claveElector}
             </Text>
           ) : null}

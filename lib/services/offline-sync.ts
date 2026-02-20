@@ -15,19 +15,19 @@
  */
 
 import {
-  type SurveyResponseCreate,
   submitBatchResponses,
+  type SurveyResponseCreate,
 } from "@/lib/api/mobile";
+import { db } from "@/lib/db/database";
+import { fileRepository } from "@/lib/db/repositories/file.repository";
 import {
   responseRepository,
   type CreateResponseParams,
 } from "@/lib/db/repositories/response.repository";
-import { fileRepository } from "@/lib/db/repositories/file.repository";
 import { syncRepository } from "@/lib/db/repositories/sync.repository";
-import { db } from "@/lib/db/database";
+import * as Application from "expo-application";
 import * as Crypto from "expo-crypto";
 import { Platform } from "react-native";
-import * as Application from "expo-application";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -52,12 +52,12 @@ export interface SubmitResponseInput {
   responseId: string;
   versionId: number;
   startedAt: string;
-  answers: Array<{
+  answers: {
     question_id: number;
     answer_value: any;
     answered_at: string;
     media_url?: string;
-  }>;
+  }[];
 }
 
 export interface SyncResult {
@@ -95,8 +95,7 @@ class OfflineSyncService {
     await this.initialize();
 
     const responseId = Crypto.randomUUID();
-    const appVersion =
-      Application.nativeApplicationVersion ?? "unknown";
+    const appVersion = Application.nativeApplicationVersion ?? "unknown";
     const osVersion = Platform.Version?.toString() ?? "unknown";
 
     const params: CreateResponseParams = {
@@ -129,9 +128,7 @@ class OfflineSyncService {
         input.responseId,
       );
       if (!existing) {
-        console.warn(
-          `⚠️ Response ${input.responseId} not found for auto-save`,
-        );
+        console.warn(`⚠️ Response ${input.responseId} not found for auto-save`);
         return;
       }
 
@@ -241,9 +238,7 @@ class OfflineSyncService {
     for (const item of pending) {
       try {
         if (item.operation_type === "create_response") {
-          const payload = JSON.parse(
-            item.payload_json,
-          ) as SurveyResponseCreate;
+          const payload = JSON.parse(item.payload_json) as SurveyResponseCreate;
 
           await submitBatchResponses(payload);
 
@@ -259,10 +254,7 @@ class OfflineSyncService {
           successCount++;
         }
       } catch (error: any) {
-        console.error(
-          `❌ Failed to sync ${item.entity_id}:`,
-          error.message,
-        );
+        console.error(`❌ Failed to sync ${item.entity_id}:`, error.message);
         await syncRepository.markAsFailed(
           item.queue_id,
           error.message ?? "Unknown error",

@@ -14,11 +14,11 @@ import { useAuth } from "@/contexts/auth-context";
 import { useSync } from "@/contexts/sync-context";
 import { useThemeColors } from "@/contexts/theme-context";
 import { useTabBarHeight } from "@/hooks/use-tab-bar-height";
-import { cacheRepository } from "@/lib/db/repositories/cache.repository";
 import {
   getAssignedSurveys,
   type AssignedSurveyResponse,
 } from "@/lib/api/mobile";
+import { cacheRepository } from "@/lib/db/repositories/cache.repository";
 import { offlineSyncService } from "@/lib/services/offline-sync";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
@@ -285,7 +285,10 @@ export default function BrigadistaHome() {
 
   const handleSync = async () => {
     if (!isOnline) {
-      Alert.alert("Sin conexión", "Necesitas conexión a internet para sincronizar.");
+      Alert.alert(
+        "Sin conexión",
+        "Necesitas conexión a internet para sincronizar.",
+      );
       return;
     }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -623,7 +626,10 @@ export default function BrigadistaHome() {
                 color={colors.textTertiary}
               />
               <Text
-                style={[styles.emptyStateTitle, { color: colors.textSecondary }]}
+                style={[
+                  styles.emptyStateTitle,
+                  { color: colors.textSecondary },
+                ]}
               >
                 Sin encuestas asignadas
               </Text>

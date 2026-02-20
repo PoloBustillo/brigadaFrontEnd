@@ -202,7 +202,11 @@ export function DateQuestion({
             borderWidth: hasValue ? 2 : 1.5,
           },
         ]}
-        accessibilityLabel={hasValue ? `Fecha seleccionada: ${displayText}` : "Sin fecha seleccionada"}
+        accessibilityLabel={
+          hasValue
+            ? `Fecha seleccionada: ${displayText}`
+            : "Sin fecha seleccionada"
+        }
       >
         <Ionicons
           name="calendar"

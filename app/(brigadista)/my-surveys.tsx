@@ -18,8 +18,8 @@
 
 import { AppHeader } from "@/components/shared";
 import { typography } from "@/constants/typography";
-import { useThemeColors } from "@/contexts/theme-context";
 import { useSync } from "@/contexts/sync-context";
+import { useThemeColors } from "@/contexts/theme-context";
 import { useTabBarHeight } from "@/hooks/use-tab-bar-height";
 import { getAssignedSurveys } from "@/lib/api/mobile";
 import { Ionicons } from "@expo/vector-icons";
@@ -398,15 +398,28 @@ export default function BrigadistaSurveysScreen() {
 
       {/* Offline / sync status banner */}
       {!isOnline && (
-        <View style={[styles.offlineBanner, { backgroundColor: colors.warning ?? "#f59e0b" }]}>
+        <View
+          style={[
+            styles.offlineBanner,
+            { backgroundColor: colors.warning ?? "#f59e0b" },
+          ]}
+        >
           <Ionicons name="cloud-offline-outline" size={16} color="#fff" />
           <Text style={styles.offlineBannerText}>
-            Sin conexión{pendingItems.length > 0 ? ` — ${pendingItems.length} pendiente(s)` : ""}
+            Sin conexión
+            {pendingItems.length > 0
+              ? ` — ${pendingItems.length} pendiente(s)`
+              : ""}
           </Text>
         </View>
       )}
       {isOnline && isSyncing && (
-        <View style={[styles.syncBanner, { backgroundColor: colors.primary + "18" }]}>
+        <View
+          style={[
+            styles.syncBanner,
+            { backgroundColor: colors.primary + "18" },
+          ]}
+        >
           <ActivityIndicator size="small" color={colors.primary} />
           <Text style={[styles.syncBannerText, { color: colors.primary }]}>
             Sincronizando respuestas…
