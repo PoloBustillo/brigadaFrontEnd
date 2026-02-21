@@ -205,11 +205,38 @@ export default function EncargadoHome() {
   const fetchDashboardData = async () => {
     setFetchError(false);
     try {
-      const [members, assignments, responses] = await Promise.all([
-        getMyTeam(),
-        getMyCreatedAssignments(),
-        getTeamResponses(0, 200),
-      ]);
+      const [membersResult, assignmentsResult, responsesResult] =
+        await Promise.allSettled([
+          getMyTeam(),
+          getMyCreatedAssignments(),
+          getTeamResponses(0, 200),
+        ]);
+
+      // Team members are critical — if this fails, mark error
+      if (membersResult.status === "rejected") {
+        setFetchError(true);
+        setStats([
+          { icon: "people", value: 0, label: "Mi Equipo", color: colors.primary },
+          { icon: "document-text", value: 0, label: "Mis Encuestas", color: colors.success },
+          { icon: "clipboard", value: 0, label: "Respuestas", color: colors.info },
+          { icon: "trending-up", value: "0%", label: "Completado", color: colors.warning },
+        ]);
+        return;
+      }
+
+      const members = membersResult.value;
+      const assignments =
+        assignmentsResult.status === "fulfilled" ? assignmentsResult.value : [];
+      const responses =
+        responsesResult.status === "fulfilled" ? responsesResult.value : [];
+
+      // If secondary data failed, show a soft banner
+      if (
+        assignmentsResult.status === "rejected" ||
+        responsesResult.status === "rejected"
+      ) {
+        setFetchError(true);
+      }
 
       const uniqueSurveyIds = new Set(assignments.map((a) => a.survey_id));
       const assignmentsWithResponses = assignments.filter(

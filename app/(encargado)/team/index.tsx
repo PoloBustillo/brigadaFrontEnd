@@ -52,10 +52,24 @@ export default function EncargadoTeam() {
   const fetchTeam = async () => {
     setFetchError(false);
     try {
-      const [members, assignments] = await Promise.all([
+      const [membersResult, assignmentsResult] = await Promise.allSettled([
         getMyTeam(),
         getMyCreatedAssignments(),
       ]);
+
+      // Team list is critical — if this fails, mark error
+      if (membersResult.status === "rejected") {
+        setFetchError(true);
+        return;
+      }
+
+      const members = membersResult.value;
+      const assignments =
+        assignmentsResult.status === "fulfilled" ? assignmentsResult.value : [];
+
+      if (assignmentsResult.status === "rejected") {
+        setFetchError(true);
+      }
       const display: TeamMemberDisplay[] = members.map((m) => {
         const userAssignments = assignments.filter((a) => a.user_id === m.id);
         const uniqueSurveys = new Set(userAssignments.map((a) => a.survey_id))
