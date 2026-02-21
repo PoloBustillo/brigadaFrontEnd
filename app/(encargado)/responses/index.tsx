@@ -7,6 +7,7 @@
 import { AppHeader, CMSNotice } from "@/components/shared";
 import { useThemeColors } from "@/contexts/theme-context";
 import { useTabBarHeight } from "@/hooks/use-tab-bar-height";
+import { getCached, setCached } from "@/lib/api/memory-cache";
 import { getTeamResponses, type TeamResponse } from "@/lib/api/assignments";
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
@@ -23,16 +24,19 @@ import {
 export default function EncargadoResponses() {
   const colors = useThemeColors();
   const { contentPadding } = useTabBarHeight();
-  const [responses, setResponses] = useState<TeamResponse[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const initialResponses = getCached<TeamResponse[]>("encargado:responses");
+  const [responses, setResponses] = useState<TeamResponse[]>(initialResponses ?? []);
+  const [isLoading, setIsLoading] = useState(!initialResponses);
   const [fetchError, setFetchError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  const fetchResponses = async () => {
+  const fetchResponses = async (silent = false) => {
+    if (!silent) setIsLoading(true);
     setFetchError(false);
     try {
       const data = await getTeamResponses();
       setResponses(data);
+      setCached("encargado:responses", data);
     } catch {
       setFetchError(true);
     } finally {
@@ -42,7 +46,7 @@ export default function EncargadoResponses() {
   };
 
   useEffect(() => {
-    fetchResponses();
+    fetchResponses(!!initialResponses);
   }, []);
 
   const onRefresh = () => {
@@ -78,7 +82,7 @@ export default function EncargadoResponses() {
       </View>
 
       {fetchError && responses.length > 0 && (
-        <TouchableOpacity style={styles.errorBanner} onPress={fetchResponses}>
+        <TouchableOpacity style={styles.errorBanner} onPress={() => fetchResponses()}>
           <Text style={styles.errorBannerText}>
             No se pudo actualizar. Toca para reintentar.
           </Text>
@@ -138,7 +142,7 @@ export default function EncargadoResponses() {
               fetchError ? (
                 <TouchableOpacity
                   style={styles.emptyState}
-                  onPress={fetchResponses}
+                  onPress={() => fetchResponses()}
                   activeOpacity={0.7}
                 >
                   <Ionicons

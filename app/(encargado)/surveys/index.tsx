@@ -7,6 +7,7 @@
 import { AppHeader, CMSNotice } from "@/components/shared";
 import { useThemeColors } from "@/contexts/theme-context";
 import { useTabBarHeight } from "@/hooks/use-tab-bar-height";
+import { getCached, setCached } from "@/lib/api/memory-cache";
 import type { AssignmentDetail } from "@/lib/api/assignments";
 import { getMyCreatedAssignments } from "@/lib/api/assignments";
 import { Ionicons } from "@expo/vector-icons";
@@ -54,8 +55,9 @@ function groupBySurvey(assignments: AssignmentDetail[]): SurveyGroup[] {
 export default function EncargadoSurveys() {
   const colors = useThemeColors();
   const { contentPadding } = useTabBarHeight();
-  const [surveys, setSurveys] = useState<SurveyGroup[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const initialSurveys = getCached<SurveyGroup[]>("encargado:surveys");
+  const [surveys, setSurveys] = useState<SurveyGroup[]>(initialSurveys ?? []);
+  const [isLoading, setIsLoading] = useState(!initialSurveys);
   const [fetchError, setFetchError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -72,11 +74,14 @@ export default function EncargadoSurveys() {
     },
   };
 
-  const fetchSurveys = async () => {
+  const fetchSurveys = async (silent = false) => {
+    if (!silent) setIsLoading(true);
     setFetchError(false);
     try {
       const data = await getMyCreatedAssignments();
-      setSurveys(groupBySurvey(data));
+      const grouped = groupBySurvey(data);
+      setSurveys(grouped);
+      setCached("encargado:surveys", grouped);
     } catch {
       setFetchError(true);
     } finally {
@@ -86,7 +91,7 @@ export default function EncargadoSurveys() {
   };
 
   useEffect(() => {
-    fetchSurveys();
+    fetchSurveys(!!initialSurveys);
   }, []);
 
   const onRefresh = () => {
@@ -106,7 +111,7 @@ export default function EncargadoSurveys() {
       </View>
 
       {fetchError && surveys.length > 0 && (
-        <TouchableOpacity style={styles.errorBanner} onPress={fetchSurveys}>
+        <TouchableOpacity style={styles.errorBanner} onPress={() => fetchSurveys()}>
           <Text style={styles.errorBannerText}>
             No se pudo actualizar. Toca para reintentar.
           </Text>
@@ -176,7 +181,7 @@ export default function EncargadoSurveys() {
               fetchError ? (
                 <TouchableOpacity
                   style={styles.emptyState}
-                  onPress={fetchSurveys}
+                  onPress={() => fetchSurveys()}
                   activeOpacity={0.7}
                 >
                   <Ionicons

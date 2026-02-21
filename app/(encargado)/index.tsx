@@ -13,6 +13,7 @@ import { ThemeToggleIcon } from "@/components/ui/theme-toggle";
 import { useAuth } from "@/contexts/auth-context";
 import { useThemeColors } from "@/contexts/theme-context";
 import { useTabBarHeight } from "@/hooks/use-tab-bar-height";
+import { getCached, setCached } from "@/lib/api/memory-cache";
 import {
   getMyCreatedAssignments,
   getMyTeam,
@@ -188,10 +189,11 @@ export default function EncargadoHome() {
   const { user, logout } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
-  const [isLoading, setIsLoading] = useState(true);
+  const initialDashboard = getCached<{ stats: StatCardProps[]; teamMembers: TeamMemberCardProps[] }>("encargado:dashboard");
+  const [isLoading, setIsLoading] = useState(!initialDashboard);
   const [fetchError, setFetchError] = useState(false);
-  const [stats, setStats] = useState<StatCardProps[]>([]);
-  const [teamMembers, setTeamMembers] = useState<TeamMemberCardProps[]>([]);
+  const [stats, setStats] = useState<StatCardProps[]>(initialDashboard?.stats ?? []);
+  const [teamMembers, setTeamMembers] = useState<TeamMemberCardProps[]>(initialDashboard?.teamMembers ?? []);
 
   const formatLastActive = (isoDate: string | null) => {
     if (!isoDate) return "Sin actividad reciente";
@@ -204,7 +206,7 @@ export default function EncargadoHome() {
     return `Hace ${diffDays}d`;
   };
 
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = async (silent = false) => {
     setFetchError(false);
     try {
       const [membersResult, assignmentsResult, responsesResult] =
@@ -217,12 +219,14 @@ export default function EncargadoHome() {
       // Team members are critical — if this fails, mark error
       if (membersResult.status === "rejected") {
         setFetchError(true);
-        setStats([
-          { icon: "people", value: 0, label: "Mi Equipo", color: colors.primary },
-          { icon: "document-text", value: 0, label: "Mis Encuestas", color: colors.success },
-          { icon: "clipboard", value: 0, label: "Respuestas", color: colors.info },
-          { icon: "trending-up", value: "0%", label: "Completado", color: colors.warning },
-        ]);
+        if (!silent) {
+          setStats([
+            { icon: "people", value: 0, label: "Mi Equipo", color: colors.primary },
+            { icon: "document-text", value: 0, label: "Mis Encuestas", color: colors.success },
+            { icon: "clipboard", value: 0, label: "Respuestas", color: colors.info },
+            { icon: "trending-up", value: "0%", label: "Completado", color: colors.warning },
+          ]);
+        }
         return;
       }
 
@@ -249,7 +253,7 @@ export default function EncargadoHome() {
           ? Math.round((assignmentsWithResponses / assignments.length) * 100)
           : 0;
 
-      setStats([
+      const computedStats: StatCardProps[] = [
         {
           icon: "people",
           value: members.length,
@@ -274,7 +278,8 @@ export default function EncargadoHome() {
           label: "Completado",
           color: colors.warning,
         },
-      ]);
+      ];
+      setStats(computedStats);
 
       const mappedMembers: TeamMemberCardProps[] = members.map((member) => {
         const memberAssignments = assignments.filter(
@@ -314,35 +319,38 @@ export default function EncargadoHome() {
       });
 
       setTeamMembers(mappedMembers);
+      setCached("encargado:dashboard", { stats: computedStats, teamMembers: mappedMembers });
     } catch {
       setFetchError(true);
-      setStats([
-        {
-          icon: "people",
-          value: 0,
-          label: "Mi Equipo",
-          color: colors.primary,
-        },
-        {
-          icon: "document-text",
-          value: 0,
-          label: "Mis Encuestas",
-          color: colors.success,
-        },
-        {
-          icon: "clipboard",
-          value: 0,
-          label: "Respuestas",
-          color: colors.info,
-        },
-        {
-          icon: "trending-up",
-          value: "0%",
-          label: "Completado",
-          color: colors.warning,
-        },
-      ]);
-      setTeamMembers([]);
+      if (!silent) {
+        setStats([
+          {
+            icon: "people",
+            value: 0,
+            label: "Mi Equipo",
+            color: colors.primary,
+          },
+          {
+            icon: "document-text",
+            value: 0,
+            label: "Mis Encuestas",
+            color: colors.success,
+          },
+          {
+            icon: "clipboard",
+            value: 0,
+            label: "Respuestas",
+            color: colors.info,
+          },
+          {
+            icon: "trending-up",
+            value: "0%",
+            label: "Completado",
+            color: colors.warning,
+          },
+        ]);
+        setTeamMembers([]);
+      }
     } finally {
       setIsLoading(false);
       setRefreshing(false);
@@ -359,7 +367,7 @@ export default function EncargadoHome() {
   }, []);
 
   useEffect(() => {
-    fetchDashboardData();
+    fetchDashboardData(!!initialDashboard);
   }, []);
 
   const onRefresh = async () => {
@@ -476,7 +484,7 @@ export default function EncargadoHome() {
       {fetchError && teamMembers.length > 0 && (
         <TouchableOpacity
           style={styles.errorBanner}
-          onPress={fetchDashboardData}
+          onPress={() => fetchDashboardData()}
         >
           <Text style={styles.errorBannerText}>
             No se pudo actualizar. Toca para reintentar.
@@ -515,7 +523,7 @@ export default function EncargadoHome() {
             ))}
             {teamMembers.length === 0 && (
               fetchError ? (
-                <TouchableOpacity onPress={fetchDashboardData} activeOpacity={0.7}>
+                <TouchableOpacity onPress={() => fetchDashboardData()} activeOpacity={0.7}>
                   <Text style={[styles.emptyTeamText, { color: colors.error }]}>
                     No se pudo cargar el equipo. Toca para reintentar.
                   </Text>

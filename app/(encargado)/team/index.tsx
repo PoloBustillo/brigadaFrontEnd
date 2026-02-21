@@ -7,6 +7,7 @@
 import { AppHeader } from "@/components/shared";
 import { useThemeColors } from "@/contexts/theme-context";
 import { useTabBarHeight } from "@/hooks/use-tab-bar-height";
+import { getCached, setCached } from "@/lib/api/memory-cache";
 import { getMyCreatedAssignments, getMyTeam } from "@/lib/api/assignments";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
@@ -33,8 +34,9 @@ interface TeamMemberDisplay {
 export default function EncargadoTeam() {
   const colors = useThemeColors();
   const { contentPadding } = useTabBarHeight();
-  const [teamMembers, setTeamMembers] = useState<TeamMemberDisplay[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const initialMembers = getCached<TeamMemberDisplay[]>("encargado:team");
+  const [teamMembers, setTeamMembers] = useState<TeamMemberDisplay[]>(initialMembers ?? []);
+  const [isLoading, setIsLoading] = useState(!initialMembers);
   const [fetchError, setFetchError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -51,7 +53,8 @@ export default function EncargadoTeam() {
     },
   };
 
-  const fetchTeam = async () => {
+  const fetchTeam = async (silent = false) => {
+    if (!silent) setIsLoading(true);
     setFetchError(false);
     try {
       const [membersResult, assignmentsResult] = await Promise.allSettled([
@@ -91,6 +94,7 @@ export default function EncargadoTeam() {
         };
       });
       setTeamMembers(display);
+      setCached("encargado:team", display);
     } catch {
       setFetchError(true);
     } finally {
@@ -100,7 +104,7 @@ export default function EncargadoTeam() {
   };
 
   useEffect(() => {
-    fetchTeam();
+    fetchTeam(!!initialMembers);
   }, []);
 
   const onRefresh = () => {
@@ -124,7 +128,7 @@ export default function EncargadoTeam() {
       <AppHeader title="Mi Equipo" />
 
       {fetchError && teamMembers.length > 0 && (
-        <TouchableOpacity style={styles.errorBanner} onPress={fetchTeam}>
+        <TouchableOpacity style={styles.errorBanner} onPress={() => fetchTeam()}>
           <Text style={styles.errorBannerText}>
             No se pudo actualizar. Toca para reintentar.
           </Text>
@@ -198,7 +202,7 @@ export default function EncargadoTeam() {
               fetchError ? (
                 <TouchableOpacity
                   style={styles.emptyState}
-                  onPress={fetchTeam}
+                  onPress={() => fetchTeam()}
                   activeOpacity={0.7}
                 >
                   <Ionicons

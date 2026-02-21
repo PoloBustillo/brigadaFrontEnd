@@ -6,6 +6,7 @@
 
 import * as authAPI from "@/lib/api/auth";
 import { clearTokens, getAccessToken, isTokenExpired } from "@/lib/api/client";
+import { clearAllCached } from "@/lib/api/memory-cache";
 import { sessionEvents } from "@/lib/session-events";
 import type { User, UserRole } from "@/types/user";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -45,6 +46,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [pendingEmail, setPendingEmailState] = useState<string | null>(null);
 
   const clearSession = useCallback(async () => {
+    clearAllCached();
     await Promise.all([
       AsyncStorage.removeItem(STORAGE_KEYS.USER),
       clearTokens(), // Clear JWT tokens from API client
