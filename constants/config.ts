@@ -23,9 +23,7 @@ export const APP_CONFIG = {
 
   // API
   api: {
-    baseUrl: __DEV__
-      ? "http://146.190.119.145:8000"       // droplet directo (dev)
-      : "https://api.psic-danieladiaz.com",  // producción
+    baseUrl: "https://api.psic-danieladiaz.com",
     timeout: 30000,
   },
 
