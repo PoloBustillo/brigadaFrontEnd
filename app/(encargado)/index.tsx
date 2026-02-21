@@ -214,7 +214,7 @@ export default function EncargadoHome() {
         await Promise.allSettled([
           getMyTeam(),
           getMyCreatedAssignments(),
-          getTeamResponses(0, 200),
+          getTeamResponses(0, 100),
         ]);
 
       // Team members are critical — if this fails, mark error
