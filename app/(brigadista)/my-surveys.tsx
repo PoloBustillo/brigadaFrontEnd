@@ -84,12 +84,23 @@ export default function BrigadistaSurveysScreen() {
 
   // Empty state logic
   const getEmptyStateInfo = () => {
+    if (fetchError && surveys.length === 0) {
+      return {
+        icon: "cloud-offline-outline" as const,
+        title: "Sin conexión",
+        subtitle: "No se pudieron cargar las encuestas. Toca para reintentar.",
+        color: colors.error,
+        isError: true,
+      };
+    }
+
     if (surveys.length === 0) {
       return {
         icon: "document-outline" as const,
         title: "No tienes encuestas asignadas",
         subtitle: "Tu encargado te asignará encuestas próximamente",
         color: colors.textSecondary,
+        isError: false,
       };
     }
 
@@ -101,6 +112,7 @@ export default function BrigadistaSurveysScreen() {
         title: "No hay encuestas activas",
         subtitle: `${inactiveCount} encuesta(s) pausada(s) o completada(s)`,
         color: colors.info,
+        isError: false,
       };
     }
 
@@ -113,6 +125,7 @@ export default function BrigadistaSurveysScreen() {
         title: "No hay encuestas disponibles",
         subtitle: "Las encuestas aparecerán aquí cuando sean asignadas",
         color: colors.warning,
+        isError: false,
       };
     }
 
@@ -121,6 +134,7 @@ export default function BrigadistaSurveysScreen() {
       title: "No hay encuestas disponibles",
       subtitle: "Las encuestas activas aparecerán aquí automáticamente",
       color: colors.textSecondary,
+      isError: false,
     };
   };
 
@@ -161,8 +175,8 @@ export default function BrigadistaSurveysScreen() {
         </View>
       )}
 
-      {/* Network error banner */}
-      {!isLoading && fetchError && (
+      {/* Network error banner — only when we have partial/stale data */}
+      {!isLoading && fetchError && surveys.length > 0 && (
         <TouchableOpacity
           style={[
             styles.errorBanner,
@@ -200,12 +214,17 @@ export default function BrigadistaSurveysScreen() {
           {/* Surveys List */}
           <View style={styles.section}>
             {visibleSurveys.length === 0 ? (
-              <View
+              <TouchableOpacity
+                disabled={!emptyStateInfo.isError}
+                onPress={emptyStateInfo.isError ? retryLoad : undefined}
+                activeOpacity={emptyStateInfo.isError ? 0.7 : 1}
                 style={[
                   styles.emptyState,
                   {
                     backgroundColor: colors.surface,
-                    borderColor: colors.border,
+                    borderColor: emptyStateInfo.isError
+                      ? colors.error + "50"
+                      : colors.border,
                   },
                 ]}
               >
@@ -221,7 +240,16 @@ export default function BrigadistaSurveysScreen() {
                     color={emptyStateInfo.color}
                   />
                 </View>
-                <Text style={[styles.emptyText, { color: colors.text }]}>
+                <Text
+                  style={[
+                    styles.emptyText,
+                    {
+                      color: emptyStateInfo.isError
+                        ? colors.error
+                        : colors.text,
+                    },
+                  ]}
+                >
                   {emptyStateInfo.title}
                 </Text>
                 <Text
@@ -229,7 +257,7 @@ export default function BrigadistaSurveysScreen() {
                 >
                   {emptyStateInfo.subtitle}
                 </Text>
-                {surveys.length > 0 && (
+                {!emptyStateInfo.isError && surveys.length > 0 && (
                   <View
                     style={[
                       styles.emptyHint,
@@ -248,7 +276,7 @@ export default function BrigadistaSurveysScreen() {
                     </Text>
                   </View>
                 )}
-              </View>
+              </TouchableOpacity>
             ) : (
               <>
                 {/* 1️⃣ Active Surveys Section - Expandida por defecto */}

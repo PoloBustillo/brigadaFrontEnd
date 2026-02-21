@@ -419,8 +419,8 @@ export default function BrigadistaHome() {
         </View>
       )}
 
-      {/* Network error banner */}
-      {!isLoading && fetchError && (
+      {/* Network error banner — only when we have partial/stale data */}
+      {!isLoading && fetchError && assignmentCards.length > 0 && (
         <TouchableOpacity
           style={[
             styles.errorBanner,
@@ -614,33 +614,64 @@ export default function BrigadistaHome() {
               <SurveyAssignmentCard key={assignment.id} {...assignment} />
             ))
           ) : !isLoading ? (
-            <View
-              style={[
-                styles.emptyState,
-                { backgroundColor: colors.surface, borderColor: colors.border },
-              ]}
-            >
-              <Ionicons
-                name="clipboard-outline"
-                size={40}
-                color={colors.textTertiary}
-              />
-              <Text
+            fetchError ? (
+              <TouchableOpacity
                 style={[
-                  styles.emptyStateTitle,
-                  { color: colors.textSecondary },
+                  styles.emptyState,
+                  { backgroundColor: colors.surface, borderColor: colors.error + "40" },
+                ]}
+                onPress={() => {
+                  setIsLoading(true);
+                  fetchAssignments();
+                }}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name="cloud-offline-outline"
+                  size={40}
+                  color={colors.error}
+                />
+                <Text
+                  style={[
+                    styles.emptyStateTitle,
+                    { color: colors.error },
+                  ]}
+                >
+                  Sin conexión
+                </Text>
+                <Text
+                  style={[styles.emptyStateText, { color: colors.textSecondary }]}
+                >
+                  No se pudo cargar. Toca para reintentar.
+                </Text>
+              </TouchableOpacity>
+            ) : (
+              <View
+                style={[
+                  styles.emptyState,
+                  { backgroundColor: colors.surface, borderColor: colors.border },
                 ]}
               >
-                Sin encuestas asignadas
-              </Text>
-              <Text
-                style={[styles.emptyStateText, { color: colors.textTertiary }]}
-              >
-                {fetchError
-                  ? "No se pudo verificar. Toca el botón de arriba para reintentar."
-                  : "Tu encargado te asignará encuestas pronto. Usa el gesto de arrastrar hacia abajo para actualizar."}
-              </Text>
-            </View>
+                <Ionicons
+                  name="clipboard-outline"
+                  size={40}
+                  color={colors.textTertiary}
+                />
+                <Text
+                  style={[
+                    styles.emptyStateTitle,
+                    { color: colors.textSecondary },
+                  ]}
+                >
+                  Sin encuestas asignadas
+                </Text>
+                <Text
+                  style={[styles.emptyStateText, { color: colors.textTertiary }]}
+                >
+                  Tu encargado te asignará encuestas pronto. Usa el gesto de arrastrar hacia abajo para actualizar.
+                </Text>
+              </View>
+            )
           ) : null}
         </View>
       </View>
