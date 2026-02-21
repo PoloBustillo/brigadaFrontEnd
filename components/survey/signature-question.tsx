@@ -15,7 +15,6 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import React, { useRef, useState } from "react";
 import {
-  Dimensions,
   Image,
   Modal,
   StyleSheet,
@@ -114,18 +113,27 @@ export function SignatureQuestion({
         >
           <Ionicons name="create-outline" size={32} color="#fff" />
           <Text style={styles.signBtnText}>Firmar</Text>
-          <Text style={styles.signBtnHint}>Toca para abrir el panel de firma</Text>
+          <Text style={styles.signBtnHint}>
+            Toca para abrir el panel de firma
+          </Text>
         </TouchableOpacity>
       ) : (
         /* ── Signature captured: preview + actions ── */
         <View
           style={[
             styles.previewCard,
-            { backgroundColor: colors.success + "10", borderColor: colors.success },
+            {
+              backgroundColor: colors.success + "10",
+              borderColor: colors.success,
+            },
           ]}
         >
           <View style={styles.previewHeader}>
-            <Ionicons name="checkmark-circle" size={16} color={colors.success} />
+            <Ionicons
+              name="checkmark-circle"
+              size={16}
+              color={colors.success}
+            />
             <Text style={[styles.previewLabel, { color: colors.success }]}>
               Firma capturada
             </Text>
@@ -139,24 +147,41 @@ export function SignatureQuestion({
           )}
           <View style={styles.actionRow}>
             <TouchableOpacity
-              style={[styles.actionBtn, { borderColor: colors.border, backgroundColor: colors.surface }]}
+              style={[
+                styles.actionBtn,
+                { borderColor: colors.border, backgroundColor: colors.surface },
+              ]}
               onPress={handleFullscreenOpen}
               activeOpacity={0.7}
               accessibilityLabel="Editar firma"
               accessibilityRole="button"
             >
-              <Ionicons name="create-outline" size={18} color={colors.primary} />
-              <Text style={[styles.actionBtnText, { color: colors.primary }]}>Editar</Text>
+              <Ionicons
+                name="create-outline"
+                size={18}
+                color={colors.primary}
+              />
+              <Text style={[styles.actionBtnText, { color: colors.primary }]}>
+                Editar
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.actionBtn, { borderColor: colors.error + "40", backgroundColor: colors.surface }]}
+              style={[
+                styles.actionBtn,
+                {
+                  borderColor: colors.error + "40",
+                  backgroundColor: colors.surface,
+                },
+              ]}
               onPress={handleClear}
               activeOpacity={0.7}
               accessibilityLabel="Eliminar firma"
               accessibilityRole="button"
             >
               <Ionicons name="trash-outline" size={18} color={colors.error} />
-              <Text style={[styles.actionBtnText, { color: colors.error }]}>Eliminar</Text>
+              <Text style={[styles.actionBtnText, { color: colors.error }]}>
+                Eliminar
+              </Text>
             </TouchableOpacity>
           </View>
         </View>

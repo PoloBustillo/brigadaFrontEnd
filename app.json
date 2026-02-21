@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "brigadaFrontEnd",
+    "name": "Brigada",
     "slug": "brigada2026",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -40,6 +40,14 @@
     },
     "plugins": [
       "expo-router",
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Permite tomar fotos para las encuestas de campo.",
+          "microphonePermission": false,
+          "photosPermission": "Permite adjuntar imágenes desde tu galería."
+        }
+      ],
       [
         "@sentry/react-native/expo",
         {

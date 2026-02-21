@@ -73,7 +73,7 @@ function RootNavigator() {
       wasAuthed.current = true;
     } else if (appReady && wasAuthed.current) {
       // User was authenticated but is now null — session expired or logout
-      router.replace("/(auth)");
+      router.replace("/(auth)/welcome");
     }
   }, [user, appReady]);
 

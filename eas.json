@@ -6,24 +6,25 @@
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "android": {
+        "gradleCommand": ":app:assembleDebug -PreactNativeArchitectures=armeabi-v7a,arm64-v8a,x86,x86_64"
+      }
     },
     "preview": {
       "distribution": "internal",
       "android": {
-        "buildType": "apk"
+        "gradleCommand": ":app:assembleRelease -PreactNativeArchitectures=arm64-v8a"
       }
     },
     "preview-arm64": {
-      "distribution": "internal",
-      "android": {
-        "buildType": "apk"
-      }
+      "extends": "preview",
+      "distribution": "internal"
     },
     "production": {
       "autoIncrement": true,
       "android": {
-        "buildType": "app-bundle"
+        "gradleCommand": ":app:bundleRelease -PreactNativeArchitectures=arm64-v8a,armeabi-v7a"
       }
     }
   },

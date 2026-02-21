@@ -23,7 +23,6 @@ import { useAuth } from "@/contexts/auth-context";
 import { useSync } from "@/contexts/sync-context";
 import { useThemeColors } from "@/contexts/theme-context";
 import { useFillSurvey } from "@/hooks/use-fill-survey";
-import { useTabBarHeight } from "@/hooks/use-tab-bar-height";
 import type { AnswerOptionResponse, QuestionResponse } from "@/lib/api/mobile";
 import { offlineSyncService } from "@/lib/services/offline-sync";
 import type { FillQuestion } from "@/types/survey-schema.types";
@@ -161,7 +160,6 @@ function isAutoAdvanceType(type: string): boolean {
 export default function FillSurveyScreen() {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
-  const { contentPadding } = useTabBarHeight();
   const router = useRouter();
   const { user } = useAuth();
   const { addPendingItem, isOnline } = useSync();
@@ -198,6 +196,7 @@ export default function FillSurveyScreen() {
     draftLoading,
     showSaveWarning,
     saveAnswer,
+    discardDraft,
     initialIndex,
   } = useFillSurvey({
     allQuestions,
@@ -305,18 +304,27 @@ export default function FillSurveyScreen() {
     }
   };
 
+  const handleCancel = () => {
+    Alert.alert(
+      "¿Cancelar encuesta?",
+      "Se descartarán todas las respuestas ingresadas.",
+      [
+        { text: "Seguir llenando", style: "cancel" },
+        {
+          text: "Descartar",
+          style: "destructive",
+          onPress: async () => {
+            await discardDraft();
+            router.back();
+          },
+        },
+      ],
+    );
+  };
+
   const handleBack = () => {
     if (isFirst) {
-      Alert.alert(
-        "¿Salir de la encuesta?",
-        draftIdRef.current
-          ? "Tus respuestas se guardarán localmente y podrás continuarlas después."
-          : "Tus respuestas parciales no se guardarán.",
-        [
-          { text: "Continuar llenando", style: "cancel" },
-          { text: "Salir", style: "destructive", onPress: () => router.back() },
-        ],
-      );
+      handleCancel();
     } else {
       Keyboard.dismiss();
       setFieldError(null);
@@ -494,8 +502,14 @@ export default function FillSurveyScreen() {
           </Text>
         </View>
 
-        {/* Spacer to balance the back button */}
-        <View style={{ width: 40 }} />
+        {/* Cancel — discards all answers */}
+        <TouchableOpacity
+          onPress={handleCancel}
+          style={styles.cancelBtn}
+          hitSlop={12}
+        >
+          <Ionicons name="close" size={22} color={colors.error} />
+        </TouchableOpacity>
       </View>
 
       {/* ── Progress ────────────────────────────────────────────────────── */}
@@ -563,7 +577,7 @@ export default function FillSurveyScreen() {
         style={styles.scrollView}
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingBottom: contentPadding + 48 },
+          { paddingBottom: 24 },
         ]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}

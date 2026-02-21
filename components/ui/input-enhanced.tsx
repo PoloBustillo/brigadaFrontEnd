@@ -6,7 +6,7 @@
 import { DesignTokens } from "@/constants/design-tokens";
 import { useThemeColors } from "@/contexts/theme-context";
 import { Ionicons } from "@expo/vector-icons";
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   StyleSheet,
   Text,
@@ -55,6 +55,7 @@ export function InputEnhanced({
 }: InputEnhancedProps) {
   const colors = useThemeColors();
   const [isFocused, setIsFocused] = useState(false);
+  const inputRef = useRef<TextInput>(null);
   const focusAnim = useSharedValue(0);
 
   // Animación del borde al enfocarse
@@ -157,16 +158,23 @@ export function InputEnhanced({
       >
         {/* Left Icon */}
         {leftIcon && (
-          <Ionicons
-            name={leftIcon}
-            size={sizeConfig[size].iconSize}
-            color={getIconColor()}
-            style={styles.leftIcon}
-          />
+          <TouchableOpacity
+            onPress={() => inputRef.current?.focus()}
+            activeOpacity={0.6}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 4 }}
+          >
+            <Ionicons
+              name={leftIcon}
+              size={sizeConfig[size].iconSize}
+              color={getIconColor()}
+              style={styles.leftIcon}
+            />
+          </TouchableOpacity>
         )}
 
         {/* Text Input */}
         <TextInput
+          ref={inputRef}
           style={[
             styles.input,
             {
@@ -188,9 +196,11 @@ export function InputEnhanced({
         {/* Right Icon */}
         {rightIcon && (
           <TouchableOpacity
-            onPress={onRightIconPress}
+            onPress={() => {
+              inputRef.current?.focus();
+              onRightIconPress?.();
+            }}
             style={styles.rightIconContainer}
-            disabled={!onRightIconPress}
             activeOpacity={0.6}
           >
             <Ionicons

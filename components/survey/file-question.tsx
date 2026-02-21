@@ -131,7 +131,9 @@ export function FileQuestion({
     const iconName = iconForMime(value.mimeType) as any;
     return (
       <View style={styles.attachedCard}>
-        <View style={[styles.iconBadge, { backgroundColor: colors.primary + "20" }]}>
+        <View
+          style={[styles.iconBadge, { backgroundColor: colors.primary + "20" }]}
+        >
           <Ionicons name={iconName} size={28} color={colors.primary} />
         </View>
         <View style={styles.fileInfo}>
@@ -153,7 +155,11 @@ export function FileQuestion({
           style={styles.removeBtn}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <Ionicons name="close-circle" size={22} color={colors.error ?? "#ff3b30"} />
+          <Ionicons
+            name="close-circle"
+            size={22}
+            color={colors.error ?? "#ff3b30"}
+          />
         </TouchableOpacity>
       </View>
     );
@@ -184,7 +190,12 @@ export function FileQuestion({
         </>
       )}
       {allowedTypes && (
-        <Text style={[styles.pickBtnHint, { color: colors.textSecondary ?? "#888" }]}>
+        <Text
+          style={[
+            styles.pickBtnHint,
+            { color: colors.textSecondary ?? "#888" },
+          ]}
+        >
           {allowedTypes.join(", ")}
           {maxSizeMB ? `  ·  máx. ${maxSizeMB} MB` : ""}
         </Text>

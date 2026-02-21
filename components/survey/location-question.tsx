@@ -131,7 +131,10 @@ export function LocationQuestion({
               Ubicación capturada
             </Text>
             <Text
-              style={[styles.capturedSub, { color: colors.textSecondary ?? "#888" }]}
+              style={[
+                styles.capturedSub,
+                { color: colors.textSecondary ?? "#888" },
+              ]}
             >
               {date}
             </Text>
@@ -141,7 +144,12 @@ export function LocationQuestion({
         {/* Coordinates */}
         <View style={styles.coordRow}>
           <View style={styles.coordItem}>
-            <Text style={[styles.coordLabel, { color: colors.textSecondary ?? "#888" }]}>
+            <Text
+              style={[
+                styles.coordLabel,
+                { color: colors.textSecondary ?? "#888" },
+              ]}
+            >
               Latitud
             </Text>
             <Text style={[styles.coordValue, { color: colors.text }]}>
@@ -150,7 +158,12 @@ export function LocationQuestion({
           </View>
           <View style={styles.coordSep} />
           <View style={styles.coordItem}>
-            <Text style={[styles.coordLabel, { color: colors.textSecondary ?? "#888" }]}>
+            <Text
+              style={[
+                styles.coordLabel,
+                { color: colors.textSecondary ?? "#888" },
+              ]}
+            >
               Longitud
             </Text>
             <Text style={[styles.coordValue, { color: colors.text }]}>
@@ -167,11 +180,7 @@ export function LocationQuestion({
               { backgroundColor: colors.primary + "15" },
             ]}
           >
-            <Ionicons
-              name="radio-button-on"
-              size={12}
-              color={colors.primary}
-            />
+            <Ionicons name="radio-button-on" size={12} color={colors.primary} />
             <Text style={[styles.accuracyText, { color: colors.primary }]}>
               Precisión ±{Math.round(value.accuracy)} m
             </Text>

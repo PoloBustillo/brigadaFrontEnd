@@ -23,7 +23,23 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import DocumentScanner from "react-native-document-scanner-plugin";
+
+// Lazy-load DocumentScanner — not available in Expo Go
+type DocumentScannerModule = {
+  scanDocument(options: {
+    maxNumDocuments?: number;
+    croppedImageQuality?: number;
+    letUserAdjustCrop?: boolean;
+  }): Promise<{ scannedImages: string[]; status: "cancel" | "success" }>;
+};
+function getDocumentScanner(): DocumentScannerModule | null {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    return require("react-native-document-scanner-plugin").default;
+  } catch {
+    return null;
+  }
+}
 
 interface PhotoQuestionProps {
   value: string | null; // URI of the captured image
@@ -58,12 +74,20 @@ export function PhotoQuestion({
 
       if (mode === "document") {
         // ★ Document mode: edge detection + perspective warp
+        const scanner = getDocumentScanner();
+        if (!scanner) {
+          Alert.alert(
+            "Escáner no disponible",
+            "Esta función requiere un build de desarrollo o producción.",
+          );
+          return;
+        }
         const { scannedImages, status: scanStatus } =
-          await DocumentScanner.scanDocument({
+          await scanner.scanDocument({
             maxNumDocuments: 1,
             croppedImageQuality: 85,
             letUserAdjustCrop: true,
-          } as any);
+          });
         if (scanStatus === "cancel" || !scannedImages?.length) return;
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         onChange(scannedImages[0]);

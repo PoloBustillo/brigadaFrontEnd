@@ -288,6 +288,20 @@ class OfflineSyncService {
   }
 
   /**
+   * Delete a draft response that the user chose to discard.
+   * Silently ignores errors so the app can always navigate back.
+   */
+  async deleteDraft(responseId: string): Promise<void> {
+    try {
+      await this.initialize();
+      await responseRepository.deleteResponse(responseId);
+      console.log("🗑️ Draft discarded:", responseId);
+    } catch (err) {
+      console.warn("⚠️ Could not delete draft:", err);
+    }
+  }
+
+  /**
    * Save a file reference (photo, signature, INE) linked to a response
    */
   async saveFileReference(params: {

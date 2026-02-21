@@ -26,7 +26,24 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import DocumentScanner from "react-native-document-scanner-plugin";
+
+// Lazy-load the native DocumentScanner module so the component doesn't crash
+// in Expo Go (where native modules aren't linked).
+type DocumentScannerModule = {
+  scanDocument(options: {
+    maxNumDocuments?: number;
+    croppedImageQuality?: number;
+    letUserAdjustCrop?: boolean;
+  }): Promise<{ scannedImages: string[]; status: "cancel" | "success" }>;
+};
+function getDocumentScanner(): DocumentScannerModule | null {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    return require("react-native-document-scanner-plugin").default;
+  } catch {
+    return null;
+  }
+}
 
 // Lazy-load the native ML Kit module so the component doesn't crash in
 // Expo Go (where native modules aren't linked). In a real dev/production
@@ -325,12 +342,20 @@ export function INEQuestion({
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
         // ★ Document Scanner: edge detection + perspective correction
+        const scanner = getDocumentScanner();
+        if (!scanner) {
+          Alert.alert(
+            "Escáner no disponible",
+            "Esta función requiere un build de desarrollo o producción.",
+          );
+          return;
+        }
         const { scannedImages, status: scanStatus } =
-          await DocumentScanner.scanDocument({
+          await scanner.scanDocument({
             maxNumDocuments: 1,
             croppedImageQuality: 90,
-            letUserAdjustCrop: true, // shows draggable corner handles
-          } as any);
+            letUserAdjustCrop: true,
+          });
 
         if (scanStatus === "cancel" || !scannedImages?.length) return;
 

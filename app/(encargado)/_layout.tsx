@@ -41,7 +41,7 @@ export default function EncargadoLayout() {
           }}
         />
         <Tabs.Screen
-          name="team"
+          name="team/index"
           options={{
             title: "Equipo",
             tabBarIcon: ({ color }) => (

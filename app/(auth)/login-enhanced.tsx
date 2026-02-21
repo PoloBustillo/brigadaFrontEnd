@@ -23,7 +23,7 @@ import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import Animated, {
   useAnimatedStyle,
@@ -229,9 +229,12 @@ export default function LoginScreen() {
   };
 
   const handleForgotPassword = () => {
-    // Haptic feedback
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    // TODO: Navigate to forgot password screen
+    Alert.alert(
+      "¿Olvidaste tu contraseña?",
+      "Por seguridad, el restablecimiento de contraseña debe hacerse a través de tu administrador.\n\nContacta a tu encargado o al administrador del sistema para que te asignen una nueva contraseña.",
+      [{ text: "Entendido", style: "default" }],
+    );
   };
 
   const isFormValid =

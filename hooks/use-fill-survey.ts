@@ -119,6 +119,18 @@ export function useFillSurvey({
 
   // ── Persistence helper ──────────────────────────────────────────────────────
   /**
+   * Discard the entire draft (user pressed Cancel).
+   * Deletes the SQLite record and resets state.
+   */
+  const discardDraft = useCallback(async () => {
+    if (draftIdRef.current) {
+      await offlineSyncService.deleteDraft(draftIdRef.current);
+      draftIdRef.current = null;
+    }
+    setAnswers({});
+  }, []);
+
+  /**
    * Save a single answer to the local SQLite draft.
    * Fire-and-forget: tracks consecutive failures and raises showSaveWarning at ≥3.
    */
@@ -146,6 +158,7 @@ export function useFillSurvey({
     draftLoading,
     showSaveWarning,
     saveAnswer,
+    discardDraft,
     initialIndex,
   };
 }
