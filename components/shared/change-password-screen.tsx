@@ -8,7 +8,6 @@ import { InputEnhanced } from "@/components/ui/input-enhanced";
 import { toastManager } from "@/components/ui/toast-enhanced";
 import { typography } from "@/constants/typography";
 import * as Haptics from "expo-haptics";
-import { LinearGradient } from "expo-linear-gradient";
 import { useThemeColors } from "@/contexts/theme-context";
 import { useTabBarHeight } from "@/hooks/use-tab-bar-height";
 import { changePassword } from "@/lib/api/auth";
@@ -143,39 +142,39 @@ export function ChangePasswordScreen({ profileRoute }: Props) {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* ── Gradient header ── */}
-      <LinearGradient
-        colors={[colors.primary, colors.primary + "CC", colors.background]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0, y: 1 }}
-        style={styles.gradientHeader}
+      {/* ── Flat header ── */}
+      <View
+        style={[
+          styles.flatHeader,
+          {
+            backgroundColor: colors.background,
+            borderBottomColor: colors.border,
+          },
+        ]}
       >
         <TouchableOpacity
           onPress={() => router.push(profileRoute as any)}
-          style={[
-            styles.backBtn,
-            { backgroundColor: "rgba(255,255,255,0.18)" },
-          ]}
+          style={[styles.backBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         >
-          <Ionicons name="arrow-back" size={22} color="#fff" />
+          <Ionicons name="arrow-back" size={22} color={colors.text} />
         </TouchableOpacity>
 
         <View style={styles.headerCenter}>
           <View
             style={[
               styles.iconCircle,
-              { backgroundColor: "rgba(255,255,255,0.18)" },
+              { backgroundColor: colors.primary + "18" },
             ]}
           >
-            <Ionicons name="lock-closed" size={28} color="#fff" />
+            <Ionicons name="lock-closed" size={24} color={colors.primary} />
           </View>
-          <Text style={styles.headerTitle}>Cambiar Contraseña</Text>
-          <Text style={styles.headerSub}>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>Cambiar Contraseña</Text>
+          <Text style={[styles.headerSub, { color: colors.textSecondary }]}>
             Mantén tu cuenta segura con una buena contraseña
           </Text>
         </View>
-      </LinearGradient>
+      </View>
 
       <KeyboardAvoidingView
         style={styles.flex}
@@ -350,11 +349,12 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
 
   /* header */
-  gradientHeader: {
+  flatHeader: {
     paddingTop: 56,
-    paddingBottom: 32,
+    paddingBottom: 24,
     paddingHorizontal: 20,
     alignItems: "center",
+    borderBottomWidth: 1,
   },
   backBtn: {
     position: "absolute",
@@ -363,27 +363,26 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 12,
+    borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
   },
-  headerCenter: { alignItems: "center", marginTop: 8 },
+  headerCenter: { alignItems: "center", marginTop: 4 },
   iconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 14,
+    marginBottom: 12,
   },
   headerTitle: {
     ...typography.h2,
-    color: "#fff",
     fontWeight: "700",
-    marginBottom: 6,
+    marginBottom: 4,
   },
   headerSub: {
     ...typography.bodySmall,
-    color: "rgba(255,255,255,0.80)",
     textAlign: "center",
     maxWidth: 260,
   },
