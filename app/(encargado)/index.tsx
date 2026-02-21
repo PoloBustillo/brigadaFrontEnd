@@ -192,6 +192,7 @@ export default function EncargadoHome() {
   const initialDashboard = getCached<{ stats: StatCardProps[]; teamMembers: TeamMemberCardProps[] }>("encargado:dashboard");
   const [isLoading, setIsLoading] = useState(!initialDashboard);
   const [fetchError, setFetchError] = useState(false);
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(!!initialDashboard);
   const [stats, setStats] = useState<StatCardProps[]>(initialDashboard?.stats ?? []);
   const [teamMembers, setTeamMembers] = useState<TeamMemberCardProps[]>(initialDashboard?.teamMembers ?? []);
 
@@ -319,6 +320,7 @@ export default function EncargadoHome() {
       });
 
       setTeamMembers(mappedMembers);
+      setHasLoadedOnce(true);
       setCached("encargado:dashboard", { stats: computedStats, teamMembers: mappedMembers });
     } catch {
       setFetchError(true);
@@ -522,7 +524,7 @@ export default function EncargadoHome() {
               <TeamMemberCard key={member.id} {...member} />
             ))}
             {teamMembers.length === 0 && (
-              fetchError ? (
+              fetchError && !hasLoadedOnce ? (
                 <TouchableOpacity onPress={() => fetchDashboardData()} activeOpacity={0.7}>
                   <Text style={[styles.emptyTeamText, { color: colors.error }]}>
                     No se pudo cargar el equipo. Toca para reintentar.

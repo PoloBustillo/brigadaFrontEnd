@@ -59,6 +59,7 @@ export default function EncargadoSurveys() {
   const [surveys, setSurveys] = useState<SurveyGroup[]>(initialSurveys ?? []);
   const [isLoading, setIsLoading] = useState(!initialSurveys);
   const [fetchError, setFetchError] = useState(false);
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(!!initialSurveys);
   const [refreshing, setRefreshing] = useState(false);
 
   const statusConfig = {
@@ -81,6 +82,7 @@ export default function EncargadoSurveys() {
       const data = await getMyCreatedAssignments();
       const grouped = groupBySurvey(data);
       setSurveys(grouped);
+      setHasLoadedOnce(true);
       setCached("encargado:surveys", grouped);
     } catch {
       setFetchError(true);
@@ -178,7 +180,7 @@ export default function EncargadoSurveys() {
           {/* Surveys List */}
           <View style={styles.listContainer}>
             {surveys.length === 0 ? (
-              fetchError ? (
+              fetchError && !hasLoadedOnce ? (
                 <TouchableOpacity
                   style={styles.emptyState}
                   onPress={() => fetchSurveys()}

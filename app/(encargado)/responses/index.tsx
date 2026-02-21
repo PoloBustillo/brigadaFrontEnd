@@ -28,6 +28,7 @@ export default function EncargadoResponses() {
   const [responses, setResponses] = useState<TeamResponse[]>(initialResponses ?? []);
   const [isLoading, setIsLoading] = useState(!initialResponses);
   const [fetchError, setFetchError] = useState(false);
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(!!initialResponses);
   const [refreshing, setRefreshing] = useState(false);
 
   const fetchResponses = async (silent = false) => {
@@ -36,6 +37,7 @@ export default function EncargadoResponses() {
     try {
       const data = await getTeamResponses();
       setResponses(data);
+      setHasLoadedOnce(true);
       setCached("encargado:responses", data);
     } catch {
       setFetchError(true);
@@ -139,7 +141,7 @@ export default function EncargadoResponses() {
           {/* Responses List */}
           <View style={styles.listContainer}>
             {responses.length === 0 ? (
-              fetchError ? (
+              fetchError && !hasLoadedOnce ? (
                 <TouchableOpacity
                   style={styles.emptyState}
                   onPress={() => fetchResponses()}

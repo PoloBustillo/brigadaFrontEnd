@@ -38,6 +38,7 @@ export default function EncargadoTeam() {
   const [teamMembers, setTeamMembers] = useState<TeamMemberDisplay[]>(initialMembers ?? []);
   const [isLoading, setIsLoading] = useState(!initialMembers);
   const [fetchError, setFetchError] = useState(false);
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(!!initialMembers);
   const [refreshing, setRefreshing] = useState(false);
 
   const statusConfig = {
@@ -94,6 +95,7 @@ export default function EncargadoTeam() {
         };
       });
       setTeamMembers(display);
+      setHasLoadedOnce(true);
       setCached("encargado:team", display);
     } catch {
       setFetchError(true);
@@ -199,7 +201,7 @@ export default function EncargadoTeam() {
           {/* Team Members List */}
           <View style={styles.listContainer}>
             {teamMembers.length === 0 ? (
-              fetchError ? (
+              fetchError && !hasLoadedOnce ? (
                 <TouchableOpacity
                   style={styles.emptyState}
                   onPress={() => fetchTeam()}
