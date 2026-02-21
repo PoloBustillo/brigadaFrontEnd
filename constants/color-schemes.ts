@@ -74,29 +74,30 @@ const pinkScheme: ColorScheme = {
     backdrop: "rgba(255, 27, 141, 0.1)",
   },
   dark: {
-    background: "#FF1B8D",
-    backgroundSecondary: "#FF4DA6",
-    surface: "#CC1670",
-    surfaceVariant: "#E01780",
+    // Neutral dark backgrounds — pink is used only as the accent colour
+    background: "#121212",
+    backgroundSecondary: "#1C0F15",
+    surface: "#1E1619",
+    surfaceVariant: "#2A1E25",
 
     text: "#FFFFFF",
-    textSecondary: "#FFE8F0",
-    textTertiary: "#FFD6E8",
+    textSecondary: "#FFAAD4",
+    textTertiary: "#FF85BE",
 
-    border: "#FFFFFF",
-    borderLight: "rgba(255, 255, 255, 0.3)",
+    border: "rgba(255, 27, 141, 0.2)",
+    borderLight: "rgba(255, 27, 141, 0.1)",
 
-    primary: "#FFFFFF",
-    primaryLight: "#FFE8F0",
-    primaryDark: "#F0F0F0",
+    primary: "#FF1B8D",
+    primaryLight: "#FF85BE",
+    primaryDark: "#CC1670",
 
     success: "#34D399",
     warning: "#FBBF24",
     error: "#FCA5A5",
     info: "#93C5FD",
 
-    overlay: "rgba(255, 27, 141, 0.45)",
-    backdrop: "rgba(26, 26, 46, 0.9)",
+    overlay: "rgba(255, 27, 141, 0.3)",
+    backdrop: "rgba(0, 0, 0, 0.85)",
   },
 };
 

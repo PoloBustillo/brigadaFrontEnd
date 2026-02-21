@@ -4,7 +4,7 @@
  */
 
 import { useSync } from "@/contexts/sync-context";
-import { useThemeColors } from "@/contexts/theme-context";
+import { useTheme, useThemeColors } from "@/contexts/theme-context";
 import { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import * as Haptics from "expo-haptics";
 import React from "react";
@@ -188,7 +188,12 @@ export function CustomTabBar({
 }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const colors = useThemeColors();
+  const { theme } = useTheme();
   const { pendingByType } = useSync();
+
+  // Neutral separator so the tab bar never shows a tinted border
+  const separatorColor =
+    theme === "dark" ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.08)";
 
   // Mapear rutas a tipos de sync para mostrar badges
   const getRouteBadge = (routeName: string): number => {
@@ -246,7 +251,7 @@ export function CustomTabBar({
         styles.container,
         {
           paddingBottom: Math.max(insets.bottom, 4),
-          borderTopColor: colors.border,
+          borderTopColor: separatorColor,
           backgroundColor: colors.surface,
         },
       ]}
