@@ -23,7 +23,8 @@ const ERROR_MAP: [RegExp, string][] = [
   [/code.*locked/i, "Código bloqueado. Pide al administrador que genere uno nuevo"],
   [/identifier.*does.*not.*match/i, "El correo no coincide con la invitación. Usa el mismo correo con el que te registró el administrador"],
   // Network
-  [/network.*error/i, "Error de conexión. Revisa tu internet"],
+  [/network.*error/i, "Sin conexión. Verifica tu internet e intenta nuevamente"],
+  [/network/i, "Sin conexión. Verifica tu internet e intenta nuevamente"],
   [/timeout/i, "El servidor tardó demasiado. Intenta de nuevo"],
   [/econnrefused/i, "No se pudo conectar al servidor"],
   [/fetch.*failed/i, "Error de conexión. Revisa tu internet"],

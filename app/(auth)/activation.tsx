@@ -39,6 +39,7 @@ import Animated, {
 
 import { toastManager } from "@/components/ui/toast-enhanced";
 import { typography } from "@/constants/typography";
+import { translateError } from "@/utils/translate-error";
 import { validateActivationCode } from "@/lib/api";
 
 // Decorative elements similar to welcome screen
@@ -302,7 +303,7 @@ function CodeInput({
           const cleaned = text.replace(/[^0-9]/g, "").slice(0, 6);
           onChangeText(cleaned);
         }}
-        keyboardType="number-pad"
+        keyboardType="numeric"
         maxLength={6}
         autoFocus={true}
         showSoftInputOnFocus={true}
@@ -311,7 +312,7 @@ function CodeInput({
         autoComplete="sms-otp"
         // Props adicionales para mantener el input enfocable
         editable={true}
-        selectTextOnFocus={false}
+        selectTextOnFocus={true}
         caretHidden={true}
         blurOnSubmit={true}
         returnKeyType="done"
@@ -398,19 +399,22 @@ export default function ActivationScreen() {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
 
         toastManager.error(
-          result.error ||
+          translateError(result.error) ||
             "El código ingresado no es válido. Verifica e intenta nuevamente",
         );
       }
-    } catch {
+    } catch (err: any) {
       setError(true);
       setCode("");
 
       // Haptic feedback for error
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
 
+      const message =
+        typeof err?.message === "string" ? err.message : String(err ?? "");
       toastManager.error(
-        "Ocurrió un error al validar el código. Intenta nuevamente",
+        translateError(message) ||
+          "Ocurrió un error al validar el código. Intenta nuevamente",
       );
     } finally {
       setLoading(false);

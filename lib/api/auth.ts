@@ -306,6 +306,10 @@ export interface CompleteActivationResult {
 /**
  * Step 1: Validate a 6-digit activation code
  * POST /public/activate/validate-code
+ *
+ * Never throws — network/server errors are returned as { valid: false, error }.
+ * This lets activation.tsx handle all failure cases in the same branch
+ * (with translateError) instead of falling into the generic catch block.
  */
 export async function validateActivationCode(
   code: string,
@@ -317,9 +321,28 @@ export async function validateActivationCode(
     );
     return response.data;
   } catch (error: any) {
+    // Pydantic validation error (422) — e.g. non-numeric characters in code
     const detail = error.response?.data?.detail;
-    if (typeof detail === "string") throw new Error(detail);
-    throw new Error("Error al validar el código de activación");
+    if (Array.isArray(detail)) {
+      const msg = detail.map((e: any) => e?.msg).filter(Boolean).join(", ");
+      return { valid: false, error: msg || "Invalid code format" };
+    }
+    if (typeof detail === "string") {
+      return { valid: false, error: detail };
+    }
+    // Network / timeout / connection refused
+    const networkMsg: string = error?.message ?? "";
+    if (
+      networkMsg.includes("conexión") ||
+      networkMsg.includes("internet") ||
+      networkMsg.includes("network") ||
+      networkMsg.includes("timeout") ||
+      networkMsg.includes("ECONNREFUSED")
+    ) {
+      return { valid: false, error: networkMsg };
+    }
+    // Fallback
+    return { valid: false, error: "Network error" };
   }
 }
 
