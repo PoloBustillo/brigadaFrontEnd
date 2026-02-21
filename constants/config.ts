@@ -23,8 +23,10 @@ export const APP_CONFIG = {
 
   // API
   api: {
-    baseUrl: "https://backend-g4c7.onrender.com",
-    timeout: 60000, // 60 seconds (Render cold starts can exceed 30s)
+    baseUrl: __DEV__
+      ? "http://146.190.119.145:8000"       // droplet directo (dev)
+      : "https://api.psic-danieladiaz.com",  // producción
+    timeout: 30000,
   },
 
   // Validación
