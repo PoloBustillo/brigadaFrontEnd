@@ -321,8 +321,9 @@ export async function validateActivationCode(
     );
     return response.data;
   } catch (error: any) {
-    // Pydantic validation error (422) — e.g. non-numeric characters in code
-    const detail = error.response?.data?.detail;
+    // Extract message robustly — Error.message may be non-enumerable after
+    // object-spread in the axios interceptor, so check multiple sources.
+    const detail = error?.response?.data?.detail;
     if (Array.isArray(detail)) {
       const msg = detail.map((e: any) => e?.msg).filter(Boolean).join(", ");
       return { valid: false, error: msg || "Invalid code format" };
@@ -330,19 +331,19 @@ export async function validateActivationCode(
     if (typeof detail === "string") {
       return { valid: false, error: detail };
     }
-    // Network / timeout / connection refused
-    const networkMsg: string = error?.message ?? "";
-    if (
-      networkMsg.includes("conexión") ||
-      networkMsg.includes("internet") ||
-      networkMsg.includes("network") ||
-      networkMsg.includes("timeout") ||
-      networkMsg.includes("ECONNREFUSED")
-    ) {
-      return { valid: false, error: networkMsg };
+    // Prefer the explicit string message if present
+    const rawMsg: string =
+      (typeof error?.message === "string" ? error.message : "") ||
+      (typeof error?.msg === "string" ? error.msg : "") ||
+      "";
+    // Treat anything without a response as a network/connectivity problem
+    if (!error?.response) {
+      return {
+        valid: false,
+        error: "Error de conexión. Verifica tu internet e intenta nuevamente",
+      };
     }
-    // Fallback
-    return { valid: false, error: "Network error" };
+    return { valid: false, error: rawMsg || "Error al validar el código" };
   }
 }
 

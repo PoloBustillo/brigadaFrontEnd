@@ -237,10 +237,11 @@ async function attemptTokenRefresh(): Promise<string | null> {
  */
 apiClient.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
-    // Skip token for login/public endpoints
+    // Skip token for unauthenticated / public endpoints
     if (
       config.url?.includes("/auth/login") ||
-      config.url?.includes("/auth/refresh")
+      config.url?.includes("/auth/refresh") ||
+      config.url?.includes("/public/")
     ) {
       return config;
     }
