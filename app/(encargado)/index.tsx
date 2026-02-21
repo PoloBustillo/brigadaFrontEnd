@@ -17,7 +17,7 @@ import { getCached, setCached } from "@/lib/api/memory-cache";
 import {
   getMyCreatedAssignments,
   getMyTeam,
-  getTeamResponses,
+  getAllTeamResponses,
 } from "@/lib/api/assignments";
 import { Ionicons } from "@expo/vector-icons";
 import NetInfo from "@react-native-community/netinfo";
@@ -214,7 +214,7 @@ export default function EncargadoHome() {
         await Promise.allSettled([
           getMyTeam(),
           getMyCreatedAssignments(),
-          getTeamResponses(0, 100),
+          getAllTeamResponses(),
         ]);
 
       // Team members are critical — if this fails, mark error

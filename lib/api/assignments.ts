@@ -108,3 +108,21 @@ export async function getTeamResponses(
     throw err;
   }
 }
+
+/**
+ * Fetches ALL team responses by paginating until the server returns fewer items
+ * than the requested page size (signals last page).
+ */
+export async function getAllTeamResponses(pageSize = 500): Promise<TeamResponse[]> {
+  const all: TeamResponse[] = [];
+  let skip = 0;
+  const t0 = Date.now();
+  while (true) {
+    const page = await getTeamResponses(skip, pageSize);
+    all.push(...page);
+    if (page.length < pageSize) break; // last page
+    skip += page.length;
+  }
+  console.log(`[API] getAllTeamResponses → ${all.length} total en ${Date.now() - t0}ms`);
+  return all;
+}

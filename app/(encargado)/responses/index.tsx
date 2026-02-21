@@ -8,7 +8,7 @@ import { AppHeader, CMSNotice } from "@/components/shared";
 import { useThemeColors } from "@/contexts/theme-context";
 import { useTabBarHeight } from "@/hooks/use-tab-bar-height";
 import { getCached, setCached } from "@/lib/api/memory-cache";
-import { getTeamResponses, type TeamResponse } from "@/lib/api/assignments";
+import { getAllTeamResponses, type TeamResponse } from "@/lib/api/assignments";
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
 import {
@@ -35,7 +35,7 @@ export default function EncargadoResponses() {
     if (!silent) setIsLoading(true);
     setFetchError(false);
     try {
-      const data = await getTeamResponses();
+      const data = await getAllTeamResponses();
       setResponses(data);
       setHasLoadedOnce(true);
       setCached("encargado:responses", data);
