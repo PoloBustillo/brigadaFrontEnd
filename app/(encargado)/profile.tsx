@@ -80,22 +80,6 @@ export default function EncargadoProfileScreen() {
       onPress: handleThemeSettings,
       color: colors.primary,
     },
-    {
-      id: "notifications",
-      icon: "notifications",
-      title: "Notificaciones",
-      subtitle: "Gestiona tus preferencias",
-      onPress: () => console.log("Notifications"),
-      color: colors.info,
-    },
-    {
-      id: "team-settings",
-      icon: "people",
-      title: "Configuración de Equipo",
-      subtitle: "Gestiona tu equipo",
-      onPress: () => console.log("Team Settings"),
-      color: colors.warning,
-    },
   ];
 
   return (

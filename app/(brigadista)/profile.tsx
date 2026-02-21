@@ -89,14 +89,6 @@ export default function BrigadistaProfileScreen() {
       color: colors.primary,
     },
     {
-      id: "notifications",
-      icon: "notifications",
-      title: "Notificaciones",
-      subtitle: "Gestiona tus preferencias",
-      onPress: () => router.push("/(brigadista)/notifications" as any),
-      color: colors.info,
-    },
-    {
       id: "help",
       icon: "help-circle",
       title: "Ayuda",

@@ -80,14 +80,6 @@ export default function AdminProfileScreen() {
       onPress: handleThemeSettings,
       color: colors.primary,
     },
-    {
-      id: "notifications",
-      icon: "notifications",
-      title: "Notificaciones",
-      subtitle: "Gestiona tus preferencias",
-      onPress: () => console.log("Notifications"),
-      color: colors.info,
-    },
   ];
 
   return (

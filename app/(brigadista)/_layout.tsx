@@ -85,6 +85,12 @@ export default function BrigadistaLayout() {
             tabBarStyle: { display: "none" },
           }}
         />
+        <Tabs.Screen
+          name="notifications"
+          options={{
+            href: null, // Not available yet
+          }}
+        />
       </Tabs>
     </ProtectedRoute>
   );
