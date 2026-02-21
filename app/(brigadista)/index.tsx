@@ -613,7 +613,7 @@ export default function BrigadistaHome() {
             assignmentCards.map((assignment) => (
               <SurveyAssignmentCard key={assignment.id} {...assignment} />
             ))
-          ) : !isLoading && !fetchError ? (
+          ) : !isLoading ? (
             <View
               style={[
                 styles.emptyState,
@@ -636,8 +636,9 @@ export default function BrigadistaHome() {
               <Text
                 style={[styles.emptyStateText, { color: colors.textTertiary }]}
               >
-                Tu encargado te asignará encuestas pronto. Usa el gesto de
-                arrastrar hacia abajo para actualizar.
+                {fetchError
+                  ? "No se pudo verificar. Toca el botón de arriba para reintentar."
+                  : "Tu encargado te asignará encuestas pronto. Usa el gesto de arrastrar hacia abajo para actualizar."}
               </Text>
             </View>
           ) : null}

@@ -14,6 +14,7 @@ import { ButtonEnhanced } from "@/components/ui/button-enhanced";
 import { InputEnhanced } from "@/components/ui/input-enhanced";
 import { ThemeToggleIcon } from "@/components/ui/theme-toggle";
 import { toastManager } from "@/components/ui/toast-enhanced";
+import { translateError } from "@/utils/translate-error";
 import { useAuth } from "@/contexts/auth-context";
 import { useThemeColors } from "@/contexts/theme-context";
 import { completeActivation } from "@/lib/api";
@@ -251,7 +252,8 @@ export default function CreatePasswordScreen() {
         setTimeout(() => router.replace("/(auth)/login-enhanced" as any), 1000);
       } else {
         toastManager.error(
-          "Ocurrió un error al crear tu contraseña. Intenta nuevamente",
+          translateError(err?.message) ||
+            "Ocurrió un error al crear tu contraseña. Intenta nuevamente",
         );
       }
     } finally {
