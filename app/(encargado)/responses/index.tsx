@@ -6,6 +6,7 @@
 
 import { AppHeader, CMSNotice } from "@/components/shared";
 import { useThemeColors } from "@/contexts/theme-context";
+import { useTabBarHeight } from "@/hooks/use-tab-bar-height";
 import { getTeamResponses, type TeamResponse } from "@/lib/api/assignments";
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
@@ -21,6 +22,7 @@ import {
 
 export default function EncargadoResponses() {
   const colors = useThemeColors();
+  const { contentPadding } = useTabBarHeight();
   const [responses, setResponses] = useState<TeamResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [fetchError, setFetchError] = useState(false);
@@ -89,7 +91,7 @@ export default function EncargadoResponses() {
         </View>
       ) : (
         <ScrollView
-          contentContainerStyle={styles.content}
+          contentContainerStyle={[styles.content, { paddingBottom: contentPadding }]}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }

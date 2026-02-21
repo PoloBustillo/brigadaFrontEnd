@@ -6,6 +6,7 @@
 
 import { AppHeader } from "@/components/shared";
 import { useThemeColors } from "@/contexts/theme-context";
+import { useTabBarHeight } from "@/hooks/use-tab-bar-height";
 import { getMyCreatedAssignments, getMyTeam } from "@/lib/api/assignments";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
@@ -31,6 +32,7 @@ interface TeamMemberDisplay {
 
 export default function EncargadoTeam() {
   const colors = useThemeColors();
+  const { contentPadding } = useTabBarHeight();
   const [teamMembers, setTeamMembers] = useState<TeamMemberDisplay[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [fetchError, setFetchError] = useState(false);
@@ -135,7 +137,7 @@ export default function EncargadoTeam() {
         </View>
       ) : (
         <ScrollView
-          contentContainerStyle={styles.content}
+          contentContainerStyle={[styles.content, { paddingBottom: contentPadding }]}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }

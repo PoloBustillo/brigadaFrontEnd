@@ -12,6 +12,7 @@
 import { ThemeToggleIcon } from "@/components/ui/theme-toggle";
 import { useAuth } from "@/contexts/auth-context";
 import { useThemeColors } from "@/contexts/theme-context";
+import { useTabBarHeight } from "@/hooks/use-tab-bar-height";
 import {
   getMyCreatedAssignments,
   getMyTeam,
@@ -182,6 +183,7 @@ function StatCard({ icon, value, label, color }: StatCardProps) {
 
 export default function EncargadoHome() {
   const colors = useThemeColors();
+  const { contentPadding } = useTabBarHeight();
   const router = useRouter();
   const { user, logout } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
@@ -394,7 +396,7 @@ export default function EncargadoHome() {
   return (
     <ScrollView
       style={[styles.container, { backgroundColor: colors.background }]}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[styles.content, { paddingBottom: contentPadding }]}
       refreshControl={
         <RefreshControl
           refreshing={refreshing}
@@ -585,7 +587,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    paddingBottom: 32,
+    paddingBottom: 0,
   },
   header: {
     paddingHorizontal: 20,

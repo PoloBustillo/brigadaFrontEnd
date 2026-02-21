@@ -6,6 +6,7 @@
 
 import { AppHeader, CMSNotice } from "@/components/shared";
 import { useThemeColors } from "@/contexts/theme-context";
+import { useTabBarHeight } from "@/hooks/use-tab-bar-height";
 import type { AssignmentDetail } from "@/lib/api/assignments";
 import { getMyCreatedAssignments } from "@/lib/api/assignments";
 import { Ionicons } from "@expo/vector-icons";
@@ -52,6 +53,7 @@ function groupBySurvey(assignments: AssignmentDetail[]): SurveyGroup[] {
 
 export default function EncargadoSurveys() {
   const colors = useThemeColors();
+  const { contentPadding } = useTabBarHeight();
   const [surveys, setSurveys] = useState<SurveyGroup[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [fetchError, setFetchError] = useState(false);
@@ -117,7 +119,7 @@ export default function EncargadoSurveys() {
         </View>
       ) : (
         <ScrollView
-          contentContainerStyle={styles.content}
+          contentContainerStyle={[styles.content, { paddingBottom: contentPadding }]}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
