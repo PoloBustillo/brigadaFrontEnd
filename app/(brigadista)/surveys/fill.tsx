@@ -575,10 +575,7 @@ export default function FillSurveyScreen() {
       {/* ── Question area ────────────────────────────────────────────────── */}
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={[
-          styles.scrollContent,
-          { paddingBottom: 24 },
-        ]}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: 24 }]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >

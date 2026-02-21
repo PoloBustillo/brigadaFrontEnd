@@ -103,10 +103,10 @@ export default function EncargadoSurveys() {
         <CMSNotice message="Vista informativa. La configuración de encuestas se realiza en el CMS web." />
       </View>
 
-      {fetchError && (
+      {fetchError && surveys.length > 0 && (
         <TouchableOpacity style={styles.errorBanner} onPress={fetchSurveys}>
           <Text style={styles.errorBannerText}>
-            No se pudo cargar. Toca para reintentar.
+            No se pudo actualizar. Toca para reintentar.
           </Text>
         </TouchableOpacity>
       )}
@@ -171,21 +171,39 @@ export default function EncargadoSurveys() {
           {/* Surveys List */}
           <View style={styles.listContainer}>
             {surveys.length === 0 ? (
-              <View style={styles.emptyState}>
-                <Ionicons
-                  name="document-text-outline"
-                  size={64}
-                  color={colors.textSecondary}
-                />
-                <Text style={[styles.emptyText, { color: colors.text }]}>
-                  No hay encuestas
-                </Text>
-                <Text
-                  style={[styles.emptySubtext, { color: colors.textSecondary }]}
+              fetchError ? (
+                <TouchableOpacity
+                  style={styles.emptyState}
+                  onPress={fetchSurveys}
+                  activeOpacity={0.7}
                 >
-                  Las encuestas asignadas aparecerán aquí
-                </Text>
-              </View>
+                  <Ionicons
+                    name="cloud-offline-outline"
+                    size={64}
+                    color={colors.error}
+                  />
+                  <Text style={[styles.emptyText, { color: colors.error }]}>
+                    Sin conexión
+                  </Text>
+                  <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>
+                    No se pudieron cargar las encuestas. Toca para reintentar.
+                  </Text>
+                </TouchableOpacity>
+              ) : (
+                <View style={styles.emptyState}>
+                  <Ionicons
+                    name="document-text-outline"
+                    size={64}
+                    color={colors.textSecondary}
+                  />
+                  <Text style={[styles.emptyText, { color: colors.text }]}>
+                    Sin encuestas asignadas
+                  </Text>
+                  <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>
+                    Las encuestas que te asignen aparecerán aquí
+                  </Text>
+                </View>
+              )
             ) : (
               surveys.map((survey) => {
                 const config =

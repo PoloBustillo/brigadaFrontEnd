@@ -107,10 +107,10 @@ export default function EncargadoTeam() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <AppHeader title="Mi Equipo" />
 
-      {fetchError && (
+      {fetchError && teamMembers.length > 0 && (
         <TouchableOpacity style={styles.errorBanner} onPress={fetchTeam}>
           <Text style={styles.errorBannerText}>
-            No se pudo cargar. Toca para reintentar.
+            No se pudo actualizar. Toca para reintentar.
           </Text>
         </TouchableOpacity>
       )}
@@ -179,21 +179,39 @@ export default function EncargadoTeam() {
           {/* Team Members List */}
           <View style={styles.listContainer}>
             {teamMembers.length === 0 ? (
-              <View style={styles.emptyState}>
-                <Ionicons
-                  name="people-outline"
-                  size={64}
-                  color={colors.textSecondary}
-                />
-                <Text style={[styles.emptyText, { color: colors.text }]}>
-                  No hay miembros
-                </Text>
-                <Text
-                  style={[styles.emptySubtext, { color: colors.textSecondary }]}
+              fetchError ? (
+                <TouchableOpacity
+                  style={styles.emptyState}
+                  onPress={fetchTeam}
+                  activeOpacity={0.7}
                 >
-                  Los miembros de tu equipo aparecerán aquí
-                </Text>
-              </View>
+                  <Ionicons
+                    name="cloud-offline-outline"
+                    size={64}
+                    color={colors.error}
+                  />
+                  <Text style={[styles.emptyText, { color: colors.error }]}>
+                    Sin conexión
+                  </Text>
+                  <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>
+                    No se pudo cargar el equipo. Toca para reintentar.
+                  </Text>
+                </TouchableOpacity>
+              ) : (
+                <View style={styles.emptyState}>
+                  <Ionicons
+                    name="people-outline"
+                    size={64}
+                    color={colors.textSecondary}
+                  />
+                  <Text style={[styles.emptyText, { color: colors.text }]}>
+                    Equipo sin miembros
+                  </Text>
+                  <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>
+                    Los brigadistas asignados a tu equipo aparecerán aquí
+                  </Text>
+                </View>
+              )
             ) : (
               teamMembers.map((member) => {
                 const config =

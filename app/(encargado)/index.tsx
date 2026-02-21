@@ -443,13 +443,14 @@ export default function EncargadoHome() {
         ))}
       </View>
 
-      {fetchError && (
+      {/* Error banner only when we have PARTIAL data — not on first-load failure */}
+      {fetchError && teamMembers.length > 0 && (
         <TouchableOpacity
           style={styles.errorBanner}
           onPress={fetchDashboardData}
         >
           <Text style={styles.errorBannerText}>
-            No se pudieron cargar todos los datos. Toca para reintentar.
+            No se pudo actualizar. Toca para reintentar.
           </Text>
         </TouchableOpacity>
       )}
@@ -484,11 +485,17 @@ export default function EncargadoHome() {
               <TeamMemberCard key={member.id} {...member} />
             ))}
             {teamMembers.length === 0 && (
-              <Text
-                style={[styles.emptyTeamText, { color: colors.textSecondary }]}
-              >
-                No hay miembros de equipo asignados todavía.
-              </Text>
+              fetchError ? (
+                <TouchableOpacity onPress={fetchDashboardData} activeOpacity={0.7}>
+                  <Text style={[styles.emptyTeamText, { color: colors.error }]}>
+                    No se pudo cargar el equipo. Toca para reintentar.
+                  </Text>
+                </TouchableOpacity>
+              ) : (
+                <Text style={[styles.emptyTeamText, { color: colors.textSecondary }]}>
+                  No hay miembros de equipo asignados todavía.
+                </Text>
+              )
             )}
           </View>
         </View>

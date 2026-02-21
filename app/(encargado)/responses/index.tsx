@@ -75,10 +75,10 @@ export default function EncargadoResponses() {
         <CMSNotice message="Vista informativa. El análisis avanzado y gestión se realizan en el CMS web." />
       </View>
 
-      {fetchError && (
+      {fetchError && responses.length > 0 && (
         <TouchableOpacity style={styles.errorBanner} onPress={fetchResponses}>
           <Text style={styles.errorBannerText}>
-            No se pudo cargar. Toca para reintentar.
+            No se pudo actualizar. Toca para reintentar.
           </Text>
         </TouchableOpacity>
       )}
@@ -133,21 +133,39 @@ export default function EncargadoResponses() {
           {/* Responses List */}
           <View style={styles.listContainer}>
             {responses.length === 0 ? (
-              <View style={styles.emptyState}>
-                <Ionicons
-                  name="chatbox-outline"
-                  size={64}
-                  color={colors.textSecondary}
-                />
-                <Text style={[styles.emptyText, { color: colors.text }]}>
-                  No hay respuestas
-                </Text>
-                <Text
-                  style={[styles.emptySubtext, { color: colors.textSecondary }]}
+              fetchError ? (
+                <TouchableOpacity
+                  style={styles.emptyState}
+                  onPress={fetchResponses}
+                  activeOpacity={0.7}
                 >
-                  Las respuestas del equipo aparecerán aquí
-                </Text>
-              </View>
+                  <Ionicons
+                    name="cloud-offline-outline"
+                    size={64}
+                    color={colors.error}
+                  />
+                  <Text style={[styles.emptyText, { color: colors.error }]}>
+                    Sin conexión
+                  </Text>
+                  <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>
+                    No se pudieron cargar las respuestas. Toca para reintentar.
+                  </Text>
+                </TouchableOpacity>
+              ) : (
+                <View style={styles.emptyState}>
+                  <Ionicons
+                    name="chatbox-outline"
+                    size={64}
+                    color={colors.textSecondary}
+                  />
+                  <Text style={[styles.emptyText, { color: colors.text }]}>
+                    Sin respuestas aún
+                  </Text>
+                  <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>
+                    Las respuestas de tu equipo aparecerán aquí
+                  </Text>
+                </View>
+              )
             ) : (
               responses.map((response) => {
                 return (
