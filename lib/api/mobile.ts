@@ -85,6 +85,7 @@ export async function getAssignedSurveys(
 ): Promise<AssignedSurveyResponse[]> {
   const params = statusFilter ? `?status_filter=${statusFilter}` : "";
   let lastError: unknown = null;
+  const t0 = Date.now();
 
   for (let attempt = 1; attempt <= ASSIGNED_SURVEYS_RETRY_ATTEMPTS; attempt++) {
     try {
@@ -92,9 +93,11 @@ export async function getAssignedSurveys(
         `/mobile/surveys${params}`,
         { timeout: ASSIGNED_SURVEYS_TIMEOUT_MS },
       );
+      console.log(`[API] GET /mobile/surveys → ${data.length} items en ${Date.now() - t0}ms (intento ${attempt})`, data);
       return data;
     } catch (error) {
       lastError = error;
+      console.warn(`[API] GET /mobile/surveys → intento ${attempt} fallido en ${Date.now() - t0}ms`, error);
 
       if (attempt === ASSIGNED_SURVEYS_RETRY_ATTEMPTS) {
         break;
@@ -104,6 +107,7 @@ export async function getAssignedSurveys(
     }
   }
 
+  console.error(`[API] GET /mobile/surveys → todos los intentos fallaron en ${Date.now() - t0}ms`);
   throw lastError;
 }
 
@@ -114,10 +118,17 @@ export async function getAssignedSurveys(
 export async function getLatestSurveyVersion(
   surveyId: number,
 ): Promise<SurveyVersionResponse> {
-  const { data } = await apiClient.get<SurveyVersionResponse>(
-    `/mobile/surveys/${surveyId}/latest`,
-  );
-  return data;
+  const t0 = Date.now();
+  try {
+    const { data } = await apiClient.get<SurveyVersionResponse>(
+      `/mobile/surveys/${surveyId}/latest`,
+    );
+    console.log(`[API] GET /mobile/surveys/${surveyId}/latest → OK en ${Date.now() - t0}ms`, data);
+    return data;
+  } catch (err) {
+    console.error(`[API] GET /mobile/surveys/${surveyId}/latest → ERROR en ${Date.now() - t0}ms`, err);
+    throw err;
+  }
 }
 
 // ─── Submit ───────────────────────────────────────────────────────────────────
@@ -161,11 +172,18 @@ export interface BatchResponseResult {
 export async function submitBatchResponses(
   response: SurveyResponseCreate,
 ): Promise<BatchResponseResult> {
-  const { data } = await apiClient.post<BatchResponseResult>(
-    "/mobile/responses/batch",
-    { responses: [response] },
-  );
-  return data;
+  const t0 = Date.now();
+  try {
+    const { data } = await apiClient.post<BatchResponseResult>(
+      "/mobile/responses/batch",
+      { responses: [response] },
+    );
+    console.log(`[API] POST /mobile/responses/batch → OK en ${Date.now() - t0}ms`, data);
+    return data;
+  } catch (err) {
+    console.error(`[API] POST /mobile/responses/batch → ERROR en ${Date.now() - t0}ms`, err);
+    throw err;
+  }
 }
 
 /**
@@ -176,8 +194,15 @@ export async function getMyResponses(
   skip = 0,
   limit = 100,
 ): Promise<SurveyResponseDetail[]> {
-  const { data } = await apiClient.get<SurveyResponseDetail[]>(
-    `/mobile/responses/me?skip=${skip}&limit=${limit}`,
-  );
-  return data;
+  const t0 = Date.now();
+  try {
+    const { data } = await apiClient.get<SurveyResponseDetail[]>(
+      `/mobile/responses/me?skip=${skip}&limit=${limit}`,
+    );
+    console.log(`[API] GET /mobile/responses/me → ${data.length} items en ${Date.now() - t0}ms`, data);
+    return data;
+  } catch (err) {
+    console.error(`[API] GET /mobile/responses/me → ERROR en ${Date.now() - t0}ms`, err);
+    throw err;
+  }
 }
