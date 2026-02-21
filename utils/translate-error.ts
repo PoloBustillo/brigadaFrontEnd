@@ -12,6 +12,16 @@ const ERROR_MAP: [RegExp, string][] = [
   [/not.*authorized/i, "No tienes autorización para esta acción"],
   [/token.*expired/i, "Tu sesión expiró. Inicia sesión de nuevo"],
   [/could.*not.*validate/i, "Error de autenticación. Inicia sesión de nuevo"],
+  // Activation
+  [/invalid.*activation.*code/i, "Código incorrecto. Verifica los 6 dígitos e intenta nuevamente"],
+  [/activation.*code.*invalid/i, "Código incorrecto. Verifica los 6 dígitos e intenta nuevamente"],
+  [/activation.*code.*not.*found/i, "Código no encontrado. Verifica los dígitos o pide uno nuevo al administrador"],
+  [/activation.*code.*expired/i, "El código ha expirado. Pide al administrador que genere uno nuevo"],
+  [/activation.*code.*locked/i, "Código bloqueado por demasiados intentos. Pide al administrador que genere uno nuevo"],
+  [/code.*already.*used/i, "Este código ya fue utilizado. Contacta a tu administrador"],
+  [/code.*expired/i, "El código ha expirado. Pide al administrador que genere uno nuevo"],
+  [/code.*locked/i, "Código bloqueado. Pide al administrador que genere uno nuevo"],
+  [/identifier.*does.*not.*match/i, "El correo no coincide con la invitación. Usa el mismo correo con el que te registró el administrador"],
   // Network
   [/network.*error/i, "Error de conexión. Revisa tu internet"],
   [/timeout/i, "El servidor tardó demasiado. Intenta de nuevo"],

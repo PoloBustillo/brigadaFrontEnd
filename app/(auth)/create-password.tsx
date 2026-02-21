@@ -113,7 +113,7 @@ function checkPasswordStrength(password: string): PasswordStrength {
 
 export default function CreatePasswordScreen() {
   const router = useRouter();
-  const { pendingEmail, setPendingEmail } = useAuth();
+  const { pendingEmail, setPendingEmail, login } = useAuth();
   const { code: activationCode } = useLocalSearchParams<{ code?: string }>();
   const colors = useThemeColors();
 
@@ -222,22 +222,38 @@ export default function CreatePasswordScreen() {
       // Clear pending email
       setPendingEmail(null);
 
+      // Hydrate the auth context (sets user + token in state and AsyncStorage).
+      // completeActivation only stores the token in the API client; without this
+      // login call, AuthContext.user stays null and every guarded screen would
+      // redirect back to the welcome/login flow.
+      const activatedUser = await login(email.trim(), password);
+
+      // login() returns a User with UPPERCASE role ("ADMIN", "ENCARGADO", "BRIGADISTA")
       const roleRoutes: Record<string, string> = {
-        admin: "/(admin)/",
-        encargado: "/(encargado)/",
-        brigadista: "/(brigadista)/",
+        ADMIN: "/(admin)/",
+        ENCARGADO: "/(encargado)/",
+        BRIGADISTA: "/(brigadista)/",
       };
       const destination =
-        roleRoutes[result.user_info?.role] ?? "/(auth)/login-enhanced";
+        roleRoutes[activatedUser.role] ?? "/(auth)/login-enhanced";
 
       setTimeout(() => {
         router.replace(destination as any);
-      }, 1000);
-    } catch {
+      }, 500);
+    } catch (err: any) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      toastManager.error(
-        "Ocurrió un error al crear tu contraseña. Intenta nuevamente",
-      );
+      // If the error message includes "Login" or "contraseña" it came from the
+      // post-activation login step (account was created but auto-login failed).
+      // In that case, guide the user to log in manually.
+      const msg: string = err?.message ?? "";
+      if (msg.includes("login") || msg.includes("contraseña") || msg.includes("password")) {
+        toastManager.success("¡Cuenta creada! Por favor inicia sesión.");
+        setTimeout(() => router.replace("/(auth)/login-enhanced" as any), 1000);
+      } else {
+        toastManager.error(
+          "Ocurrió un error al crear tu contraseña. Intenta nuevamente",
+        );
+      }
     } finally {
       setLoading(false);
     }
