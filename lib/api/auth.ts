@@ -7,7 +7,12 @@ import type { User } from "@/types/user";
 import * as Application from "expo-application";
 import * as Crypto from "expo-crypto";
 import { Platform } from "react-native";
-import { apiClient, clearTokens, setAccessToken, setRefreshToken } from "./client";
+import {
+  apiClient,
+  clearTokens,
+  setAccessToken,
+  setRefreshToken,
+} from "./client";
 import type { LoginResponse, UserResponse, UserUpdateRequest } from "./types";
 import { getApiErrorMessage, mapUser } from "./utils";
 
@@ -152,7 +157,9 @@ export async function uploadAvatar(imageUri: string): Promise<User> {
 
     return mapUser(response.data);
   } catch (error: any) {
-    throw new Error(getApiErrorMessage(error, "No se pudo subir la foto de perfil"));
+    throw new Error(
+      getApiErrorMessage(error, "No se pudo subir la foto de perfil"),
+    );
   }
 }
 
@@ -254,7 +261,9 @@ export async function completeActivation(data: {
     }
     return result;
   } catch (error: any) {
-    throw new Error(getApiErrorMessage(error, "Error al completar la activación"));
+    throw new Error(
+      getApiErrorMessage(error, "Error al completar la activación"),
+    );
   }
 }
 
@@ -273,6 +282,8 @@ export async function changePassword(
       new_password: newPassword,
     });
   } catch (error: any) {
-    throw new Error(getApiErrorMessage(error, "No se pudo cambiar la contraseña"));
+    throw new Error(
+      getApiErrorMessage(error, "No se pudo cambiar la contraseña"),
+    );
   }
 }

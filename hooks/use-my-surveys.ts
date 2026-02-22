@@ -114,7 +114,9 @@ function mapApiSurvey(
     assignedAt: raw.assigned_at,
     versionId: raw.latest_version?.id ?? 0,
     questionsJson: JSON.stringify(
-      (raw.latest_version?.questions ?? []).slice().sort((a, b) => a.order - b.order),
+      (raw.latest_version?.questions ?? [])
+        .slice()
+        .sort((a, b) => a.order - b.order),
     ),
   };
 }

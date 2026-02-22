@@ -136,14 +136,12 @@ export interface BatchResponseResult {
 export async function submitBatchResponses(
   response: SurveyResponseCreate,
 ): Promise<BatchResponseResult> {
-  return timedCall(
-    "POST /mobile/responses/batch",
-    () =>
-      apiClient
-        .post<BatchResponseResult>("/mobile/responses/batch", {
-          responses: [response],
-        })
-        .then((r) => r.data),
+  return timedCall("POST /mobile/responses/batch", () =>
+    apiClient
+      .post<BatchResponseResult>("/mobile/responses/batch", {
+        responses: [response],
+      })
+      .then((r) => r.data),
   );
 }
 

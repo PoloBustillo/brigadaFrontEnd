@@ -58,7 +58,10 @@ export async function getMyCreatedAssignments(
   if (status) params.status = status;
   return timedCall(
     "GET /assignments/by-me",
-    () => apiClient.get<AssignmentDetail[]>("/assignments/by-me", { params }).then((r) => r.data),
+    () =>
+      apiClient
+        .get<AssignmentDetail[]>("/assignments/by-me", { params })
+        .then((r) => r.data),
     (items) => `${items.length} items`,
   );
 }
@@ -67,7 +70,8 @@ export async function getMyCreatedAssignments(
 export async function getMyTeam(): Promise<TeamMember[]> {
   return timedCall(
     "GET /assignments/my-team",
-    () => apiClient.get<TeamMember[]>("/assignments/my-team").then((r) => r.data),
+    () =>
+      apiClient.get<TeamMember[]>("/assignments/my-team").then((r) => r.data),
     (items) => `${items.length} items`,
   );
 }
@@ -81,7 +85,9 @@ export async function getTeamResponses(
     "GET /assignments/my-team-responses",
     () =>
       apiClient
-        .get<TeamResponse[]>("/assignments/my-team-responses", { params: { skip, limit } })
+        .get<
+          TeamResponse[]
+        >("/assignments/my-team-responses", { params: { skip, limit } })
         .then((r) => r.data),
     (items) => `${items.length} items`,
   );
@@ -91,7 +97,9 @@ export async function getTeamResponses(
  * Fetches ALL team responses by paginating until the server returns fewer items
  * than the requested page size (signals last page).
  */
-export async function getAllTeamResponses(pageSize = 500): Promise<TeamResponse[]> {
+export async function getAllTeamResponses(
+  pageSize = 500,
+): Promise<TeamResponse[]> {
   const all: TeamResponse[] = [];
   let skip = 0;
   const t0 = Date.now();
@@ -101,6 +109,8 @@ export async function getAllTeamResponses(pageSize = 500): Promise<TeamResponse[
     if (page.length < pageSize) break; // last page
     skip += page.length;
   }
-  console.log(`[API] getAllTeamResponses → ${all.length} total en ${Date.now() - t0}ms`);
+  console.log(
+    `[API] getAllTeamResponses → ${all.length} total en ${Date.now() - t0}ms`,
+  );
   return all;
 }

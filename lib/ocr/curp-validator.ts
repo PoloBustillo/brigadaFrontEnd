@@ -140,7 +140,7 @@ function mapRenapoStatus(raw: string | null | undefined): RenapoStatus {
 }
 
 function buildDisplayMessage(status: RenapoStatus, reachable: boolean): string {
-  if (!reachable) return "Formato válido. No se pudo contactar a RENAPO.";
+  if (!reachable) return "✓ Formato válido. Verificación RENAPO no disponible.";
   switch (status) {
     case "VIGE":
       return "✓ CURP vigente en el padrón RENAPO.";
@@ -151,6 +151,6 @@ function buildDisplayMessage(status: RenapoStatus, reachable: boolean): string {
     case "NO_ENCONTRADO":
       return "⚠ CURP no encontrado en el padrón RENAPO.";
     default:
-      return "CURP válido en formato. Sin respuesta de RENAPO.";
+      return "✓ CURP válido en formato.";
   }
 }

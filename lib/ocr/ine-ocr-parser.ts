@@ -66,9 +66,17 @@
  *      Si lo único que tenemos es el CURP, al menos podemos sugerir iniciales.
  *
  * 8. DOMICILIO: RECOLECCIÓN MULTI-LÍNEA
- *    El reverso tiene el domicilio en 2–4 líneas seguidas. Se recolectan
+ *    El reverso tiene el domicilio en 2–6 líneas seguidas. Se recolectan
  *    hasta la primera línea que parece una etiqueta de campo (mayúsculas
- *    cortas: "CLAVE", "ESTADO", "MUNICIPIO", etc.) o hasta máximo 4 líneas.
+ *    cortas: "CLAVE", "ESTADO", "MUNICIPIO", etc.) o hasta máximo 6 líneas.
+ *    Se buscan múltiples anclas: "DOMICILIO", "CALLE", "AV ", "BLVD".
+ *
+ * 10. MODELO HINT (USUARIO)
+ *    El brigadista puede pre-seleccionar el tipo de INE antes de capturar.
+ *    Cuando se provee un `modeloHint`, se usa como modelo detectado si la
+ *    auto-detección falla (modelo "unknown"). Esto mejora significativamente
+ *    la precisión de extracción de nombres y domicilios cuando el OCR del
+ *    texto institucional es ilegible (reflejo en holograma, etc.).
  *
  * 9. FECHAS: 3 FORMATOS
  *    INE ha usado al menos tres formatos de fecha:
@@ -444,44 +452,98 @@ function splitFullName(full: string): {
  * Busca líneas "APELLIDO PATERNO", "APELLIDO MATERNO", "NOMBRE(S)" y toma
  * la línea siguiente que no sea otra etiqueta.
  * Es la más confiable cuando ML Kit preserva el orden de bloques.
+ *
+ * Mejoras:
+ *  - Tolera variantes OCR de etiquetas: "APELL1DO", "APELLID0", "AP. PATERNO"
+ *  - Busca en líneas i+1 e i+2 (ML Kit inserta líneas en blanco a veces)
+ *  - Maneja formato "PATERNO: GARCIA" con dos puntos
  */
 function extractNamesFromLabels(lines: string[]): NameResult | null {
   const result = { nombre: "", apellidoPaterno: "", apellidoMaterno: "" };
   let found = false;
 
+  // Helper: obtener siguiente valor no-etiqueta (salta líneas vacías/cortas)
+  const getNextValue = (idx: number): string | null => {
+    for (let j = idx + 1; j < Math.min(idx + 3, lines.length); j++) {
+      const candidate = lines[j];
+      if (!candidate || candidate.length < 2) continue;
+      if (isLabel(candidate)) return null;
+      // Filtrar líneas que son solo dígitos (números de página, sección)
+      if (/^\d+$/.test(candidate)) continue;
+      return candidate;
+    }
+    return null;
+  };
+
   for (let i = 0; i < lines.length - 1; i++) {
     const line = lines[i];
-    const next = lines[i + 1];
 
-    if (/^APELLIDO\s+PATERNO$/i.test(line) && next && !isLabel(next)) {
-      result.apellidoPaterno = cleanNameValue(next);
-      found = true;
+    // APELLIDO PATERNO — tolera OCR: APELL1DO, APELLID0, AP PATERNO, AP. PATERNO
+    if (/^A(?:PELLID|PELL[I1]D)[O0]\s+PATERN[O0]$/i.test(line) ||
+        /^AP\.?\s+PATERN[O0]$/i.test(line)) {
+      const next = getNextValue(i);
+      if (next) {
+        result.apellidoPaterno = cleanNameValue(next);
+        found = true;
+      }
     }
-    if (/^APELLIDO\s+MATERNO$/i.test(line) && next && !isLabel(next)) {
-      result.apellidoMaterno = cleanNameValue(next);
-      found = true;
+
+    // APELLIDO MATERNO — mismas variantes
+    if (/^A(?:PELLID|PELL[I1]D)[O0]\s+MATERN[O0]$/i.test(line) ||
+        /^AP\.?\s+MATERN[O0]$/i.test(line)) {
+      const next = getNextValue(i);
+      if (next) {
+        result.apellidoMaterno = cleanNameValue(next);
+        found = true;
+      }
     }
-    if (/^NOMBRE\(S\)|^NOMBRE$/i.test(line) && next && !isLabel(next)) {
-      result.nombre = cleanNameValue(next);
-      found = true;
+
+    // NOMBRE(S) — tolera N0MBRE, NOMBRE(5)
+    if (/^N[O0]MBRE(?:\([S5]\))?$/i.test(line)) {
+      const next = getNextValue(i);
+      if (next) {
+        result.nombre = cleanNameValue(next);
+        found = true;
+      }
     }
-    // También maneja etiqueta y valor en la misma línea: "APELLIDO PATERNO GARCIA"
-    const inlineAP = line.match(/^APELLIDO\s+PATERNO\s+(.+)$/i);
-    if (inlineAP) {
+
+    // Etiqueta y valor en la misma línea: "APELLIDO PATERNO GARCIA"
+    const inlineAP = line.match(/^A(?:PELLID|PELL[I1]D)[O0]\s+PATERN[O0]\s+(.+)$/i) ||
+                     line.match(/^AP\.?\s+PATERN[O0]\s+(.+)$/i);
+    if (inlineAP && !result.apellidoPaterno) {
       result.apellidoPaterno = cleanNameValue(inlineAP[1]);
       found = true;
     }
-    const inlineAM = line.match(/^APELLIDO\s+MATERNO\s+(.+)$/i);
-    if (inlineAM) {
+
+    const inlineAM = line.match(/^A(?:PELLID|PELL[I1]D)[O0]\s+MATERN[O0]\s+(.+)$/i) ||
+                     line.match(/^AP\.?\s+MATERN[O0]\s+(.+)$/i);
+    if (inlineAM && !result.apellidoMaterno) {
       result.apellidoMaterno = cleanNameValue(inlineAM[1]);
       found = true;
     }
 
-    // Casos donde OCR devuelve "NOMBRE(S) JUAN PEREZ LOPEZ" en una sola línea
+    // "NOMBRE(S) JUAN PEREZ" o "NOMBRE JUAN"
     const inlineNombre =
-      line.match(/^NOMBRE\(S\)\s+(.+)$/i) || line.match(/^NOMBRE\s+(.+)$/i);
-    if (inlineNombre) {
+      line.match(/^N[O0]MBRE(?:\([S5]\))?\s+(.+)$/i);
+    if (inlineNombre && !result.nombre) {
       result.nombre = cleanNameValue(inlineNombre[1]);
+      found = true;
+    }
+
+    // Formato con dos puntos: "PATERNO: GARCIA"
+    const colonAP = line.match(/PATERN[O0]\s*:\s*(.+)$/i);
+    if (colonAP && !result.apellidoPaterno) {
+      result.apellidoPaterno = cleanNameValue(colonAP[1]);
+      found = true;
+    }
+    const colonAM = line.match(/MATERN[O0]\s*:\s*(.+)$/i);
+    if (colonAM && !result.apellidoMaterno) {
+      result.apellidoMaterno = cleanNameValue(colonAM[1]);
+      found = true;
+    }
+    const colonNombre = line.match(/N[O0]MBRE(?:\([S5]\))?\s*:\s*(.+)$/i);
+    if (colonNombre && !result.nombre) {
+      result.nombre = cleanNameValue(colonNombre[1]);
       found = true;
     }
   }
@@ -503,34 +565,57 @@ function extractNamesFromLabels(lines: string[]): NameResult | null {
  * En muchas versiones de INE el bloque nombre/apellidos aparece como 3 líneas
  * seguidas (AP PATERNO, AP MATERNO, NOMBRE) justo antes de la fecha o CURP.
  *
- * Busca el índice del CURP (o fecha) y retrocede 1-3 líneas capturando
- * candidatos: solo letras, sin números, longitud >= 3.
+ * Mejoras:
+ *  - Múltiples anclas: CURP (10 chars), CURP (6 chars), "FECHA DE NAC",
+ *    "SEXO", "CLAVE DE ELECTOR" — aumenta chance de encontrar ancla
+ *  - Más tolerante con líneas que tengan 1-2 dígitos (OCR confunde letras)
+ *  - No rompe en la primera línea no-candidata; salta si len < 2
  */
 function extractNamesFromBlock(
   lines: string[],
   curp: string,
 ): NameResult | null {
   // Ancla primaria: línea que contiene los primeros 10 chars del CURP
-  let anchorIdx = curp
+  let anchorIdx = curp && curp.length >= 10
     ? lines.findIndex((l) => l.includes(curp.substring(0, 10)))
     : -1;
 
-  // Ancla secundaria: cuando el CURP no está disponible, anclar en
-  // "FECHA DE NACIMIENTO" — los nombres siempre la preceden en todos los
-  // modelos INE. Esto mejora la extracción cuando OCR del reverso falla.
+  // Ancla con 6 chars de CURP (más tolerante con OCR parcial)
+  if (anchorIdx < 2 && curp && curp.length >= 6) {
+    anchorIdx = lines.findIndex((l) => l.includes(curp.substring(0, 6)));
+  }
+
+  // Ancla en "FECHA DE NACIMIENTO"
   if (anchorIdx < 2) {
     const fechaIdx = lines.findIndex((l) => /FECHA\s+DE\s+NAC/i.test(l));
     if (fechaIdx >= 2) anchorIdx = fechaIdx;
   }
 
-  if (anchorIdx < 2) return null;
+  // Ancla en "SEXO" (está justo después de los nombres en modelos C/D)
+  if (anchorIdx < 2) {
+    const sexoIdx = lines.findIndex((l) => /^SEXO/i.test(l));
+    if (sexoIdx >= 2) anchorIdx = sexoIdx;
+  }
+
+  // Ancla en "CLAVE DE ELECTOR" o "CLAVE" (debajo de nombres en el reverso)
+  if (anchorIdx < 2) {
+    const claveIdx = lines.findIndex((l) => /^CLAVE/i.test(l));
+    if (claveIdx >= 2) anchorIdx = claveIdx;
+  }
+
+  if (anchorIdx < 1) return null;
 
   const candidates: string[] = [];
-  for (let i = anchorIdx - 1; i >= Math.max(0, anchorIdx - 4); i--) {
+  for (let i = anchorIdx - 1; i >= Math.max(0, anchorIdx - 5); i--) {
     const l = lines[i];
-    // Líneas de nombre: solo mayúsculas + espacios + tildes, len >= 3
-    if (/^[A-ZÁÉÍÓÚÑÜ\s]{3,}$/.test(l) && !isLabel(l)) {
+    // Líneas de nombre: mayúsculas + espacios + tildes, tolerando 1-2 dígitos
+    // por errores OCR (ej: "GARC1A" en vez de "GARCIA")
+    const cleaned = l.replace(/[0-9]/g, "");
+    if (/^[A-ZÁÉÍÓÚÑÜ\s]{3,}$/.test(cleaned) && !isLabel(l) && l.length >= 3) {
       candidates.unshift(l.trim());
+    } else if (l.length < 2) {
+      // Ignorar líneas vacías/cortas, no romper la búsqueda
+      continue;
     } else {
       break; // Encontramos ruido — detener
     }
@@ -552,6 +637,13 @@ function extractNamesFromBlock(
       nombre: "",
       method: "block",
     };
+  }
+  // Si solo encontramos 1 candidato, intentar splitearlo (nombre completo en 1 línea)
+  if (candidates.length === 1) {
+    const split = splitFullName(candidates[0]);
+    if (split.apellidoPaterno && split.nombre) {
+      return { ...split, method: "block" };
+    }
   }
   return null;
 }
@@ -583,28 +675,102 @@ function extractNamesFromCurp(curp: string): NameResult {
 
 // ── Extracción de domicilio (Decisión §8) ─────────────────────────────────────
 
+/** Tokens que detienen la recolección de líneas de domicilio */
+const DOMICILIO_STOP_TOKENS = [
+  /^CLAVE/i,
+  /^CURP/i,
+  /^SECCI[OÓ]N/i,
+  /^VIGENCIA/i,
+  /^FECHA/i,
+  /^SEXO/i,
+  /^INE/i,
+  /^IFE/i,
+  /^INSTITUTO/i,
+  /^NOMBRE/i,
+  /^APELLIDO/i,
+  /^EMISI[OÓ]N/i,
+  /^A[NÑ]O\s+DE/i,
+  /^CREDENCIAL/i,
+  // Líneas de MRZ (tres <'s o más)
+  /<<<+/,
+];
+
+function isDomicilioStop(line: string): boolean {
+  return DOMICILIO_STOP_TOKENS.some((re) => re.test(line));
+}
+
+/**
+ * Extrae el domicilio del reverso de la INE.
+ *
+ * Mejoras:
+ *  - Busca múltiples anclas: "DOMICILIO", "CALLE", "AV ", "BLVD", "C. "
+ *  - Si no encuentra "DOMICILIO", busca patrones de dirección mexicana
+ *    (número exterior, colonia, C.P., municipio, estado)
+ *  - Recolecta hasta 8 líneas, filtrando líneas de ruido
+ *  - Limpia artefactos comunes (# sueltos, pipes)
+ */
 function extractDomicilio(lines: string[]): {
   value: string;
   confidence: number;
 } {
-  const domIdx = lines.findIndex((l) => /^DOMICILIO/i.test(l));
+  // Ancla primaria: etiqueta "DOMICILIO"
+  let domIdx = lines.findIndex((l) => /^DOMICILIO/i.test(l));
+
+  // Ancla secundaria: si "DOMICILIO" no aparece, buscar la primera línea
+  // que parece inicio de una dirección mexicana
+  if (domIdx < 0) {
+    domIdx = lines.findIndex((l) =>
+      /^(?:CALLE|C\.\s|AV[.\s]|AVDA|AVENIDA|BLVD|BOULEVARD|PRIV|PRIVADA|AND[.\s]|ANDADOR|CDA|CERRADA)/i.test(l) ||
+      // Patrón: "ALGO #123" o "ALGO NUM 123" — dirección con número exterior
+      /\b(?:NUM\.?\s*\d+|#\s*\d+|\d{1,5}\s*(?:INT|EXT))\b/i.test(l)
+    );
+  }
+
   if (domIdx < 0) return { value: "", confidence: 0 };
 
   const addressLines: string[] = [];
-  // Hasta 6 líneas — modelos con colonia/municipio/estado separados pueden
-  // tener más de 4 líneas de dirección (Decisión §8, roadmap item 9).
-  for (let i = domIdx + 1; i < Math.min(domIdx + 7, lines.length); i++) {
-    if (isLabel(lines[i])) break;
-    // Filtrar líneas que son solo números cortos (números de página, etc.)
-    if (/^\d{1,3}$/.test(lines[i])) continue;
-    addressLines.push(lines[i]);
+  // Decidir si la ancla misma contiene valor útil o es solo etiqueta
+  const anchorLine = lines[domIdx];
+  const anchorHasValue = anchorLine.replace(/^DOMICILIO\s*/i, "").trim();
+  if (anchorHasValue.length >= 3 && !/^DOMICILIO$/i.test(anchorLine)) {
+    // La etiqueta tiene valor inline: "DOMICILIO CALLE REFORMA 123"
+    addressLines.push(anchorHasValue);
+  }
+
+  // Recolectar hasta 8 líneas después de la ancla
+  for (let i = domIdx + 1; i < Math.min(domIdx + 9, lines.length); i++) {
+    const line = lines[i];
+    if (isDomicilioStop(line)) break;
+    // Filtrar líneas que son solo números cortos (nro de página, sección)
+    if (/^\d{1,3}$/.test(line)) continue;
+    // Filtrar líneas muy cortas que son ruido OCR
+    if (line.length < 3) continue;
+    addressLines.push(line);
   }
 
   if (addressLines.length === 0) return { value: "", confidence: 0 };
-  return {
-    value: addressLines.join(", "),
-    confidence: addressLines.length >= 2 ? 0.85 : 0.5,
-  };
+
+  // Limpiar artefactos OCR comunes en la dirección
+  const cleanedAddress = addressLines
+    .map((l) =>
+      l
+        .replace(/[|]/g, "") // pipes que OCR confunde con bordes
+        .replace(/\s+/g, " ")
+        .trim(),
+    )
+    .filter((l) => l.length >= 2)
+    .join(", ");
+
+  // Mejor confianza si detectamos patrones típicos de dirección mexicana
+  const hasNumero = /\d{1,5}/.test(cleanedAddress);
+  const hasCP = /C\.?\s*P\.?\s*\d{5}/i.test(cleanedAddress) || /\b\d{5}\b/.test(cleanedAddress);
+  const hasColonia = /COL\.?|COLONIA|FRACC\.?|FRACCIONAMIENTO/i.test(cleanedAddress);
+  const matchCount = [hasNumero, hasCP, hasColonia, addressLines.length >= 2]
+    .filter(Boolean).length;
+
+  const confidence = matchCount >= 3 ? 0.95 : matchCount >= 2 ? 0.85 : matchCount >= 1 ? 0.65 : 0.4;
+
+  return { value: cleanedAddress, confidence };
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -672,13 +838,16 @@ function computeOverallConfidence(
 /**
  * Extrae campos INE del texto OCR normalizado.
  *
- * @param frontText  Texto crudo del anverso (puede ser null si no se capturó aún)
- * @param backText   Texto crudo del reverso
+ * @param frontText   Texto crudo del anverso (puede ser null si no se capturó aún)
+ * @param backText    Texto crudo del reverso
+ * @param modeloHint  Modelo de credencial seleccionado por el brigadista (Decisión §10).
+ *                    Cuando se provee y la auto-detección falla, se usa este valor.
  * @returns IneOcrResult con todos los campos y confianzas
  */
 export function parseIneOcrText(
   frontText: string | null,
   backText: string | null,
+  modeloHint?: IneModelo,
 ): IneOcrResult {
   // Paso 1: Normalizar ambos textos
   const front = normalizeOcrText(frontText ?? "");
@@ -864,7 +1033,10 @@ export function parseIneOcrText(
   }
 
   // ── Modelo de credencial ─────────────────────────────────────────────────
-  const modeloDetected = detectIneModelo(combined);
+  // Auto-detect primero; si falla y el brigadista indicó un hint, usar ese.
+  const autoModelo = detectIneModelo(combined);
+  const modeloDetected =
+    autoModelo !== "unknown" ? autoModelo : (modeloHint ?? "unknown");
 
   // ── Confianza global ─────────────────────────────────────────────────────
   const confidence = computeOverallConfidence(fc, res);

@@ -20,10 +20,7 @@ interface AppHeaderProps {
   profileRoute?: string;
 }
 
-export function AppHeader({
-  title,
-  subtitle,
-}: AppHeaderProps) {
+export function AppHeader({ title, subtitle }: AppHeaderProps) {
   const colors = useThemeColors();
   const { user } = useAuth();
   const { top: topInset } = useSafeAreaInsets();
@@ -33,9 +30,7 @@ export function AppHeader({
       <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
         {subtitle || user?.email}
       </Text>
-      <Text style={[styles.headerTitle, { color: colors.text }]}>
-        {title}
-      </Text>
+      <Text style={[styles.headerTitle, { color: colors.text }]}>{title}</Text>
     </View>
   );
 }

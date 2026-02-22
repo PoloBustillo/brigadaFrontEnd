@@ -15,7 +15,7 @@ import {
   validateCurp,
   type CurpValidationResult,
 } from "@/lib/ocr/curp-validator";
-import { parseIneOcrText, type IneOcrResult } from "@/lib/ocr/ine-ocr-parser";
+import { parseIneOcrText, type IneOcrResult, type IneModelo } from "@/lib/ocr/ine-ocr-parser";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as ImageManipulator from "expo-image-manipulator";
@@ -143,6 +143,7 @@ async function processDocumentImage(uri: string): Promise<string> {
 async function extractIneOcr(
   frontUri: string | null,
   backUri: string | null,
+  modeloHint?: IneModelo,
 ): Promise<INEOcrResult> {
   const empty: INEOcrResult = {
     nombre: "",
@@ -206,7 +207,7 @@ async function extractIneOcr(
   }
 
   // Delegar toda la lógica de extracción al parser puro
-  return parseIneOcrText(frontText, backText);
+  return parseIneOcrText(frontText, backText, modeloHint);
 }
 
 export function INEQuestion({
@@ -223,6 +224,10 @@ export function INEQuestion({
   const [curpValidation, setCurpValidation] =
     useState<CurpValidationResult | null>(null);
   const [validatingCurp, setValidatingCurp] = useState(false);
+
+  // Modelo hint: el brigadista puede pre-seleccionar el tipo de INE
+  // para mejorar la precisión del OCR (Decisión §10 del parser)
+  const [modeloHint, setModeloHint] = useState<IneModelo | undefined>(undefined);
 
   // Pre-OCR preview state: captured photo waiting for user confirmation
   const [pendingCapture, setPendingCapture] = useState<{
@@ -246,7 +251,7 @@ export function INEQuestion({
       if (!frontUri) return;
       setLoading("ocr");
       try {
-        const ocrResult = await extractIneOcr(frontUri, backUri);
+        const ocrResult = await extractIneOcr(frontUri, backUri, modeloHint);
         setEditableOcr(ocrResult);
         setOcrEditing(true);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -260,7 +265,7 @@ export function INEQuestion({
         setLoading(null);
       }
     },
-    [],
+    [modeloHint],
   );
 
   const captureImage = async (
@@ -744,6 +749,89 @@ export function INEQuestion({
         </View>
       </View>
 
+      {/* INE model selector — helps OCR accuracy (Decisión §10) */}
+      {!data.ocrData && !ocrEditing && (
+        <View
+          style={[
+            styles.modelSelectorCard,
+            { backgroundColor: colors.surface, borderColor: colors.border },
+          ]}
+        >
+          <View style={styles.modelSelectorHeader}>
+            <Ionicons name="id-card-outline" size={18} color={colors.primary} />
+            <Text style={[styles.modelSelectorTitle, { color: colors.text }]}>
+              Tipo de credencial
+            </Text>
+          </View>
+          <Text
+            style={[
+              styles.modelSelectorHint,
+              { color: colors.textSecondary },
+            ]}
+          >
+            Selecciona el tipo de INE para mejorar la lectura automática.
+            Si no estás seguro, déjalo en "Detectar automáticamente".
+          </Text>
+          <View style={styles.modelSelectorOptions}>
+            {(
+              [
+                { value: undefined, label: "Detectar automáticamente", icon: "sparkles-outline" },
+                { value: "A_IFE2008" as IneModelo, label: "IFE (2008–2013)", icon: "time-outline" },
+                { value: "C_INE2015" as IneModelo, label: "INE (2015–2018)", icon: "card-outline" },
+                { value: "D_INE2019" as IneModelo, label: "INE (2019+)", icon: "card" },
+              ] as { value: IneModelo | undefined; label: string; icon: React.ComponentProps<typeof Ionicons>["name"] }[]
+            ).map((opt) => {
+              const isSelected = modeloHint === opt.value;
+              return (
+                <TouchableOpacity
+                  key={opt.label}
+                  style={[
+                    styles.modelOption,
+                    {
+                      borderColor: isSelected
+                        ? colors.primary
+                        : colors.border,
+                      backgroundColor: isSelected
+                        ? colors.primary + "12"
+                        : colors.background,
+                    },
+                  ]}
+                  onPress={() => {
+                    setModeloHint(opt.value);
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons
+                    name={opt.icon}
+                    size={16}
+                    color={isSelected ? colors.primary : colors.textSecondary}
+                  />
+                  <Text
+                    style={[
+                      styles.modelOptionText,
+                      {
+                        color: isSelected ? colors.primary : colors.text,
+                        fontWeight: isSelected ? "700" : "400",
+                      },
+                    ]}
+                  >
+                    {opt.label}
+                  </Text>
+                  {isSelected && (
+                    <Ionicons
+                      name="checkmark-circle"
+                      size={16}
+                      color={colors.primary}
+                    />
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+      )}
+
       {/* Pre-OCR photo preview — confirm before processing */}
       {pendingCapture && (
         <View
@@ -919,7 +1007,7 @@ export function INEQuestion({
                   },
                 ]}
               >
-                2. Validación CURP
+                2. Verificación (opcional)
               </Text>
             </View>
           </View>
@@ -1132,7 +1220,7 @@ export function INEQuestion({
                         >
                           {validatingCurp
                             ? "Verificando..."
-                            : "Verificar en RENAPO"}
+                            : "Verificar CURP (opcional)"}
                         </Text>
                       </TouchableOpacity>
                       {curpValidation && (
@@ -1283,7 +1371,7 @@ export function INEQuestion({
                   },
                 ]}
               >
-                2. Validación CURP
+                2. Verificación (opcional)
               </Text>
             </View>
           </View>
@@ -1449,6 +1537,42 @@ const styles = StyleSheet.create({
   instructionBody: {
     fontSize: 13,
     lineHeight: 20,
+  },
+  // Model selector
+  modelSelectorCard: {
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    gap: 10,
+  },
+  modelSelectorHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  modelSelectorTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  modelSelectorHint: {
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  modelSelectorOptions: {
+    gap: 6,
+  },
+  modelOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    borderWidth: 1.5,
+  },
+  modelOptionText: {
+    flex: 1,
+    fontSize: 14,
   },
   sideSection: {
     gap: 8,
