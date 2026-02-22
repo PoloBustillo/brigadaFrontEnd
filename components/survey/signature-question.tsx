@@ -480,7 +480,7 @@ const styles = StyleSheet.create({
   },
   previewImage: {
     width: "100%",
-    height: 80,
+    height: 140,
     borderRadius: 10,
     backgroundColor: "#fafafa",
   },
