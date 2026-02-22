@@ -174,12 +174,16 @@ const LABEL_TOKENS = [
   /^INE/i,
   /^IFE/i,
   /^INSTITUTO/i,
+  /^D[O0]M[I1]C[I1]L[I1][O0]/i, // DOMICILIO (OCR tolerante)
   // Campos de domicilio que actúan como separadores entre secciones del reverso
   /^COLONIA/i,
+  /^COL\./i,
   /^C[OÓ]DIGO/i, // CODIGO POSTAL
   /^C\.P\./i,
   /^NOMBRE/i, // previene que líneas "NOMBRE" de otra sección se incluyan en domicilio
   /^APELLIDO/i,
+  /^PATERNO/i, // etiqueta parcial sola
+  /^MATERNO/i, // etiqueta parcial sola
 ];
 
 // ── Regex de extracción (Decisión §6 + §3) ────────────────────────────────────
@@ -427,6 +431,7 @@ function splitFullName(full: string): {
   const clean = cleanNameValue(full);
   const parts = clean.split(/\s+/).filter(Boolean);
   if (parts.length >= 3) {
+    // Formato mexicano estándar: PATERNO MATERNO NOMBRE(S)
     return {
       apellidoPaterno: parts[0],
       apellidoMaterno: parts[1],
@@ -440,10 +445,11 @@ function splitFullName(full: string): {
       nombre: parts[1],
     };
   }
+  // 1 sola palabra: más probable que sea apellido paterno que nombre
   return {
-    apellidoPaterno: "",
+    apellidoPaterno: clean,
     apellidoMaterno: "",
-    nombre: clean,
+    nombre: "",
   };
 }
 
@@ -458,13 +464,22 @@ function splitFullName(full: string): {
  *  - Busca en líneas i+1 e i+2 (ML Kit inserta líneas en blanco a veces)
  *  - Maneja formato "PATERNO: GARCIA" con dos puntos
  */
+/** Patrón OCR-tolerante para "APELLIDO" */
+const APELLIDO_RE = /A(?:PELLID|PELL[I1]D)[O0]/i;
+/** Patrón OCR-tolerante para "PATERNO" */
+const PATERNO_RE = /PATERN[O0]/i;
+/** Patrón OCR-tolerante para "MATERNO" */
+const MATERNO_RE = /MATERN[O0]/i;
+/** Patrón OCR-tolerante para "NOMBRE" */
+const NOMBRE_RE = /N[O0]MBRE(?:\([S5]\))?/i;
+
 function extractNamesFromLabels(lines: string[]): NameResult | null {
   const result = { nombre: "", apellidoPaterno: "", apellidoMaterno: "" };
   let found = false;
 
   // Helper: obtener siguiente valor no-etiqueta (salta líneas vacías/cortas)
   const getNextValue = (idx: number): string | null => {
-    for (let j = idx + 1; j < Math.min(idx + 3, lines.length); j++) {
+    for (let j = idx + 1; j < Math.min(idx + 4, lines.length); j++) {
       const candidate = lines[j];
       if (!candidate || candidate.length < 2) continue;
       if (isLabel(candidate)) return null;
@@ -478,9 +493,17 @@ function extractNamesFromLabels(lines: string[]): NameResult | null {
   for (let i = 0; i < lines.length - 1; i++) {
     const line = lines[i];
 
-    // APELLIDO PATERNO — tolera OCR: APELL1DO, APELLID0, AP PATERNO, AP. PATERNO
-    if (/^A(?:PELLID|PELL[I1]D)[O0]\s+PATERN[O0]$/i.test(line) ||
-        /^AP\.?\s+PATERN[O0]$/i.test(line)) {
+    // ── APELLIDO PATERNO ──────────────────────────────────────────────────
+    // Tolera: "APELLIDO PATERNO", "APELL1DO PATERN0", "AP PATERNO",
+    //         "AP. PATERNO", solo "PATERNO" (sin "APELLIDO")
+    const isApPaternoLabel =
+      new RegExp(`^${APELLIDO_RE.source}\\s+${PATERNO_RE.source}$`, "i").test(
+        line,
+      ) ||
+      /^AP\.?\s+PATERN[O0]$/i.test(line) ||
+      new RegExp(`^${PATERNO_RE.source}$`, "i").test(line);
+
+    if (isApPaternoLabel && !result.apellidoPaterno) {
       const next = getNextValue(i);
       if (next) {
         result.apellidoPaterno = cleanNameValue(next);
@@ -488,9 +511,15 @@ function extractNamesFromLabels(lines: string[]): NameResult | null {
       }
     }
 
-    // APELLIDO MATERNO — mismas variantes
-    if (/^A(?:PELLID|PELL[I1]D)[O0]\s+MATERN[O0]$/i.test(line) ||
-        /^AP\.?\s+MATERN[O0]$/i.test(line)) {
+    // ── APELLIDO MATERNO ──────────────────────────────────────────────────
+    const isApMaternoLabel =
+      new RegExp(`^${APELLIDO_RE.source}\\s+${MATERNO_RE.source}$`, "i").test(
+        line,
+      ) ||
+      /^AP\.?\s+MATERN[O0]$/i.test(line) ||
+      new RegExp(`^${MATERNO_RE.source}$`, "i").test(line);
+
+    if (isApMaternoLabel && !result.apellidoMaterno) {
       const next = getNextValue(i);
       if (next) {
         result.apellidoMaterno = cleanNameValue(next);
@@ -498,8 +527,8 @@ function extractNamesFromLabels(lines: string[]): NameResult | null {
       }
     }
 
-    // NOMBRE(S) — tolera N0MBRE, NOMBRE(5)
-    if (/^N[O0]MBRE(?:\([S5]\))?$/i.test(line)) {
+    // ── NOMBRE(S) ─────────────────────────────────────────────────────────
+    if (new RegExp(`^${NOMBRE_RE.source}$`, "i").test(line) && !result.nombre) {
       const next = getNextValue(i);
       if (next) {
         result.nombre = cleanNameValue(next);
@@ -507,24 +536,40 @@ function extractNamesFromLabels(lines: string[]): NameResult | null {
       }
     }
 
-    // Etiqueta y valor en la misma línea: "APELLIDO PATERNO GARCIA"
-    const inlineAP = line.match(/^A(?:PELLID|PELL[I1]D)[O0]\s+PATERN[O0]\s+(.+)$/i) ||
-                     line.match(/^AP\.?\s+PATERN[O0]\s+(.+)$/i);
+    // ── Etiqueta y valor en la misma línea ────────────────────────────────
+    // "APELLIDO PATERNO GARCIA" o "PATERNO GARCIA"
+    const inlineAP =
+      line.match(
+        new RegExp(
+          `^${APELLIDO_RE.source}\\s+${PATERNO_RE.source}\\s+(.+)$`,
+          "i",
+        ),
+      ) ||
+      line.match(/^AP\.?\s+PATERN[O0]\s+(.+)$/i) ||
+      line.match(new RegExp(`^${PATERNO_RE.source}\\s+(.+)$`, "i"));
     if (inlineAP && !result.apellidoPaterno) {
       result.apellidoPaterno = cleanNameValue(inlineAP[1]);
       found = true;
     }
 
-    const inlineAM = line.match(/^A(?:PELLID|PELL[I1]D)[O0]\s+MATERN[O0]\s+(.+)$/i) ||
-                     line.match(/^AP\.?\s+MATERN[O0]\s+(.+)$/i);
+    const inlineAM =
+      line.match(
+        new RegExp(
+          `^${APELLIDO_RE.source}\\s+${MATERNO_RE.source}\\s+(.+)$`,
+          "i",
+        ),
+      ) ||
+      line.match(/^AP\.?\s+MATERN[O0]\s+(.+)$/i) ||
+      line.match(new RegExp(`^${MATERNO_RE.source}\\s+(.+)$`, "i"));
     if (inlineAM && !result.apellidoMaterno) {
       result.apellidoMaterno = cleanNameValue(inlineAM[1]);
       found = true;
     }
 
     // "NOMBRE(S) JUAN PEREZ" o "NOMBRE JUAN"
-    const inlineNombre =
-      line.match(/^N[O0]MBRE(?:\([S5]\))?\s+(.+)$/i);
+    const inlineNombre = line.match(
+      new RegExp(`^${NOMBRE_RE.source}\\s+(.+)$`, "i"),
+    );
     if (inlineNombre && !result.nombre) {
       result.nombre = cleanNameValue(inlineNombre[1]);
       found = true;
@@ -541,7 +586,9 @@ function extractNamesFromLabels(lines: string[]): NameResult | null {
       result.apellidoMaterno = cleanNameValue(colonAM[1]);
       found = true;
     }
-    const colonNombre = line.match(/N[O0]MBRE(?:\([S5]\))?\s*:\s*(.+)$/i);
+    const colonNombre = line.match(
+      new RegExp(`${NOMBRE_RE.source}\\s*:\\s*(.+)$`, "i"),
+    );
     if (colonNombre && !result.nombre) {
       result.nombre = cleanNameValue(colonNombre[1]);
       found = true;
@@ -576,9 +623,10 @@ function extractNamesFromBlock(
   curp: string,
 ): NameResult | null {
   // Ancla primaria: línea que contiene los primeros 10 chars del CURP
-  let anchorIdx = curp && curp.length >= 10
-    ? lines.findIndex((l) => l.includes(curp.substring(0, 10)))
-    : -1;
+  let anchorIdx =
+    curp && curp.length >= 10
+      ? lines.findIndex((l) => l.includes(curp.substring(0, 10)))
+      : -1;
 
   // Ancla con 6 chars de CURP (más tolerante con OCR parcial)
   if (anchorIdx < 2 && curp && curp.length >= 6) {
@@ -605,19 +653,44 @@ function extractNamesFromBlock(
 
   if (anchorIdx < 1) return null;
 
+  // Buscar candidatos de nombre HACIA ATRÁS desde el ancla
   const candidates: string[] = [];
-  for (let i = anchorIdx - 1; i >= Math.max(0, anchorIdx - 5); i--) {
+  let skippedNonMatch = 0;
+  for (let i = anchorIdx - 1; i >= Math.max(0, anchorIdx - 7); i--) {
     const l = lines[i];
+    if (l.length < 2) continue; // Ignorar líneas vacías/cortas
     // Líneas de nombre: mayúsculas + espacios + tildes, tolerando 1-2 dígitos
     // por errores OCR (ej: "GARC1A" en vez de "GARCIA")
     const cleaned = l.replace(/[0-9]/g, "");
     if (/^[A-ZÁÉÍÓÚÑÜ\s]{3,}$/.test(cleaned) && !isLabel(l) && l.length >= 3) {
       candidates.unshift(l.trim());
-    } else if (l.length < 2) {
-      // Ignorar líneas vacías/cortas, no romper la búsqueda
-      continue;
+      skippedNonMatch = 0;
     } else {
-      break; // Encontramos ruido — detener
+      skippedNonMatch++;
+      // Tolerar hasta 2 líneas de ruido intercaladas (ML Kit a veces inserta
+      // líneas sueltas entre los bloques de nombre)
+      if (skippedNonMatch >= 2) break;
+    }
+  }
+
+  // También buscar HACIA ADELANTE (ML Kit puede desordenar los bloques)
+  if (candidates.length < 2) {
+    for (
+      let i = anchorIdx + 1;
+      i < Math.min(anchorIdx + 6, lines.length);
+      i++
+    ) {
+      const l = lines[i];
+      if (l.length < 2) continue;
+      if (isDomicilioStop(l)) break;
+      const cleaned = l.replace(/[0-9]/g, "");
+      if (
+        /^[A-ZÁÉÍÓÚÑÜ\s]{3,}$/.test(cleaned) &&
+        !isLabel(l) &&
+        l.length >= 3
+      ) {
+        candidates.push(l.trim());
+      }
     }
   }
 
@@ -641,7 +714,26 @@ function extractNamesFromBlock(
   // Si solo encontramos 1 candidato, intentar splitearlo (nombre completo en 1 línea)
   if (candidates.length === 1) {
     const split = splitFullName(candidates[0]);
-    if (split.apellidoPaterno && split.nombre) {
+    // splitFullName con 1 palabra ahora devuelve apellidoPaterno
+    // con 2+ palabras puede devolver paterno + nombre
+    if (split.apellidoPaterno) {
+      // Si tenemos CURP, verificar que las iniciales coincidan
+      if (curp && curp.length >= 4) {
+        const firstChar = split.apellidoPaterno[0];
+        if (firstChar === curp[0]) {
+          return { ...split, method: "block" };
+        }
+        // Si la inicial no coincide con pos 0 del CURP (ap. paterno),
+        // podría ser el nombre (pos 3) o ap. materno (pos 2)
+        if (firstChar === curp[3]) {
+          return {
+            nombre: split.apellidoPaterno,
+            apellidoPaterno: "",
+            apellidoMaterno: "",
+            method: "block",
+          };
+        }
+      }
       return { ...split, method: "block" };
     }
   }
@@ -702,10 +794,11 @@ function isDomicilioStop(line: string): boolean {
 /**
  * Extrae el domicilio del reverso de la INE.
  *
- * Mejoras:
- *  - Busca múltiples anclas: "DOMICILIO", "CALLE", "AV ", "BLVD", "C. "
- *  - Si no encuentra "DOMICILIO", busca patrones de dirección mexicana
- *    (número exterior, colonia, C.P., municipio, estado)
+ * Mejoras v2:
+ *  - Ancla principal: "DOMICILIO" con OCR tolerante (D0MICILIO, DOM1CILIO, etc.)
+ *  - Ancla secundaria: líneas que empiezan con patrón de dirección mexicana
+ *  - Ancla terciaria: líneas con C.P./COLONIA/COL. que indican contexto de dirección
+ *  - Recolecta también HACIA ATRÁS desde C.P./COLONIA para capturar la calle
  *  - Recolecta hasta 8 líneas, filtrando líneas de ruido
  *  - Limpia artefactos comunes (# sueltos, pipes)
  */
@@ -713,17 +806,66 @@ function extractDomicilio(lines: string[]): {
   value: string;
   confidence: number;
 } {
-  // Ancla primaria: etiqueta "DOMICILIO"
-  let domIdx = lines.findIndex((l) => /^DOMICILIO/i.test(l));
+  // Ancla primaria: etiqueta "DOMICILIO" — OCR tolerante
+  //   D→D, O→0, M→M, I→1/I, C→C, L→L, O→0
+  let domIdx = lines.findIndex((l) => /^D[O0]M[I1]C[I1]L[I1][O0]/i.test(l));
 
   // Ancla secundaria: si "DOMICILIO" no aparece, buscar la primera línea
   // que parece inicio de una dirección mexicana
   if (domIdx < 0) {
-    domIdx = lines.findIndex((l) =>
-      /^(?:CALLE|C\.\s|AV[.\s]|AVDA|AVENIDA|BLVD|BOULEVARD|PRIV|PRIVADA|AND[.\s]|ANDADOR|CDA|CERRADA)/i.test(l) ||
-      // Patrón: "ALGO #123" o "ALGO NUM 123" — dirección con número exterior
-      /\b(?:NUM\.?\s*\d+|#\s*\d+|\d{1,5}\s*(?:INT|EXT))\b/i.test(l)
+    domIdx = lines.findIndex(
+      (l) =>
+        /^(?:CALLE|C\.\s|AV[.\s]|AVDA|AVENIDA|BLVD|BOULEVARD|PRIV|PRIVADA|AND[.\s]|ANDADOR|CDA|CERRADA|PROL|PROLONGACI[OÓ]N|CALZ|CALZADA|CAMINO|CARR|CARRETERA)/i.test(
+          l,
+        ) ||
+        // Patrón: "ALGO #123" o "ALGO NUM 123" — dirección con número exterior
+        /\b(?:NUM\.?\s*\d+|#\s*\d+|\d{1,5}\s*(?:INT|EXT))\b/i.test(l),
     );
+  }
+
+  // Ancla terciaria: buscar "COLONIA" / "COL." / "C.P." / "CODIGO POSTAL"
+  // y reconstruir dirección hacia atrás y adelante desde ahí
+  if (domIdx < 0) {
+    const colIdx = lines.findIndex(
+      (l) =>
+        /^(?:COL\.?|COLONIA)\s+/i.test(l) ||
+        /^C\.?\s*P\.?\s*\d{5}/i.test(l) ||
+        /^C[OÓ]D(?:IGO)?\s*P(?:OSTAL)?/i.test(l),
+    );
+    if (colIdx >= 0) {
+      // Buscar hacia atrás para encontrar la calle (hasta 4 líneas)
+      let startIdx = colIdx;
+      for (let i = colIdx - 1; i >= Math.max(0, colIdx - 4); i--) {
+        const l = lines[i];
+        if (isDomicilioStop(l)) break;
+        if (l.length < 3) continue;
+        // Si la línea tiene contenido tipo dirección, incluirla
+        if (/[A-ZÁÉÍÓÚÑÜ]{2,}/.test(l) && !/^\d{1,3}$/.test(l)) {
+          startIdx = i;
+        } else {
+          break;
+        }
+      }
+      domIdx = startIdx;
+    }
+  }
+
+  // Ancla cuaternaria: buscar líneas con código postal (5 dígitos) en contexto
+  if (domIdx < 0) {
+    const cpIdx = lines.findIndex(
+      (l) => /\b\d{5}\b/.test(l) && l.length >= 5 && l.length <= 60,
+    );
+    if (cpIdx >= 0) {
+      // Reconstruir hacia atrás
+      let startIdx = cpIdx;
+      for (let i = cpIdx - 1; i >= Math.max(0, cpIdx - 4); i--) {
+        const l = lines[i];
+        if (isDomicilioStop(l) || l.length < 3) break;
+        if (/[A-ZÁÉÍÓÚÑÜ]{2,}/.test(l)) startIdx = i;
+        else break;
+      }
+      domIdx = startIdx;
+    }
   }
 
   if (domIdx < 0) return { value: "", confidence: 0 };
@@ -731,16 +873,34 @@ function extractDomicilio(lines: string[]): {
   const addressLines: string[] = [];
   // Decidir si la ancla misma contiene valor útil o es solo etiqueta
   const anchorLine = lines[domIdx];
-  const anchorHasValue = anchorLine.replace(/^DOMICILIO\s*/i, "").trim();
-  if (anchorHasValue.length >= 3 && !/^DOMICILIO$/i.test(anchorLine)) {
+  const anchorHasValue = anchorLine
+    .replace(/^D[O0]M[I1]C[I1]L[I1][O0]\s*/i, "")
+    .trim();
+  if (
+    anchorHasValue.length >= 3 &&
+    !/^D[O0]M[I1]C[I1]L[I1][O0]$/i.test(anchorLine)
+  ) {
     // La etiqueta tiene valor inline: "DOMICILIO CALLE REFORMA 123"
     addressLines.push(anchorHasValue);
+  } else if (!/D[O0]M[I1]C[I1]L[I1][O0]/i.test(anchorLine)) {
+    // La ancla no es "DOMICILIO" (es una línea de dirección directa)
+    addressLines.push(anchorLine);
   }
 
   // Recolectar hasta 8 líneas después de la ancla
   for (let i = domIdx + 1; i < Math.min(domIdx + 9, lines.length); i++) {
     const line = lines[i];
     if (isDomicilioStop(line)) break;
+    // Líneas que son parte del domicilio aunque empiecen con etiqueta de dirección:
+    // "COLONIA SAN MIGUEL", "MUNICIPIO CUAUHTÉMOC", "ESTADO DE MÉXICO", "C.P. 12345"
+    const isAddressLabel =
+      /^(?:COL\.?|COLONIA|MUNICIPIO|DELEGACI[OÓ]N|DELEG|ESTADO|EDO\.?|C\.?\s*P\.?|C[OÓ]D(?:IGO)?\s*P(?:OSTAL)?|LOCALIDAD)\s/i.test(
+        line,
+      );
+    if (isAddressLabel) {
+      addressLines.push(line);
+      continue;
+    }
     // Filtrar líneas que son solo números cortos (nro de página, sección)
     if (/^\d{1,3}$/.test(line)) continue;
     // Filtrar líneas muy cortas que son ruido OCR
@@ -763,12 +923,27 @@ function extractDomicilio(lines: string[]): {
 
   // Mejor confianza si detectamos patrones típicos de dirección mexicana
   const hasNumero = /\d{1,5}/.test(cleanedAddress);
-  const hasCP = /C\.?\s*P\.?\s*\d{5}/i.test(cleanedAddress) || /\b\d{5}\b/.test(cleanedAddress);
-  const hasColonia = /COL\.?|COLONIA|FRACC\.?|FRACCIONAMIENTO/i.test(cleanedAddress);
-  const matchCount = [hasNumero, hasCP, hasColonia, addressLines.length >= 2]
-    .filter(Boolean).length;
+  const hasCP =
+    /C\.?\s*P\.?\s*\d{5}/i.test(cleanedAddress) ||
+    /\b\d{5}\b/.test(cleanedAddress);
+  const hasColonia = /COL\.?|COLONIA|FRACC\.?|FRACCIONAMIENTO/i.test(
+    cleanedAddress,
+  );
+  const matchCount = [
+    hasNumero,
+    hasCP,
+    hasColonia,
+    addressLines.length >= 2,
+  ].filter(Boolean).length;
 
-  const confidence = matchCount >= 3 ? 0.95 : matchCount >= 2 ? 0.85 : matchCount >= 1 ? 0.65 : 0.4;
+  const confidence =
+    matchCount >= 3
+      ? 0.95
+      : matchCount >= 2
+        ? 0.85
+        : matchCount >= 1
+          ? 0.65
+          : 0.4;
 
   return { value: cleanedAddress, confidence };
 }
