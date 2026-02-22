@@ -36,14 +36,17 @@ export function MultiSelectQuestion({
 
   const selected = value ?? [];
 
-  const toggle = useCallback((optValue: string) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    if (selected.includes(optValue)) {
-      onChange(selected.filter((v) => v !== optValue));
-    } else {
-      onChange([...selected, optValue]);
-    }
-  }, [selected, onChange]);
+  const toggle = useCallback(
+    (optValue: string) => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      if (selected.includes(optValue)) {
+        onChange(selected.filter((v) => v !== optValue));
+      } else {
+        onChange([...selected, optValue]);
+      }
+    },
+    [selected, onChange],
+  );
 
   if (!options || options.length === 0) {
     return (

@@ -69,31 +69,34 @@ const WheelColumn = React.memo(function WheelColumn<T extends number>({
     }
   }, [selectedIndex]);
 
-  const renderItem = useCallback(({ item }: { item: T }) => {
-    const isSelected = item === selected;
-    return (
-      <Pressable
-        onPress={() => {
-          Haptics.selectionAsync();
-          onSelect(item);
-        }}
-        style={[styles.wheelItem, { height: ITEM_HEIGHT }]}
-      >
-        <Text
-          style={[
-            styles.wheelText,
-            {
-              color: isSelected ? colors.primary : colors.text,
-              fontWeight: isSelected ? "700" : "400",
-              fontSize: isSelected ? 18 : 15,
-            },
-          ]}
+  const renderItem = useCallback(
+    ({ item }: { item: T }) => {
+      const isSelected = item === selected;
+      return (
+        <Pressable
+          onPress={() => {
+            Haptics.selectionAsync();
+            onSelect(item);
+          }}
+          style={[styles.wheelItem, { height: ITEM_HEIGHT }]}
         >
-          {formatFn ? formatFn(item) : String(item).padStart(2, "0")}
-        </Text>
-      </Pressable>
-    );
-  }, [selected, onSelect, colors.primary, colors.text, formatFn]);
+          <Text
+            style={[
+              styles.wheelText,
+              {
+                color: isSelected ? colors.primary : colors.text,
+                fontWeight: isSelected ? "700" : "400",
+                fontSize: isSelected ? 18 : 15,
+              },
+            ]}
+          >
+            {formatFn ? formatFn(item) : String(item).padStart(2, "0")}
+          </Text>
+        </Pressable>
+      );
+    },
+    [selected, onSelect, colors.primary, colors.text, formatFn],
+  );
 
   return (
     <View style={{ flex: 1, height: ITEM_HEIGHT * 5 }}>

@@ -40,10 +40,13 @@ export function SelectQuestion({
   const themeColors = useThemeColors();
   const colors = colorsProp ?? themeColors;
 
-  const handlePress = useCallback((opt: Option) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    onChange(opt.value);
-  }, [onChange]);
+  const handlePress = useCallback(
+    (opt: Option) => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      onChange(opt.value);
+    },
+    [onChange],
+  );
 
   if (!options || options.length === 0) {
     return (

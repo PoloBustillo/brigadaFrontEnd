@@ -13,7 +13,10 @@
 
 import { APP_CONFIG } from "@/constants/config";
 import { apiClient } from "@/lib/api/client";
-import { fileRepository, type FileRecord } from "@/lib/db/repositories/file.repository";
+import {
+  fileRepository,
+  type FileRecord,
+} from "@/lib/db/repositories/file.repository";
 import * as FileSystem from "expo-file-system";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -66,7 +69,8 @@ class FileUploadService {
       await fileRepository.markAsUploading(fileId);
 
       // Step 2: Resolve the file content (base64 data URIs need special handling)
-      const { filePath, fileSize, mimeType } = await this.resolveFileContent(file);
+      const { filePath, fileSize, mimeType } =
+        await this.resolveFileContent(file);
 
       // Step 3: Get signed upload params from backend
       const docType = this.mapFileTypeToDocType(file.file_type);
@@ -101,7 +105,10 @@ class FileUploadService {
       await fileRepository.markAsUploaded(fileId, publicId, remoteUrl, version);
 
       // Step 6: Clean up temporary files if we created any
-      if (filePath !== file.local_path && filePath.includes(FileSystem.cacheDirectory ?? "__none__")) {
+      if (
+        filePath !== file.local_path &&
+        filePath.includes(FileSystem.cacheDirectory ?? "__none__")
+      ) {
         FileSystem.deleteAsync(filePath, { idempotent: true }).catch(() => {});
       }
 
@@ -109,7 +116,9 @@ class FileUploadService {
       return { success: true, fileId, remoteUrl, cloudinaryPublicId: publicId };
     } catch (error: any) {
       console.error(`❌ File upload failed for ${fileId}:`, error.message);
-      await fileRepository.markUploadError(fileId, error.message ?? "Upload failed").catch(() => {});
+      await fileRepository
+        .markUploadError(fileId, error.message ?? "Upload failed")
+        .catch(() => {});
       return { success: false, fileId, error: error.message };
     }
   }
@@ -208,20 +217,24 @@ class FileUploadService {
     params: SignedUploadParams,
   ): Promise<{ secure_url: string; public_id: string; version: number }> {
     // Build FormData with all required Cloudinary signed upload fields
-    const uploadResult = await FileSystem.uploadAsync(params.upload_url, filePath, {
-      httpMethod: "POST",
-      uploadType: FileSystem.FileSystemUploadType.MULTIPART,
-      fieldName: "file",
-      parameters: {
-        api_key: params.cloudinary_api_key,
-        timestamp: String(params.cloudinary_timestamp),
-        signature: params.cloudinary_signature,
-        public_id: params.cloudinary_public_id,
+    const uploadResult = await FileSystem.uploadAsync(
+      params.upload_url,
+      filePath,
+      {
+        httpMethod: "POST",
+        uploadType: FileSystem.FileSystemUploadType.MULTIPART,
+        fieldName: "file",
+        parameters: {
+          api_key: params.cloudinary_api_key,
+          timestamp: String(params.cloudinary_timestamp),
+          signature: params.cloudinary_signature,
+          public_id: params.cloudinary_public_id,
+        },
+        headers: {
+          Accept: "application/json",
+        },
       },
-      headers: {
-        Accept: "application/json",
-      },
-    });
+    );
 
     if (uploadResult.status < 200 || uploadResult.status >= 300) {
       const errorBody = uploadResult.body ? JSON.parse(uploadResult.body) : {};
@@ -241,9 +254,7 @@ class FileUploadService {
   /**
    * Map internal file_type to backend document_type.
    */
-  private mapFileTypeToDocType(
-    fileType: string,
-  ): string {
+  private mapFileTypeToDocType(fileType: string): string {
     const mapping: Record<string, string> = {
       photo: "photo",
       signature: "signature",

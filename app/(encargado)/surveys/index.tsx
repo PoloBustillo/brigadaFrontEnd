@@ -7,9 +7,9 @@
 import { AppHeader, CMSNotice } from "@/components/shared";
 import { useThemeColors } from "@/contexts/theme-context";
 import { useTabBarHeight } from "@/hooks/use-tab-bar-height";
-import { getCached, setCached } from "@/lib/api/memory-cache";
 import type { AssignmentDetail } from "@/lib/api/assignments";
 import { getMyCreatedAssignments } from "@/lib/api/assignments";
+import { getCached, setCached } from "@/lib/api/memory-cache";
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -62,18 +62,21 @@ export default function EncargadoSurveys() {
   const [hasLoadedOnce, setHasLoadedOnce] = useState(!!initialSurveys);
   const [refreshing, setRefreshing] = useState(false);
 
-  const statusConfig = useMemo(() => ({
-    active: {
-      label: "Activa",
-      color: colors.success,
-      icon: "checkmark-circle" as const,
-    },
-    inactive: {
-      label: "Inactiva",
-      color: colors.textSecondary,
-      icon: "pause-circle" as const,
-    },
-  }), [colors.success, colors.textSecondary]);
+  const statusConfig = useMemo(
+    () => ({
+      active: {
+        label: "Activa",
+        color: colors.success,
+        icon: "checkmark-circle" as const,
+      },
+      inactive: {
+        label: "Inactiva",
+        color: colors.textSecondary,
+        icon: "pause-circle" as const,
+      },
+    }),
+    [colors.success, colors.textSecondary],
+  );
 
   const fetchSurveys = async (silent = false) => {
     if (!silent) setIsLoading(true);
@@ -101,8 +104,14 @@ export default function EncargadoSurveys() {
     fetchSurveys();
   };
 
-  const totalResponses = useMemo(() => surveys.reduce((acc, s) => acc + s.totalResponses, 0), [surveys]);
-  const activeSurveys = useMemo(() => surveys.filter((s) => s.status === "active").length, [surveys]);
+  const totalResponses = useMemo(
+    () => surveys.reduce((acc, s) => acc + s.totalResponses, 0),
+    [surveys],
+  );
+  const activeSurveys = useMemo(
+    () => surveys.filter((s) => s.status === "active").length,
+    [surveys],
+  );
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -113,7 +122,10 @@ export default function EncargadoSurveys() {
       </View>
 
       {fetchError && surveys.length > 0 && (
-        <TouchableOpacity style={styles.errorBanner} onPress={() => fetchSurveys()}>
+        <TouchableOpacity
+          style={styles.errorBanner}
+          onPress={() => fetchSurveys()}
+        >
           <Text style={styles.errorBannerText}>
             No se pudo actualizar. Toca para reintentar.
           </Text>
@@ -126,7 +138,10 @@ export default function EncargadoSurveys() {
         </View>
       ) : (
         <ScrollView
-          contentContainerStyle={[styles.content, { paddingBottom: contentPadding }]}
+          contentContainerStyle={[
+            styles.content,
+            { paddingBottom: contentPadding },
+          ]}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
@@ -194,7 +209,12 @@ export default function EncargadoSurveys() {
                   <Text style={[styles.emptyText, { color: colors.error }]}>
                     Sin conexión
                   </Text>
-                  <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>
+                  <Text
+                    style={[
+                      styles.emptySubtext,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
                     No se pudieron cargar las encuestas. Toca para reintentar.
                   </Text>
                 </TouchableOpacity>
@@ -208,7 +228,12 @@ export default function EncargadoSurveys() {
                   <Text style={[styles.emptyText, { color: colors.text }]}>
                     Sin encuestas asignadas
                   </Text>
-                  <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>
+                  <Text
+                    style={[
+                      styles.emptySubtext,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
                     Las encuestas que te asignen aparecerán aquí
                   </Text>
                 </View>

@@ -23,7 +23,8 @@ export const APP_CONFIG = {
 
   // API
   api: {
-    baseUrl: process.env.EXPO_PUBLIC_API_URL ?? "https://api.psic-danieladiaz.com",
+    baseUrl:
+      process.env.EXPO_PUBLIC_API_URL ?? "https://api.psic-danieladiaz.com",
     timeout: 30000,
   },
 

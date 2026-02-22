@@ -8,7 +8,7 @@ import { Stack, useRouter } from "expo-router";
 import * as ExpoSplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useRef, useState } from "react";
-import { Text, View, StyleSheet, TouchableOpacity } from "react-native";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import "react-native-reanimated";
 
 import { SplashScreen } from "@/components/layout";
@@ -60,7 +60,9 @@ class ErrorBoundary extends React.Component<
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    Sentry.captureException(error, { extra: { componentStack: errorInfo.componentStack } });
+    Sentry.captureException(error, {
+      extra: { componentStack: errorInfo.componentStack },
+    });
     console.error("🔴 ErrorBoundary caught:", error, errorInfo);
   }
 
@@ -77,7 +79,10 @@ class ErrorBoundary extends React.Component<
           <Text style={errorStyles.message}>
             {this.state.error?.message ?? "Error inesperado en la aplicación"}
           </Text>
-          <TouchableOpacity style={errorStyles.button} onPress={this.handleReset}>
+          <TouchableOpacity
+            style={errorStyles.button}
+            onPress={this.handleReset}
+          >
             <Text style={errorStyles.buttonText}>Reintentar</Text>
           </TouchableOpacity>
         </View>
@@ -97,7 +102,13 @@ const errorStyles = StyleSheet.create({
   },
   emoji: { fontSize: 48, marginBottom: 16 },
   title: { fontSize: 22, fontWeight: "700", color: "#1a1a1a", marginBottom: 8 },
-  message: { fontSize: 14, color: "#666", textAlign: "center", marginBottom: 24, lineHeight: 20 },
+  message: {
+    fontSize: 14,
+    color: "#666",
+    textAlign: "center",
+    marginBottom: 24,
+    lineHeight: 20,
+  },
   button: {
     backgroundColor: "#6366f1",
     paddingHorizontal: 32,

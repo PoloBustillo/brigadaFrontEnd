@@ -98,66 +98,69 @@ export default function NotificationsScreen() {
     }
   }, []);
 
-  const renderItem = useCallback(({ item }: { item: NotificationItem }) => (
-    <TouchableOpacity
-      style={[
-        styles.card,
-        {
-          backgroundColor: item.read ? colors.surface : colors.primary + "10",
-          borderColor: colors.border,
-        },
-      ]}
-      onPress={() => !item.read && handleMarkRead(item.id)}
-      activeOpacity={0.7}
-    >
-      <View
+  const renderItem = useCallback(
+    ({ item }: { item: NotificationItem }) => (
+      <TouchableOpacity
         style={[
-          styles.iconWrap,
+          styles.card,
           {
-            backgroundColor:
-              (item.read ? colors.textTertiary : colors.primary) + "20",
+            backgroundColor: item.read ? colors.surface : colors.primary + "10",
+            borderColor: colors.border,
           },
         ]}
+        onPress={() => !item.read && handleMarkRead(item.id)}
+        activeOpacity={0.7}
       >
-        <Ionicons
-          name={iconForType(item.type)}
-          size={22}
-          color={item.read ? colors.textTertiary : colors.primary}
-        />
-      </View>
-      <View style={styles.body}>
-        <Text
+        <View
           style={[
-            styles.title,
+            styles.iconWrap,
             {
-              color: colors.text,
-              fontWeight: item.read ? "400" : "600",
+              backgroundColor:
+                (item.read ? colors.textTertiary : colors.primary) + "20",
             },
           ]}
-          numberOfLines={1}
         >
-          {item.title}
-        </Text>
-        <Text
-          style={[styles.message, { color: colors.textSecondary }]}
-          numberOfLines={2}
-        >
-          {item.message}
-        </Text>
-        <Text style={[styles.time, { color: colors.textTertiary }]}>
-          {new Date(item.created_at).toLocaleDateString("es-MX", {
-            day: "numeric",
-            month: "short",
-            hour: "2-digit",
-            minute: "2-digit",
-          })}
-        </Text>
-      </View>
-      {!item.read && (
-        <View style={[styles.dot, { backgroundColor: colors.primary }]} />
-      )}
-    </TouchableOpacity>
-  ), [colors, handleMarkRead]);
+          <Ionicons
+            name={iconForType(item.type)}
+            size={22}
+            color={item.read ? colors.textTertiary : colors.primary}
+          />
+        </View>
+        <View style={styles.body}>
+          <Text
+            style={[
+              styles.title,
+              {
+                color: colors.text,
+                fontWeight: item.read ? "400" : "600",
+              },
+            ]}
+            numberOfLines={1}
+          >
+            {item.title}
+          </Text>
+          <Text
+            style={[styles.message, { color: colors.textSecondary }]}
+            numberOfLines={2}
+          >
+            {item.message}
+          </Text>
+          <Text style={[styles.time, { color: colors.textTertiary }]}>
+            {new Date(item.created_at).toLocaleDateString("es-MX", {
+              day: "numeric",
+              month: "short",
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+          </Text>
+        </View>
+        {!item.read && (
+          <View style={[styles.dot, { backgroundColor: colors.primary }]} />
+        )}
+      </TouchableOpacity>
+    ),
+    [colors, handleMarkRead],
+  );
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
