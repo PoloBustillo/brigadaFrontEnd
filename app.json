@@ -77,7 +77,7 @@
         {
           "locationAlwaysAndWhenInUsePermission": "Permite registrar tu ubicación en las encuestas de campo."
         }
-      ],
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
