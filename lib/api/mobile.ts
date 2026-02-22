@@ -3,14 +3,7 @@
  * Base: GET/POST /mobile/*
  */
 import { apiClient } from "./client";
-
-const ASSIGNED_SURVEYS_TIMEOUT_MS = 60000;
-const ASSIGNED_SURVEYS_RETRY_ATTEMPTS = 2;
-const ASSIGNED_SURVEYS_RETRY_DELAY_MS = 1200;
-
-async function sleep(ms: number): Promise<void> {
-  await new Promise((resolve) => setTimeout(resolve, ms));
-}
+import { timedCall, withRetry } from "./utils";
 
 // ─── Response types ──────────────────────────────────────────────────────────
 
@@ -79,36 +72,27 @@ export interface SurveyResponseDetail {
 /**
  * GET /mobile/surveys
  * Returns all surveys assigned to the current brigadista (with latest published version).
+ * Retries once after 1.2 s on failure.
  */
 export async function getAssignedSurveys(
   statusFilter?: "active" | "inactive",
 ): Promise<AssignedSurveyResponse[]> {
   const params = statusFilter ? `?status_filter=${statusFilter}` : "";
-  let lastError: unknown = null;
-  const t0 = Date.now();
-
-  for (let attempt = 1; attempt <= ASSIGNED_SURVEYS_RETRY_ATTEMPTS; attempt++) {
-    try {
-      const { data } = await apiClient.get<AssignedSurveyResponse[]>(
-        `/mobile/surveys${params}`,
-        { timeout: ASSIGNED_SURVEYS_TIMEOUT_MS },
-      );
-      console.log(`[API] GET /mobile/surveys → ${data.length} items en ${Date.now() - t0}ms (intento ${attempt})`, data);
-      return data;
-    } catch (error) {
-      lastError = error;
-      console.warn(`[API] GET /mobile/surveys → intento ${attempt} fallido en ${Date.now() - t0}ms`, error);
-
-      if (attempt === ASSIGNED_SURVEYS_RETRY_ATTEMPTS) {
-        break;
-      }
-
-      await sleep(ASSIGNED_SURVEYS_RETRY_DELAY_MS);
-    }
-  }
-
-  console.error(`[API] GET /mobile/surveys → todos los intentos fallaron en ${Date.now() - t0}ms`);
-  throw lastError;
+  return timedCall(
+    `GET /mobile/surveys${params}`,
+    () =>
+      withRetry(
+        () =>
+          apiClient
+            .get<AssignedSurveyResponse[]>(`/mobile/surveys${params}`, {
+              timeout: 60000,
+            })
+            .then((r) => r.data),
+        2,
+        1200,
+      ),
+    (items) => `${items.length} items`,
+  );
 }
 
 /**
@@ -118,17 +102,13 @@ export async function getAssignedSurveys(
 export async function getLatestSurveyVersion(
   surveyId: number,
 ): Promise<SurveyVersionResponse> {
-  const t0 = Date.now();
-  try {
-    const { data } = await apiClient.get<SurveyVersionResponse>(
-      `/mobile/surveys/${surveyId}/latest`,
-    );
-    console.log(`[API] GET /mobile/surveys/${surveyId}/latest → OK en ${Date.now() - t0}ms`, data);
-    return data;
-  } catch (err) {
-    console.error(`[API] GET /mobile/surveys/${surveyId}/latest → ERROR en ${Date.now() - t0}ms`, err);
-    throw err;
-  }
+  return timedCall(
+    `GET /mobile/surveys/${surveyId}/latest`,
+    () =>
+      apiClient
+        .get<SurveyVersionResponse>(`/mobile/surveys/${surveyId}/latest`)
+        .then((r) => r.data),
+  );
 }
 
 // ─── Submit ───────────────────────────────────────────────────────────────────
@@ -172,18 +152,15 @@ export interface BatchResponseResult {
 export async function submitBatchResponses(
   response: SurveyResponseCreate,
 ): Promise<BatchResponseResult> {
-  const t0 = Date.now();
-  try {
-    const { data } = await apiClient.post<BatchResponseResult>(
-      "/mobile/responses/batch",
-      { responses: [response] },
-    );
-    console.log(`[API] POST /mobile/responses/batch → OK en ${Date.now() - t0}ms`, data);
-    return data;
-  } catch (err) {
-    console.error(`[API] POST /mobile/responses/batch → ERROR en ${Date.now() - t0}ms`, err);
-    throw err;
-  }
+  return timedCall(
+    "POST /mobile/responses/batch",
+    () =>
+      apiClient
+        .post<BatchResponseResult>("/mobile/responses/batch", {
+          responses: [response],
+        })
+        .then((r) => r.data),
+  );
 }
 
 /**
@@ -194,15 +171,14 @@ export async function getMyResponses(
   skip = 0,
   limit = 100,
 ): Promise<SurveyResponseDetail[]> {
-  const t0 = Date.now();
-  try {
-    const { data } = await apiClient.get<SurveyResponseDetail[]>(
-      `/mobile/responses/me?skip=${skip}&limit=${limit}`,
-    );
-    console.log(`[API] GET /mobile/responses/me → ${data.length} items en ${Date.now() - t0}ms`, data);
-    return data;
-  } catch (err) {
-    console.error(`[API] GET /mobile/responses/me → ERROR en ${Date.now() - t0}ms`, err);
-    throw err;
-  }
+  return timedCall(
+    `GET /mobile/responses/me`,
+    () =>
+      apiClient
+        .get<SurveyResponseDetail[]>(`/mobile/responses/me`, {
+          params: { skip, limit },
+        })
+        .then((r) => r.data),
+    (items) => `${items.length} items`,
+  );
 }

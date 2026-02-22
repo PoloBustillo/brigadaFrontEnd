@@ -4,6 +4,7 @@
  */
 
 import { apiClient } from "./client";
+import { timedCall } from "./utils";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -63,31 +64,20 @@ export async function getMyCreatedAssignments(
 ): Promise<AssignmentDetail[]> {
   const params: Record<string, string> = {};
   if (status) params.status = status;
-  const t0 = Date.now();
-  try {
-    const { data } = await apiClient.get<AssignmentDetail[]>(
-      "/assignments/by-me",
-      { params },
-    );
-    console.log(`[API] GET /assignments/by-me → ${data.length} items en ${Date.now() - t0}ms`, data);
-    return data;
-  } catch (err) {
-    console.error(`[API] GET /assignments/by-me → ERROR en ${Date.now() - t0}ms`, err);
-    throw err;
-  }
+  return timedCall(
+    "GET /assignments/by-me",
+    () => apiClient.get<AssignmentDetail[]>("/assignments/by-me", { params }).then((r) => r.data),
+    (items) => `${items.length} items`,
+  );
 }
 
 /** GET /assignments/my-team — unique brigadistas assigned by current encargado */
 export async function getMyTeam(): Promise<TeamMember[]> {
-  const t0 = Date.now();
-  try {
-    const { data } = await apiClient.get<TeamMember[]>("/assignments/my-team");
-    console.log(`[API] GET /assignments/my-team → ${data.length} items en ${Date.now() - t0}ms`, data);
-    return data;
-  } catch (err) {
-    console.error(`[API] GET /assignments/my-team → ERROR en ${Date.now() - t0}ms`, err);
-    throw err;
-  }
+  return timedCall(
+    "GET /assignments/my-team",
+    () => apiClient.get<TeamMember[]>("/assignments/my-team").then((r) => r.data),
+    (items) => `${items.length} items`,
+  );
 }
 
 /** GET /assignments/my-team-responses — responses from team members */
@@ -95,18 +85,14 @@ export async function getTeamResponses(
   skip = 0,
   limit = 100,
 ): Promise<TeamResponse[]> {
-  const t0 = Date.now();
-  try {
-    const { data } = await apiClient.get<TeamResponse[]>(
-      "/assignments/my-team-responses",
-      { params: { skip, limit } },
-    );
-    console.log(`[API] GET /assignments/my-team-responses → ${data.length} items en ${Date.now() - t0}ms`, data);
-    return data;
-  } catch (err) {
-    console.error(`[API] GET /assignments/my-team-responses → ERROR en ${Date.now() - t0}ms`, err);
-    throw err;
-  }
+  return timedCall(
+    "GET /assignments/my-team-responses",
+    () =>
+      apiClient
+        .get<TeamResponse[]>("/assignments/my-team-responses", { params: { skip, limit } })
+        .then((r) => r.data),
+    (items) => `${items.length} items`,
+  );
 }
 
 /**

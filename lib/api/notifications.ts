@@ -33,10 +33,10 @@ export interface UnreadCountResponse {
 export async function getNotifications(
   options: { skip?: number; limit?: number; unreadOnly?: boolean } = {},
 ): Promise<NotificationListResponse> {
-  const params: Record<string, string> = {};
-  if (options.skip) params.skip = String(options.skip);
-  if (options.limit) params.limit = String(options.limit);
-  if (options.unreadOnly) params.unread_only = "true";
+  const params: Record<string, string | number | boolean> = {};
+  if (options.skip !== undefined) params.skip = options.skip;
+  if (options.limit !== undefined) params.limit = options.limit;
+  if (options.unreadOnly) params.unread_only = true;
 
   const { data } = await apiClient.get<NotificationListResponse>(
     "/mobile/notifications",

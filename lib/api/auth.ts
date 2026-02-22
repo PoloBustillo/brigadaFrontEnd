@@ -14,35 +14,9 @@ import type {
   UserResponse,
   UserUpdateRequest,
 } from "./types";
+import { getApiErrorMessage, mapUser } from "./utils";
 
 const APP_VERSION = Application.nativeApplicationVersion ?? "1.0.0";
-
-function getApiErrorMessage(error: any, fallback: string): string {
-  const data = error?.response?.data;
-
-  // New API envelope: { code, message, retriable, request_id }
-  if (typeof data?.message === "string" && data.message.trim().length > 0) {
-    return data.message;
-  }
-
-  // Legacy FastAPI style: { detail: "..." } or { detail: [{ msg: "..." }] }
-  if (typeof data?.detail === "string" && data.detail.trim().length > 0) {
-    return data.detail;
-  }
-
-  if (Array.isArray(data?.detail) && data.detail.length > 0) {
-    const firstMsg = data.detail[0]?.msg;
-    if (typeof firstMsg === "string" && firstMsg.trim().length > 0) {
-      return firstMsg;
-    }
-  }
-
-  if (typeof error?.message === "string" && error.message.trim().length > 0) {
-    return error.message;
-  }
-
-  return fallback;
-}
 
 /** Stable device identifier (persisted across sessions) */
 let _deviceId: string | null = null;
@@ -131,21 +105,7 @@ export async function getCurrentUser(): Promise<User> {
     const response = await api.get<UserResponse>("/users/me");
     const userProfile = response.data;
 
-    const user: User = {
-      id: userProfile.id,
-      email: userProfile.email,
-      name: userProfile.full_name,
-      phone: userProfile.phone,
-      avatar_url: userProfile.avatar_url,
-      role: (userProfile.role as string).toUpperCase() as User["role"],
-      state: userProfile.is_active ? "ACTIVE" : "DISABLED",
-      created_at: new Date(userProfile.created_at).getTime(),
-      updated_at: userProfile.updated_at
-        ? new Date(userProfile.updated_at).getTime()
-        : Date.now(),
-    };
-
-    return user;
+    return mapUser(userProfile);
   } catch (error: any) {
     console.error("Get current user error:", error);
     throw new Error(getApiErrorMessage(error, "Error al obtener perfil"));
@@ -162,21 +122,7 @@ export async function updateProfile(
     const response = await api.patch<UserResponse>("/users/me", data);
     const userProfile = response.data;
 
-    const user: User = {
-      id: userProfile.id,
-      email: userProfile.email,
-      name: userProfile.full_name,
-      phone: userProfile.phone,
-      avatar_url: userProfile.avatar_url,
-      role: (userProfile.role as string).toUpperCase() as User["role"],
-      state: userProfile.is_active ? "ACTIVE" : "DISABLED",
-      created_at: new Date(userProfile.created_at).getTime(),
-      updated_at: userProfile.updated_at
-        ? new Date(userProfile.updated_at).getTime()
-        : Date.now(),
-    };
-
-    return user;
+    return mapUser(userProfile);
   } catch (error: any) {
     console.error("Update profile error:", error);
     throw new Error(getApiErrorMessage(error, "Error al actualizar perfil"));
@@ -209,26 +155,9 @@ export async function uploadAvatar(imageUri: string): Promise<User> {
       },
     );
 
-    const userProfile = response.data;
-    const user: User = {
-      id: userProfile.id,
-      email: userProfile.email,
-      name: userProfile.full_name,
-      phone: userProfile.phone,
-      avatar_url: userProfile.avatar_url,
-      role: (userProfile.role as string).toUpperCase() as User["role"],
-      state: userProfile.is_active ? "ACTIVE" : "DISABLED",
-      created_at: new Date(userProfile.created_at).getTime(),
-      updated_at: userProfile.updated_at
-        ? new Date(userProfile.updated_at).getTime()
-        : Date.now(),
-    };
-    return user;
+    return mapUser(response.data);
   } catch (error: any) {
-    const detail =
-      error.response?.data?.detail ?? error.response?.data?.message;
-    if (typeof detail === "string") throw new Error(detail);
-    throw new Error("No se pudo subir la foto de perfil");
+    throw new Error(getApiErrorMessage(error, "No se pudo subir la foto de perfil"));
   }
 }
 
@@ -393,9 +322,7 @@ export async function completeActivation(data: {
     }
     return result;
   } catch (error: any) {
-    const detail = error.response?.data?.detail;
-    if (typeof detail === "string") throw new Error(detail);
-    throw new Error("Error al completar la activación");
+    throw new Error(getApiErrorMessage(error, "Error al completar la activación"));
   }
 }
 
@@ -414,8 +341,6 @@ export async function changePassword(
       new_password: newPassword,
     });
   } catch (error: any) {
-    const detail = error.response?.data?.detail;
-    if (typeof detail === "string") throw new Error(detail);
-    throw new Error("No se pudo cambiar la contraseña");
+    throw new Error(getApiErrorMessage(error, "No se pudo cambiar la contraseña"));
   }
 }
