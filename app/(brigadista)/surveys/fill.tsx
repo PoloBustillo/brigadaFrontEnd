@@ -317,7 +317,10 @@ export default function FillSurveyScreen() {
           style: "destructive",
           onPress: async () => {
             await discardDraft();
-            router.back();
+                setAnswers({});
+                draftIdRef.current = null;
+                setCurrentIndex(0);
+                router.back();
           },
         },
       ],
@@ -393,28 +396,39 @@ export default function FillSurveyScreen() {
       setSubmitLoading(false);
     }
   };
+        const result = await offlineSyncService.submitResponseTwoPhase(
+          {
+            responseId,
+            versionId,
+            startedAt,
+            answers: answersPayload,
+          },
+          { attemptImmediateSync: isOnline },
+        );
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Render helpers
-  // ─────────────────────────────────────────────────────────────────────────
+        if (!result.success) {
+          throw new Error(result.error ?? "No se pudo guardar localmente");
+        }
 
-  const currentValue = current ? (answers[current.id] ?? null) : null;
+        // Always add to pending immediately (phase 1 complete).
+        addPendingItem({
+          id: responseId,
+          type: "response",
+        });
 
-  if (allQuestions.length === 0) {
-    return (
-      <View style={[styles.centered, { backgroundColor: colors.background }]}>
-        <Ionicons
-          name="alert-circle-outline"
-          size={48}
-          color={colors.textTertiary}
-        />
-        <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-          Esta encuesta no tiene preguntas disponibles.
-        </Text>
-        <TouchableOpacity
-          style={[styles.backBtn, { backgroundColor: colors.primary }]}
-          onPress={() => router.back()}
-        >
+        // Show confirmation instantly; sync proceeds in background.
+        setSyncedOnSubmit(false);
+        setShowSuccess(true);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+        // Trigger a non-blocking sync attempt if online.
+        if (isOnline) {
+          setTimeout(() => {
+            offlineSyncService.processSyncQueue().catch(() => {
+              // Ignore — pending queue will retry later.
+            });
+          }, 300);
+        }
           <Text style={[styles.backBtnText, { color: "#fff" }]}>Volver</Text>
         </TouchableOpacity>
       </View>
@@ -799,7 +813,14 @@ function QuestionInput({
   }
 
   if (type === "file" || type === "document") {
-    return <FileQuestion value={value} onChange={onChange} colors={colors} question={question as any} />;
+    return (
+      <FileQuestion
+        value={value}
+        onChange={onChange}
+        colors={colors}
+        question={question as any}
+      />
+    );
   }
 
   if (type === "ine" || type === "ine_ocr" || type === "credential") {
@@ -813,7 +834,9 @@ function QuestionInput({
   }
 
   if (type === "location" || type === "gps" || type === "coordinates") {
-    return <LocationQuestion value={value} onChange={onChange} colors={colors} />;
+    return (
+      <LocationQuestion value={value} onChange={onChange} colors={colors} />
+    );
   }
 
   // text / textarea / email / phone / fallback
@@ -952,15 +975,16 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: "700",
     lineHeight: 30,
-    marginBottom: 8,
+    marginBottom: 12,
   },
   questionDescription: {
     fontSize: 14,
     lineHeight: 20,
-    marginBottom: 24,
+    marginBottom: 18,
   },
   inputArea: {
-    marginTop: 8,
+    marginTop: 16,
+    minHeight: 260,
   },
   fieldErrorRow: {
     flexDirection: "row",

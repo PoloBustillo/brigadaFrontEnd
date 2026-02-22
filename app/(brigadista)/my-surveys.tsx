@@ -140,60 +140,75 @@ export default function BrigadistaSurveysScreen() {
 
   const emptyStateInfo = getEmptyStateInfo();
 
+  const unifiedStatus = (() => {
+    if (!isLoading && fetchError && surveys.length > 0) {
+      return {
+        type: "error" as const,
+        icon: "cloud-offline-outline" as const,
+        text: "No se pudo cargar. Toca para reintentar.",
+        action: retryLoad,
+        bg: colors.error + "15",
+        border: colors.error,
+        fg: colors.error,
+      };
+    }
+    if (!isOnline) {
+      return {
+        type: "offline" as const,
+        icon: "cloud-offline-outline" as const,
+        text:
+          pendingItems.length > 0
+            ? `Sin conexión — ${pendingItems.length} pendiente(s)`
+            : "Sin conexión",
+        action: undefined,
+        bg: (colors.warning ?? "#f59e0b") + "18",
+        border: (colors.warning ?? "#f59e0b") + "40",
+        fg: colors.warning ?? "#f59e0b",
+      };
+    }
+    if (isSyncing) {
+      return {
+        type: "sync" as const,
+        icon: "sync-outline" as const,
+        text: "Sincronizando respuestas…",
+        action: undefined,
+        bg: colors.primary + "18",
+        border: colors.primary + "40",
+        fg: colors.primary,
+      };
+    }
+    return null;
+  })();
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <AppHeader title="Mis Encuestas" />
 
-      {/* Offline / sync status banner */}
-      {!isOnline && (
-        <View
-          style={[
-            styles.offlineBanner,
-            { backgroundColor: colors.warning ?? "#f59e0b" },
-          ]}
-        >
-          <Ionicons name="cloud-offline-outline" size={16} color="#fff" />
-          <Text style={styles.offlineBannerText}>
-            Sin conexión
-            {pendingItems.length > 0
-              ? ` — ${pendingItems.length} pendiente(s)`
-              : ""}
-          </Text>
-        </View>
-      )}
-      {isOnline && isSyncing && (
-        <View
-          style={[
-            styles.syncBanner,
-            { backgroundColor: colors.primary + "18" },
-          ]}
-        >
-          <ActivityIndicator size="small" color={colors.primary} />
-          <Text style={[styles.syncBannerText, { color: colors.primary }]}>
-            Sincronizando respuestas…
-          </Text>
-        </View>
-      )}
-
-      {/* Network error banner — only when we have partial/stale data */}
-      {!isLoading && fetchError && surveys.length > 0 && (
+      {/* Unified status bar (offline/sync/error) */}
+      {unifiedStatus && (
         <TouchableOpacity
+          disabled={!unifiedStatus.action}
+          onPress={unifiedStatus.action}
+          activeOpacity={unifiedStatus.action ? 0.8 : 1}
           style={[
-            styles.errorBanner,
-            { backgroundColor: colors.error + "15", borderColor: colors.error },
+            styles.statusBar,
+            {
+              backgroundColor: unifiedStatus.bg,
+              borderColor: unifiedStatus.border,
+            },
           ]}
-          onPress={retryLoad}
-          activeOpacity={0.8}
         >
-          <Ionicons
-            name="cloud-offline-outline"
-            size={20}
-            color={colors.error}
-          />
-          <Text style={[styles.errorBannerText, { color: colors.error }]}>
-            No se pudo cargar. Toca para reintentar.
+          {unifiedStatus.type === "sync" ? (
+            <ActivityIndicator size="small" color={unifiedStatus.fg} />
+          ) : (
+            <Ionicons name={unifiedStatus.icon} size={16} color={unifiedStatus.fg} />
+          )}
+          <Text style={[styles.statusBarText, { color: unifiedStatus.fg }]}> 
+            {unifiedStatus.text}
           </Text>
-          <Ionicons name="refresh-outline" size={18} color={colors.error} />
+          {unifiedStatus.action && (
+            <Ionicons name="refresh-outline" size={16} color={unifiedStatus.fg} />
+          )}
         </TouchableOpacity>
       )}
 
@@ -950,45 +965,22 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  offlineBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-  },
-  offlineBannerText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#fff",
-  },
-  syncBanner: {
+  statusBar: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-  },
-  syncBannerText: {
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  errorBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
     marginHorizontal: 20,
-    marginTop: 12,
-    padding: 14,
-    borderRadius: 12,
+    marginTop: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 10,
     borderWidth: 1,
   },
-  errorBannerText: {
+  statusBarText: {
     flex: 1,
-    fontSize: 14,
-    fontWeight: "500",
+    fontSize: 12,
+    fontWeight: "600",
   },
   content: {
     padding: 20,

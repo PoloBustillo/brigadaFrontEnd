@@ -11,8 +11,11 @@
 
 import { useAuth } from "@/contexts/auth-context";
 import { useThemeColors } from "@/contexts/theme-context";
+import {
+  validateCurp,
+  type CurpValidationResult,
+} from "@/lib/ocr/curp-validator";
 import { parseIneOcrText, type IneOcrResult } from "@/lib/ocr/ine-ocr-parser";
-import { validateCurp, type CurpValidationResult } from "@/lib/ocr/curp-validator";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as ImageManipulator from "expo-image-manipulator";
@@ -95,7 +98,10 @@ type INEData = {
 export type INEOcrResult = IneOcrResult;
 
 /** Campos editables del resultado OCR (excluye las propiedades de confianza y el modelo) */
-type IneTextField = keyof Omit<INEOcrResult, "confidence" | "fieldConfidence" | "modeloDetected">;
+type IneTextField = keyof Omit<
+  INEOcrResult,
+  "confidence" | "fieldConfidence" | "modeloDetected"
+>;
 
 function parseValue(value: any): INEData {
   if (!value) return { front: null, back: null, ocrData: null };
@@ -139,15 +145,29 @@ async function extractIneOcr(
   backUri: string | null,
 ): Promise<INEOcrResult> {
   const empty: INEOcrResult = {
-    nombre: "", apellidoPaterno: "", apellidoMaterno: "",
-    claveElector: "", curp: "", fechaNacimiento: "",
-    sexo: "", seccion: "", vigencia: "", domicilio: "",
+    nombre: "",
+    apellidoPaterno: "",
+    apellidoMaterno: "",
+    claveElector: "",
+    curp: "",
+    fechaNacimiento: "",
+    sexo: "",
+    seccion: "",
+    vigencia: "",
+    domicilio: "",
     modeloDetected: "unknown",
     confidence: 0,
     fieldConfidence: {
-      nombre: 0, apellidoPaterno: 0, apellidoMaterno: 0,
-      claveElector: 0, curp: 0, fechaNacimiento: 0,
-      sexo: 0, seccion: 0, vigencia: 0, domicilio: 0,
+      nombre: 0,
+      apellidoPaterno: 0,
+      apellidoMaterno: 0,
+      claveElector: 0,
+      curp: 0,
+      fechaNacimiento: 0,
+      sexo: 0,
+      seccion: 0,
+      vigencia: 0,
+      domicilio: 0,
     },
   };
 
@@ -200,7 +220,8 @@ export function INEQuestion({
   const [loading, setLoading] = useState<"front" | "back" | "ocr" | null>(null);
   const [ocrEditing, setOcrEditing] = useState(false);
   const [editableOcr, setEditableOcr] = useState<INEOcrResult | null>(null);
-  const [curpValidation, setCurpValidation] = useState<CurpValidationResult | null>(null);
+  const [curpValidation, setCurpValidation] =
+    useState<CurpValidationResult | null>(null);
   const [validatingCurp, setValidatingCurp] = useState(false);
 
   // Pre-OCR preview state: captured photo waiting for user confirmation
@@ -215,6 +236,9 @@ export function INEQuestion({
   const isComplete = hasFront && hasBack;
   // Progress step: 0=Frente, 1=Reverso, 2=OCR, 3=Listo
   const currentStep = !hasFront ? 0 : !hasBack ? 1 : !data.ocrData ? 2 : 3;
+  const stageCaptureDone = hasFront && hasBack;
+  const stageOcrDone = !!editableOcr || !!data.ocrData;
+  const stageCurpValidationDone = !!curpValidation;
 
   // Run OCR when both sides are captured
   const runOcr = useCallback(
@@ -493,15 +517,32 @@ export function INEQuestion({
       if (result.renapoReachable && editableOcr) {
         const patch: Partial<INEOcrResult> = {};
         const patchConf: Partial<typeof editableOcr.fieldConfidence> = {};
-        if (result.nombre    && !editableOcr.nombre)          { patch.nombre          = result.nombre;    patchConf.nombre          = 0.95; }
-        if (result.apellido1 && !editableOcr.apellidoPaterno) { patch.apellidoPaterno = result.apellido1; patchConf.apellidoPaterno = 0.95; }
-        if (result.apellido2 && !editableOcr.apellidoMaterno) { patch.apellidoMaterno = result.apellido2; patchConf.apellidoMaterno = 0.95; }
-        if (result.sexo      && !editableOcr.sexo)            { patch.sexo            = result.sexo;      patchConf.sexo            = 1.0;  }
+        if (result.nombre && !editableOcr.nombre) {
+          patch.nombre = result.nombre;
+          patchConf.nombre = 0.95;
+        }
+        if (result.apellido1 && !editableOcr.apellidoPaterno) {
+          patch.apellidoPaterno = result.apellido1;
+          patchConf.apellidoPaterno = 0.95;
+        }
+        if (result.apellido2 && !editableOcr.apellidoMaterno) {
+          patch.apellidoMaterno = result.apellido2;
+          patchConf.apellidoMaterno = 0.95;
+        }
+        if (result.sexo && !editableOcr.sexo) {
+          patch.sexo = result.sexo;
+          patchConf.sexo = 1.0;
+        }
         if (Object.keys(patch).length > 0) {
-          setEditableOcr((prev) => prev ? {
-            ...prev, ...patch,
-            fieldConfidence: { ...prev.fieldConfidence, ...patchConf },
-          } : prev);
+          setEditableOcr((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  ...patch,
+                  fieldConfidence: { ...prev.fieldConfidence, ...patchConf },
+                }
+              : prev,
+          );
         }
       }
       Haptics.notificationAsync(
@@ -525,7 +566,11 @@ export function INEQuestion({
       ...(editableOcr.fieldConfidence ?? {}),
       [field]: 1.0,
     };
-    setEditableOcr({ ...editableOcr, [field]: val, fieldConfidence: updatedFieldConf });
+    setEditableOcr({
+      ...editableOcr,
+      [field]: val,
+      fieldConfidence: updatedFieldConf,
+    });
   };
 
   // OCR field config for rendering
@@ -537,16 +582,64 @@ export function INEQuestion({
     maxLength?: number;
     autoCorrect?: boolean;
   }[] = [
-    { key: "nombre",          label: "Nombre(s)",          autoCapitalize: "characters", autoCorrect: false },
-    { key: "apellidoPaterno", label: "Apellido Paterno",   autoCapitalize: "characters", autoCorrect: false },
-    { key: "apellidoMaterno", label: "Apellido Materno",   autoCapitalize: "characters", autoCorrect: false },
-    { key: "curp",            label: "CURP",               autoCapitalize: "characters", autoCorrect: false, maxLength: 18 },
-    { key: "claveElector",    label: "Clave de Elector",   autoCapitalize: "characters", autoCorrect: false, maxLength: 18 },
-    { key: "fechaNacimiento", label: "Fecha de Nacimiento", keyboardType: "numbers-and-punctuation", maxLength: 10 },
-    { key: "sexo",            label: "Sexo (H / M)",       autoCapitalize: "characters", autoCorrect: false, maxLength: 1 },
-    { key: "seccion",         label: "Sección",            keyboardType: "numeric",      maxLength: 4 },
-    { key: "vigencia",        label: "Vigencia",           keyboardType: "numeric",      maxLength: 4 },
-    { key: "domicilio",       label: "Domicilio",          autoCapitalize: "characters", autoCorrect: false },
+    {
+      key: "nombre",
+      label: "Nombre(s)",
+      autoCapitalize: "characters",
+      autoCorrect: false,
+    },
+    {
+      key: "apellidoPaterno",
+      label: "Apellido Paterno",
+      autoCapitalize: "characters",
+      autoCorrect: false,
+    },
+    {
+      key: "apellidoMaterno",
+      label: "Apellido Materno",
+      autoCapitalize: "characters",
+      autoCorrect: false,
+    },
+    {
+      key: "curp",
+      label: "CURP",
+      autoCapitalize: "characters",
+      autoCorrect: false,
+      maxLength: 18,
+    },
+    {
+      key: "claveElector",
+      label: "Clave de Elector",
+      autoCapitalize: "characters",
+      autoCorrect: false,
+      maxLength: 18,
+    },
+    {
+      key: "fechaNacimiento",
+      label: "Fecha de Nacimiento",
+      keyboardType: "numbers-and-punctuation",
+      maxLength: 10,
+    },
+    {
+      key: "sexo",
+      label: "Sexo (H / M)",
+      autoCapitalize: "characters",
+      autoCorrect: false,
+      maxLength: 1,
+    },
+    { key: "seccion", label: "Sección", keyboardType: "numeric", maxLength: 4 },
+    {
+      key: "vigencia",
+      label: "Vigencia",
+      keyboardType: "numeric",
+      maxLength: 4,
+    },
+    {
+      key: "domicilio",
+      label: "Domicilio",
+      autoCapitalize: "characters",
+      autoCorrect: false,
+    },
   ];
 
   return (
@@ -558,74 +651,77 @@ export function INEQuestion({
           { backgroundColor: colors.surface, borderColor: colors.border },
         ]}
       >
-        {([
-          { label: "Frente", icon: "card-outline" },
-          { label: "Reverso", icon: "card" },
-          { label: "OCR", icon: "scan-outline" },
-          { label: "Listo", icon: "checkmark-circle-outline" },
-        ] as { label: string; icon: React.ComponentProps<typeof Ionicons>["name"] }[]).map(
-          (step, i) => {
-            const isDone = i < currentStep;
-            const isActive = i === currentStep;
-            return (
-              <React.Fragment key={step.label}>
-                {i > 0 && (
-                  <View
-                    style={[
-                      styles.stepConnector,
-                      {
-                        backgroundColor:
-                          i <= currentStep ? colors.primary : colors.border,
-                      },
-                    ]}
-                  />
-                )}
-                <View style={styles.stepItem}>
-                  <View
-                    style={[
-                      styles.stepCircle,
-                      {
-                        backgroundColor: isDone
+        {(
+          [
+            { label: "Frente", icon: "card-outline" },
+            { label: "Reverso", icon: "card" },
+            { label: "OCR", icon: "scan-outline" },
+            { label: "Listo", icon: "checkmark-circle-outline" },
+          ] as {
+            label: string;
+            icon: React.ComponentProps<typeof Ionicons>["name"];
+          }[]
+        ).map((step, i) => {
+          const isDone = i < currentStep;
+          const isActive = i === currentStep;
+          return (
+            <React.Fragment key={step.label}>
+              {i > 0 && (
+                <View
+                  style={[
+                    styles.stepConnector,
+                    {
+                      backgroundColor:
+                        i <= currentStep ? colors.primary : colors.border,
+                    },
+                  ]}
+                />
+              )}
+              <View style={styles.stepItem}>
+                <View
+                  style={[
+                    styles.stepCircle,
+                    {
+                      backgroundColor: isDone
+                        ? colors.primary
+                        : isActive
+                          ? colors.primary + "22"
+                          : colors.border + "55",
+                      borderColor:
+                        isDone || isActive ? colors.primary : colors.border,
+                    },
+                  ]}
+                >
+                  <Ionicons
+                    name={isDone ? "checkmark" : step.icon}
+                    size={14}
+                    color={
+                      isDone
+                        ? "#fff"
+                        : isActive
                           ? colors.primary
-                          : isActive
-                            ? colors.primary + "22"
-                            : colors.border + "55",
-                        borderColor:
-                          isDone || isActive ? colors.primary : colors.border,
-                      },
-                    ]}
-                  >
-                    <Ionicons
-                      name={isDone ? "checkmark" : step.icon}
-                      size={14}
-                      color={
-                        isDone
-                          ? "#fff"
-                          : isActive
-                            ? colors.primary
-                            : (colors.textTertiary ?? "#bbb")
-                      }
-                    />
-                  </View>
-                  <Text
-                    style={[
-                      styles.stepLabel,
-                      {
-                        color:
-                          isDone || isActive
-                            ? colors.primary
-                            : (colors.textTertiary ?? "#bbb"),
-                        fontWeight: isActive ? "700" : "400",
-                      },
-                    ]}
-                  >
-                    {step.label}
-                  </Text>
+                          : (colors.textTertiary ?? "#bbb")
+                    }
+                  />
                 </View>
-              </React.Fragment>
-            );
-          },
-        )}
+                <Text
+                  style={[
+                    styles.stepLabel,
+                    {
+                      color:
+                        isDone || isActive
+                          ? colors.primary
+                          : (colors.textTertiary ?? "#bbb"),
+                      fontWeight: isActive ? "700" : "400",
+                    },
+                  ]}
+                >
+                  {step.label}
+                </Text>
+              </View>
+            </React.Fragment>
+          );
+        })}
       </View>
 
       {/* Instructions */}
@@ -744,6 +840,62 @@ export function INEQuestion({
             { backgroundColor: colors.surface, borderColor: colors.primary },
           ]}
         >
+          <View style={styles.stageRow}>
+            <View
+              style={[
+                styles.stageBadge,
+                {
+                  backgroundColor: stageCaptureDone && stageOcrDone
+                    ? colors.success + "18"
+                    : colors.primary + "15",
+                  borderColor: stageCaptureDone && stageOcrDone
+                    ? colors.success + "40"
+                    : colors.primary + "40",
+                },
+              ]}
+            >
+              <Ionicons
+                name={stageCaptureDone && stageOcrDone ? "checkmark-circle" : "scan-outline"}
+                size={12}
+                color={stageCaptureDone && stageOcrDone ? colors.success : colors.primary}
+              />
+              <Text
+                style={[
+                  styles.stageBadgeText,
+                  { color: stageCaptureDone && stageOcrDone ? colors.success : colors.primary },
+                ]}
+              >
+                1. Captura + OCR
+              </Text>
+            </View>
+            <View
+              style={[
+                styles.stageBadge,
+                {
+                  backgroundColor: stageCurpValidationDone
+                    ? colors.success + "18"
+                    : (colors.warning ?? "#f59e0b") + "18",
+                  borderColor: stageCurpValidationDone
+                    ? colors.success + "40"
+                    : (colors.warning ?? "#f59e0b") + "40",
+                },
+              ]}
+            >
+              <Ionicons
+                name={stageCurpValidationDone ? "shield-checkmark" : "shield-outline"}
+                size={12}
+                color={stageCurpValidationDone ? colors.success : (colors.warning ?? "#f59e0b")}
+              />
+              <Text
+                style={[
+                  styles.stageBadgeText,
+                  { color: stageCurpValidationDone ? colors.success : (colors.warning ?? "#f59e0b") },
+                ]}
+              >
+                2. Validación CURP
+              </Text>
+            </View>
+          </View>
           <View style={styles.ocrHeader}>
             <Ionicons name="scan-outline" size={20} color={colors.primary} />
             <Text style={[styles.ocrTitle, { color: colors.text }]}>
@@ -802,19 +954,29 @@ export function INEQuestion({
                 </Text>
               </View>
             )}
-            {editableOcr.modeloDetected && editableOcr.modeloDetected !== "unknown" && (
-              <View
-                style={[
-                  styles.modeloBadge,
-                  { backgroundColor: colors.primary + "15", borderColor: colors.primary + "40" },
-                ]}
-              >
-                <Ionicons name="id-card-outline" size={12} color={colors.primary} />
-                <Text style={[styles.modeloBadgeText, { color: colors.primary }]}>
-                  {editableOcr.modeloDetected.replace("_", " ")}
-                </Text>
-              </View>
-            )}
+            {editableOcr.modeloDetected &&
+              editableOcr.modeloDetected !== "unknown" && (
+                <View
+                  style={[
+                    styles.modeloBadge,
+                    {
+                      backgroundColor: colors.primary + "15",
+                      borderColor: colors.primary + "40",
+                    },
+                  ]}
+                >
+                  <Ionicons
+                    name="id-card-outline"
+                    size={12}
+                    color={colors.primary}
+                  />
+                  <Text
+                    style={[styles.modeloBadgeText, { color: colors.primary }]}
+                  >
+                    {editableOcr.modeloDetected.replace("_", " ")}
+                  </Text>
+                </View>
+              )}
           </View>
           <Text style={[styles.ocrSubtitle, { color: colors.textSecondary }]}>
             {editableOcr.confidence > 0.9
@@ -824,155 +986,198 @@ export function INEQuestion({
                 : "La calidad de lectura fue baja. Por favor revisa y corrige todos los campos."}
           </Text>
 
-          {ocrFields.map(({ key, label, autoCapitalize, autoCorrect, keyboardType, maxLength }) => {
-            // Usar confianza individual del parser en vez de la global
-            // (Decisión §5 en lib/ocr/ine-ocr-parser.ts)
-            const fieldValue = String(editableOcr[key] ?? "");
-            const fieldConf = editableOcr.fieldConfidence?.[key] ?? (fieldValue ? 0.5 : 0);
-            const hasContent = fieldValue.length > 0;
-            const isLowConfidence = !hasContent || fieldConf < 0.7;
-            const confidencePct = Math.round(fieldConf * 100);
-            return (
-              <View key={key} style={styles.ocrFieldRow}>
-                <View style={styles.ocrFieldLabelRow}>
-                  <Text
-                    style={[
-                      styles.ocrFieldLabel,
-                      {
-                        color: isLowConfidence
-                          ? colors.error
-                          : colors.textSecondary,
-                      },
-                    ]}
-                  >
-                    {label}
-                  </Text>
-                  {hasContent && (
+          {ocrFields.map(
+            ({
+              key,
+              label,
+              autoCapitalize,
+              autoCorrect,
+              keyboardType,
+              maxLength,
+            }) => {
+              // Usar confianza individual del parser en vez de la global
+              // (Decisión §5 en lib/ocr/ine-ocr-parser.ts)
+              const fieldValue = String(editableOcr[key] ?? "");
+              const fieldConf =
+                editableOcr.fieldConfidence?.[key] ?? (fieldValue ? 0.5 : 0);
+              const hasContent = fieldValue.length > 0;
+              const isLowConfidence = !hasContent || fieldConf < 0.7;
+              const confidencePct = Math.round(fieldConf * 100);
+              return (
+                <View key={key} style={styles.ocrFieldRow}>
+                  <View style={styles.ocrFieldLabelRow}>
                     <Text
                       style={[
-                        styles.ocrFieldConfPct,
+                        styles.ocrFieldLabel,
                         {
-                          color:
-                            fieldConf >= 0.9
-                              ? colors.success
-                              : fieldConf >= 0.7
-                                ? (colors.warning ?? "#f59e0b")
-                                : colors.error,
+                          color: isLowConfidence
+                            ? colors.error
+                            : colors.textSecondary,
                         },
                       ]}
                     >
-                      {confidencePct}%
+                      {label}
                     </Text>
-                  )}
-                  {isLowConfidence && (
-                    <Ionicons
-                      name="alert-circle"
-                      size={14}
-                      color={colors.error}
-                    />
-                  )}
-                </View>
-                <TextInput
-                  style={[
-                    styles.ocrFieldInput,
-                    {
-                      color: colors.text,
-                      borderColor: isLowConfidence
-                        ? colors.error + "60"
-                        : colors.border,
-                      backgroundColor: isLowConfidence
-                        ? colors.error + "08"
-                        : colors.background,
-                    },
-                  ]}
-                  value={fieldValue}
-                  onChangeText={(v) => { updateOcrField(key, v); if (key === "curp") setCurpValidation(null); }}
-                  placeholder="Sin datos"
-                  placeholderTextColor={colors.textTertiary}
-                  autoCapitalize={autoCapitalize ?? "none"}
-                  autoCorrect={autoCorrect ?? false}
-                  spellCheck={false}
-                  keyboardType={keyboardType ?? "default"}
-                  maxLength={maxLength}
-                />
-                {/* Boton de verificacion RENAPO — solo para el campo CURP */}
-                {key === "curp" && fieldValue.length === 18 && (
-                  <View style={styles.curpVerifyRow}>
-                    <TouchableOpacity
-                      style={[
-                        styles.curpVerifyBtn,
-                        {
-                          backgroundColor: colors.primary + "15",
-                          borderColor: colors.primary + "50",
-                          opacity: validatingCurp ? 0.6 : 1,
-                        },
-                      ]}
-                      onPress={handleVerifyCurp}
-                      disabled={validatingCurp}
-                      activeOpacity={0.7}
-                    >
-                      {validatingCurp ? (
-                        <ActivityIndicator size="small" color={colors.primary} />
-                      ) : (
-                        <Ionicons name="shield-checkmark-outline" size={14} color={colors.primary} />
-                      )}
-                      <Text style={[styles.curpVerifyBtnText, { color: colors.primary }]}>
-                        {validatingCurp ? "Verificando..." : "Verificar en RENAPO"}
-                      </Text>
-                    </TouchableOpacity>
-                    {curpValidation && (
-                      <View
+                    {hasContent && (
+                      <Text
                         style={[
-                          styles.curpValidationResult,
+                          styles.ocrFieldConfPct,
                           {
-                            backgroundColor:
-                              curpValidation.renapoStatus === "VIGE"
-                                ? colors.success + "18"
-                                : curpValidation.renapoStatus === "NO_ENCONTRADO" || curpValidation.renapoStatus === "BAJA"
-                                  ? colors.error + "12"
-                                  : colors.warning + "18",
-                            borderColor:
-                              curpValidation.renapoStatus === "VIGE"
-                                ? colors.success + "60"
-                                : curpValidation.renapoStatus === "NO_ENCONTRADO" || curpValidation.renapoStatus === "BAJA"
-                                  ? colors.error + "40"
-                                  : colors.warning + "40",
+                            color:
+                              fieldConf >= 0.9
+                                ? colors.success
+                                : fieldConf >= 0.7
+                                  ? (colors.warning ?? "#f59e0b")
+                                  : colors.error,
                           },
                         ]}
                       >
-                        <Ionicons
-                          name={
-                            curpValidation.renapoStatus === "VIGE" ? "checkmark-circle"
-                            : curpValidation.renapoStatus === "NO_ENCONTRADO" || curpValidation.renapoStatus === "BAJA" ? "close-circle"
-                            : "alert-circle"
-                          }
-                          size={14}
-                          color={
-                            curpValidation.renapoStatus === "VIGE" ? colors.success
-                            : curpValidation.renapoStatus === "NO_ENCONTRADO" || curpValidation.renapoStatus === "BAJA" ? colors.error
-                            : (colors.warning ?? "#f59e0b")
-                          }
-                        />
+                        {confidencePct}%
+                      </Text>
+                    )}
+                    {isLowConfidence && (
+                      <Ionicons
+                        name="alert-circle"
+                        size={14}
+                        color={colors.error}
+                      />
+                    )}
+                  </View>
+                  <TextInput
+                    style={[
+                      styles.ocrFieldInput,
+                      {
+                        color: colors.text,
+                        borderColor: isLowConfidence
+                          ? colors.error + "60"
+                          : colors.border,
+                        backgroundColor: isLowConfidence
+                          ? colors.error + "08"
+                          : colors.background,
+                      },
+                    ]}
+                    value={fieldValue}
+                    onChangeText={(v) => {
+                      updateOcrField(key, v);
+                      if (key === "curp") setCurpValidation(null);
+                    }}
+                    placeholder="Sin datos"
+                    placeholderTextColor={colors.textTertiary}
+                    autoCapitalize={autoCapitalize ?? "none"}
+                    autoCorrect={autoCorrect ?? false}
+                    spellCheck={false}
+                    keyboardType={keyboardType ?? "default"}
+                    maxLength={maxLength}
+                  />
+                  {/* Boton de verificacion RENAPO — solo para el campo CURP */}
+                  {key === "curp" && fieldValue.length === 18 && (
+                    <View style={styles.curpVerifyRow}>
+                      <TouchableOpacity
+                        style={[
+                          styles.curpVerifyBtn,
+                          {
+                            backgroundColor: colors.primary + "15",
+                            borderColor: colors.primary + "50",
+                            opacity: validatingCurp ? 0.6 : 1,
+                          },
+                        ]}
+                        onPress={handleVerifyCurp}
+                        disabled={validatingCurp}
+                        activeOpacity={0.7}
+                      >
+                        {validatingCurp ? (
+                          <ActivityIndicator
+                            size="small"
+                            color={colors.primary}
+                          />
+                        ) : (
+                          <Ionicons
+                            name="shield-checkmark-outline"
+                            size={14}
+                            color={colors.primary}
+                          />
+                        )}
                         <Text
                           style={[
-                            styles.curpValidationText,
+                            styles.curpVerifyBtnText,
+                            { color: colors.primary },
+                          ]}
+                        >
+                          {validatingCurp
+                            ? "Verificando..."
+                            : "Verificar en RENAPO"}
+                        </Text>
+                      </TouchableOpacity>
+                      {curpValidation && (
+                        <View
+                          style={[
+                            styles.curpValidationResult,
                             {
-                              color:
-                                curpValidation.renapoStatus === "VIGE" ? colors.success
-                                : curpValidation.renapoStatus === "NO_ENCONTRADO" || curpValidation.renapoStatus === "BAJA" ? colors.error
-                                : (colors.warning ?? "#f59e0b"),
+                              backgroundColor:
+                                curpValidation.renapoStatus === "VIGE"
+                                  ? colors.success + "18"
+                                  : curpValidation.renapoStatus ===
+                                        "NO_ENCONTRADO" ||
+                                      curpValidation.renapoStatus === "BAJA"
+                                    ? colors.error + "12"
+                                    : colors.warning + "18",
+                              borderColor:
+                                curpValidation.renapoStatus === "VIGE"
+                                  ? colors.success + "60"
+                                  : curpValidation.renapoStatus ===
+                                        "NO_ENCONTRADO" ||
+                                      curpValidation.renapoStatus === "BAJA"
+                                    ? colors.error + "40"
+                                    : colors.warning + "40",
                             },
                           ]}
                         >
-                          {curpValidation.displayMessage}
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-                )}
-              </View>
-            );
-          })}
+                          <Ionicons
+                            name={
+                              curpValidation.renapoStatus === "VIGE"
+                                ? "checkmark-circle"
+                                : curpValidation.renapoStatus ===
+                                      "NO_ENCONTRADO" ||
+                                    curpValidation.renapoStatus === "BAJA"
+                                  ? "close-circle"
+                                  : "alert-circle"
+                            }
+                            size={14}
+                            color={
+                              curpValidation.renapoStatus === "VIGE"
+                                ? colors.success
+                                : curpValidation.renapoStatus ===
+                                      "NO_ENCONTRADO" ||
+                                    curpValidation.renapoStatus === "BAJA"
+                                  ? colors.error
+                                  : (colors.warning ?? "#f59e0b")
+                            }
+                          />
+                          <Text
+                            style={[
+                              styles.curpValidationText,
+                              {
+                                color:
+                                  curpValidation.renapoStatus === "VIGE"
+                                    ? colors.success
+                                    : curpValidation.renapoStatus ===
+                                          "NO_ENCONTRADO" ||
+                                        curpValidation.renapoStatus === "BAJA"
+                                      ? colors.error
+                                      : (colors.warning ?? "#f59e0b"),
+                              },
+                            ]}
+                          >
+                            {curpValidation.displayMessage}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  )}
+                </View>
+              );
+            },
+          )}
 
           <TouchableOpacity
             style={[styles.confirmOcrBtn, { backgroundColor: colors.primary }]}
@@ -996,6 +1201,49 @@ export function INEQuestion({
             },
           ]}
         >
+          <View style={styles.stageRow}>
+            <View
+              style={[
+                styles.stageBadge,
+                {
+                  backgroundColor: colors.success + "18",
+                  borderColor: colors.success + "40",
+                },
+              ]}
+            >
+              <Ionicons name="checkmark-circle" size={12} color={colors.success} />
+              <Text style={[styles.stageBadgeText, { color: colors.success }]}> 
+                1. Captura + OCR
+              </Text>
+            </View>
+            <View
+              style={[
+                styles.stageBadge,
+                {
+                  backgroundColor: stageCurpValidationDone
+                    ? colors.success + "18"
+                    : (colors.warning ?? "#f59e0b") + "18",
+                  borderColor: stageCurpValidationDone
+                    ? colors.success + "40"
+                    : (colors.warning ?? "#f59e0b") + "40",
+                },
+              ]}
+            >
+              <Ionicons
+                name={stageCurpValidationDone ? "shield-checkmark" : "shield-outline"}
+                size={12}
+                color={stageCurpValidationDone ? colors.success : (colors.warning ?? "#f59e0b")}
+              />
+              <Text
+                style={[
+                  styles.stageBadgeText,
+                  { color: stageCurpValidationDone ? colors.success : (colors.warning ?? "#f59e0b") },
+                ]}
+              >
+                2. Validación CURP
+              </Text>
+            </View>
+          </View>
           <View style={styles.ocrHeader}>
             <Ionicons
               name="checkmark-circle"
@@ -1005,19 +1253,29 @@ export function INEQuestion({
             <Text style={[styles.ocrTitle, { color: colors.success }]}>
               Datos confirmados
             </Text>
-            {data.ocrData.modeloDetected && data.ocrData.modeloDetected !== "unknown" && (
-              <View
-                style={[
-                  styles.modeloBadge,
-                  { backgroundColor: colors.primary + "15", borderColor: colors.primary + "40" },
-                ]}
-              >
-                <Ionicons name="id-card-outline" size={12} color={colors.primary} />
-                <Text style={[styles.modeloBadgeText, { color: colors.primary }]}>
-                  {data.ocrData.modeloDetected.replace("_", " ")}
-                </Text>
-              </View>
-            )}
+            {data.ocrData.modeloDetected &&
+              data.ocrData.modeloDetected !== "unknown" && (
+                <View
+                  style={[
+                    styles.modeloBadge,
+                    {
+                      backgroundColor: colors.primary + "15",
+                      borderColor: colors.primary + "40",
+                    },
+                  ]}
+                >
+                  <Ionicons
+                    name="id-card-outline"
+                    size={12}
+                    color={colors.primary}
+                  />
+                  <Text
+                    style={[styles.modeloBadgeText, { color: colors.primary }]}
+                  >
+                    {data.ocrData.modeloDetected.replace("_", " ")}
+                  </Text>
+                </View>
+              )}
             <TouchableOpacity
               onPress={() => {
                 setEditableOcr(data.ocrData);
@@ -1034,9 +1292,20 @@ export function INEQuestion({
                 accessibilityLabel="Re-leer OCR"
                 accessibilityRole="button"
               >
-                <View style={[styles.reLeerBtn, { borderColor: colors.primary + "50" }]}>
-                  <Ionicons name="refresh-outline" size={13} color={colors.primary} />
-                  <Text style={[styles.reLeerBtnText, { color: colors.primary }]}>
+                <View
+                  style={[
+                    styles.reLeerBtn,
+                    { borderColor: colors.primary + "50" },
+                  ]}
+                >
+                  <Ionicons
+                    name="refresh-outline"
+                    size={13}
+                    color={colors.primary}
+                  />
+                  <Text
+                    style={[styles.reLeerBtnText, { color: colors.primary }]}
+                  >
                     Re-leer
                   </Text>
                 </View>
@@ -1299,6 +1568,25 @@ const styles = StyleSheet.create({
   reLeerBtnText: {
     fontSize: 11,
     fontWeight: "600",
+  },
+  stageRow: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    gap: 8,
+    flexWrap: "wrap" as const,
+  },
+  stageBadge: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 9,
+    borderWidth: 1,
+  },
+  stageBadgeText: {
+    fontSize: 11,
+    fontWeight: "700",
   },
   curpVerifyRow: {
     gap: 8,

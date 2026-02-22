@@ -83,6 +83,7 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const [showError, setShowError] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [showHelp, setShowHelp] = useState(false);
 
   // Animation
   const shakeAnim = useSharedValue(0);
@@ -306,6 +307,42 @@ export default function LoginScreen() {
               <Text style={[styles.title, { color: colors.text }]}>
                 Inicia sesión
               </Text>
+              <Text style={[styles.subtitle, { color: colors.textSecondary }]}> 
+                Ingresa tu correo y contraseña para continuar.
+              </Text>
+              <TouchableOpacity
+                style={styles.helpToggle}
+                onPress={() => setShowHelp((v) => !v)}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel="Mostrar ayuda de acceso"
+              >
+                <Ionicons
+                  name={showHelp ? "chevron-up-outline" : "help-circle-outline"}
+                  size={14}
+                  color={colors.primary}
+                />
+                <Text style={[styles.helpToggleText, { color: colors.primary }]}> 
+                  {showHelp ? "Ocultar ayuda" : "¿Cómo funciona el acceso?"}
+                </Text>
+              </TouchableOpacity>
+              {showHelp && (
+                <View
+                  style={[
+                    styles.helpCard,
+                    {
+                      backgroundColor: colors.surface,
+                      borderColor: colors.border,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.helpText, { color: colors.textSecondary }]}> 
+                    • Tu cuenta debe estar activada por tu encargado o admin{"\n"}
+                    • Si no recuerdas tu contraseña, usa “¿Olvidaste tu contraseña?”{"\n"}
+                    • Puedes llenar encuestas sin conexión; se sincronizan después
+                  </Text>
+                </View>
+              )}
             </View>
 
             {/* Error Alert */}
@@ -486,6 +523,35 @@ const styles = StyleSheet.create({
     // color now comes from inline style (colors.text)
     textAlign: "center",
     lineHeight: 32,
+  },
+  subtitle: {
+    marginTop: 4,
+    fontSize: 14,
+    textAlign: "center",
+  },
+  helpToggle: {
+    marginTop: 8,
+    alignSelf: "center",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+  },
+  helpToggleText: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  helpCard: {
+    marginTop: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  helpText: {
+    fontSize: 12,
+    lineHeight: 18,
   },
 
   alertContainer: {

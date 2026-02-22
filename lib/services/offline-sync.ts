@@ -67,6 +67,13 @@ export interface SyncResult {
   error?: string;
 }
 
+export interface TwoPhaseSubmitResult {
+  success: boolean;
+  responseId: string;
+  queued: boolean;
+  error?: string;
+}
+
 // ── Service ───────────────────────────────────────────────────────────────────
 
 class OfflineSyncService {
@@ -218,6 +225,63 @@ class OfflineSyncService {
         synced: false,
         responseId: input.responseId,
         error: apiError.message,
+      };
+    }
+  }
+
+  /**
+   * 3b. Two-phase submit:
+   *   Phase 1 (instant): persist completion + queue operation locally
+   *   Phase 2 (background): optional immediate queue processing if online
+   *
+   * Returns as soon as phase 1 finishes so UI can show instant confirmation.
+   */
+  async submitResponseTwoPhase(
+    input: SubmitResponseInput,
+    options?: { attemptImmediateSync?: boolean },
+  ): Promise<TwoPhaseSubmitResult> {
+    await this.initialize();
+
+    const completedAt = new Date().toISOString();
+    const apiPayload: SurveyResponseCreate = {
+      client_id: input.responseId,
+      version_id: input.versionId,
+      started_at: input.startedAt,
+      completed_at: completedAt,
+      answers: input.answers,
+    };
+
+    try {
+      await responseRepository.completeResponse(input.responseId);
+
+      await syncRepository.addToQueue({
+        queue_id: Crypto.randomUUID(),
+        operation_type: "create_response",
+        entity_type: "response",
+        entity_id: input.responseId,
+        payload: apiPayload,
+        priority: 1,
+      });
+
+      if (options?.attemptImmediateSync) {
+        setTimeout(() => {
+          this.processSyncQueue().catch((err) => {
+            console.warn("⚠️ Background sync failed:", err);
+          });
+        }, 0);
+      }
+
+      return {
+        success: true,
+        responseId: input.responseId,
+        queued: true,
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        responseId: input.responseId,
+        queued: false,
+        error: error?.message ?? "Failed to queue response",
       };
     }
   }
