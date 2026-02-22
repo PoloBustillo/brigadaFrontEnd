@@ -10,6 +10,7 @@
  */
 
 import { useThemeColors } from "@/contexts/theme-context";
+import { parseIneOcrText, type IneOcrResult } from "@/lib/ocr/ine-ocr-parser";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as ImageManipulator from "expo-image-manipulator";
@@ -83,20 +84,11 @@ type INEData = {
   ocrData: INEOcrResult | null;
 };
 
-/** OCR-extracted data from the INE */
-export interface INEOcrResult {
-  nombre: string;
-  apellidoPaterno: string;
-  apellidoMaterno: string;
-  claveElector: string;
-  curp: string;
-  fechaNacimiento: string;
-  sexo: string;
-  seccion: string;
-  vigencia: string;
-  domicilio: string;
-  confidence: number; // 0-1
-}
+/** OCR-extracted data from the INE — re-exported from the parser module */
+export type INEOcrResult = IneOcrResult;
+
+/** Campos editables del resultado OCR (excluye las propiedades de confianza) */
+type IneTextField = keyof Omit<INEOcrResult, "confidence" | "fieldConfidence">;
 
 function parseValue(value: any): INEData {
   if (!value) return { front: null, back: null, ocrData: null };
@@ -123,159 +115,60 @@ async function processDocumentImage(uri: string): Promise<string> {
 }
 
 // ── OCR helpers ────────────────────────────────────────────────────────────────
-
-/** Common INE field patterns */
-const CURP_RE = /[A-Z]{4}\d{6}[HM][A-Z]{5}[A-Z\d]{2}/;
-const CLAVE_ELECTOR_RE = /[A-Z]{6}\d{8}[HM]\d{3}/;
-const SECCION_RE = /SECCI[OÓ]N\s*(\d{4})/i;
-const VIGENCIA_RE = /VIGENCIA\s*(\d{4})/i;
-const FECHA_NAC_RE = /(\d{2}\/\d{2}\/\d{4})/;
-const SEXO_RE = /\bSEXO\s*([HM])\b/i;
+// (Pattern constants moved to lib/ocr/ine-ocr-parser.ts — see that module for
+//  design decisions on CURP/Clave correction, multi-format dates, etc.)
 
 /**
- * Run ML Kit text recognition on an image and attempt to parse INE fields.
- * Works on both front and back of the credential.
+ * Runs ML Kit text recognition on both credential sides and delegates
+ * field extraction to parseIneOcrText() in lib/ocr/ine-ocr-parser.ts.
+ *
+ * Keeping the async I/O (ML Kit calls) here and the pure parsing logic
+ * in the separate module makes unit-testing the parser straightforward.
  */
 async function extractIneOcr(
   frontUri: string | null,
   backUri: string | null,
 ): Promise<INEOcrResult> {
-  const result: INEOcrResult = {
-    nombre: "",
-    apellidoPaterno: "",
-    apellidoMaterno: "",
-    claveElector: "",
-    curp: "",
-    fechaNacimiento: "",
-    sexo: "",
-    seccion: "",
-    vigencia: "",
-    domicilio: "",
+  const empty: INEOcrResult = {
+    nombre: "", apellidoPaterno: "", apellidoMaterno: "",
+    claveElector: "", curp: "", fechaNacimiento: "",
+    sexo: "", seccion: "", vigencia: "", domicilio: "",
     confidence: 0,
+    fieldConfidence: {
+      nombre: 0, apellidoPaterno: 0, apellidoMaterno: 0,
+      claveElector: 0, curp: 0, fechaNacimiento: 0,
+      sexo: 0, seccion: 0, vigencia: 0, domicilio: 0,
+    },
   };
 
-  let allText = "";
-  let totalConfidence = 0;
-  let blockCount = 0;
-
   const TextRecognition = getTextRecognition();
-  if (!TextRecognition) {
-    // Running in Expo Go — OCR not available
-    return { ...result, confidence: 0 };
-  }
+  if (!TextRecognition) return empty; // Expo Go — módulo no vinculado
 
-  // Process front side
+  let frontText: string | null = null;
+  let backText: string | null = null;
+
   if (frontUri) {
     try {
-      const frontResult: TextRecognitionResult =
-        await TextRecognition.recognize(frontUri);
-      const frontText = frontResult.text ?? "";
-      allText += frontText + "\n";
-
-      for (const block of frontResult.blocks ?? []) {
-        if (block.recognizedLanguages?.length) {
-          totalConfidence += 0.8; // approximate confidence
-        } else {
-          totalConfidence += 0.6;
-        }
-        blockCount++;
-      }
+      const r = await TextRecognition.recognize(frontUri);
+      frontText = r.text ?? "";
     } catch (err) {
-      if (isNotLinkedError(err)) return { ...result, confidence: 0 };
-      console.error("OCR front error:", err);
+      if (isNotLinkedError(err)) return empty;
+      console.error("[INE OCR] front error:", err);
     }
   }
 
-  // Process back side
   if (backUri) {
     try {
-      const backResult: TextRecognitionResult =
-        await TextRecognition.recognize(backUri);
-      const backText = backResult.text ?? "";
-      allText += backText + "\n";
-
-      for (const block of backResult.blocks ?? []) {
-        totalConfidence += 0.7;
-        blockCount++;
-      }
+      const r = await TextRecognition.recognize(backUri);
+      backText = r.text ?? "";
     } catch (err) {
-      if (isNotLinkedError(err)) return { ...result, confidence: 0 };
-      console.error("OCR back error:", err);
+      if (isNotLinkedError(err)) return empty;
+      console.error("[INE OCR] back error:", err);
     }
   }
 
-  // Parse fields from combined text
-  const lines = allText
-    .split("\n")
-    .map((l) => l.trim())
-    .filter(Boolean);
-
-  // CURP
-  const curpMatch = allText.match(CURP_RE);
-  if (curpMatch) result.curp = curpMatch[0];
-
-  // Clave de Elector
-  const claveMatch = allText.match(CLAVE_ELECTOR_RE);
-  if (claveMatch) result.claveElector = claveMatch[0];
-
-  // Sección
-  const seccionMatch = allText.match(SECCION_RE);
-  if (seccionMatch) result.seccion = seccionMatch[1];
-
-  // Vigencia
-  const vigenciaMatch = allText.match(VIGENCIA_RE);
-  if (vigenciaMatch) result.vigencia = vigenciaMatch[1];
-
-  // Fecha de nacimiento
-  const fechaMatch = allText.match(FECHA_NAC_RE);
-  if (fechaMatch) result.fechaNacimiento = fechaMatch[1];
-
-  // Sexo
-  const sexoMatch = allText.match(SEXO_RE);
-  if (sexoMatch) result.sexo = sexoMatch[1].toUpperCase();
-
-  // Name extraction: look for "NOMBRE" label or parse lines after known patterns
-  const nombreIdx = lines.findIndex(
-    (l) => l.toUpperCase().includes("NOMBRE") && !l.includes("DOMICILIO"),
-  );
-  if (nombreIdx >= 0 && nombreIdx + 1 < lines.length) {
-    const nameParts = lines[nombreIdx + 1].split(/\s+/);
-    if (nameParts.length >= 1) result.nombre = nameParts.join(" ");
-  }
-
-  // Apellido paterno: look for "APELLIDO PATERNO" or try to extract from name block
-  const apPaternoIdx = lines.findIndex((l) => /APELLIDO\s*PATERNO/i.test(l));
-  if (apPaternoIdx >= 0 && apPaternoIdx + 1 < lines.length) {
-    result.apellidoPaterno = lines[apPaternoIdx + 1];
-  }
-
-  const apMaternoIdx = lines.findIndex((l) => /APELLIDO\s*MATERNO/i.test(l));
-  if (apMaternoIdx >= 0 && apMaternoIdx + 1 < lines.length) {
-    result.apellidoMaterno = lines[apMaternoIdx + 1];
-  }
-
-  // Domicilio
-  const domicilioIdx = lines.findIndex((l) => /DOMICILIO/i.test(l));
-  if (domicilioIdx >= 0) {
-    // Collect up to 3 lines after DOMICILIO
-    const addressLines: string[] = [];
-    for (
-      let i = domicilioIdx + 1;
-      i < Math.min(domicilioIdx + 4, lines.length);
-      i++
-    ) {
-      // Stop at next label-like line
-      if (/^(CLAVE|CURP|SECCI|ESTADO|MUNICIPIO|AÑO)/i.test(lines[i])) break;
-      addressLines.push(lines[i]);
-    }
-    result.domicilio = addressLines.join(", ");
-  }
-
-  // Confidence
-  result.confidence =
-    blockCount > 0 ? Math.min(totalConfidence / blockCount, 1) : 0;
-
-  return result;
+  // Delegar toda la lógica de extracción al parser puro
+  return parseIneOcrText(frontText, backText);
 }
 
 export function INEQuestion({
@@ -559,13 +452,20 @@ export function INEQuestion({
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   };
 
-  const updateOcrField = (field: keyof INEOcrResult, val: string) => {
+  // Campos de texto editables (excluye los de confianza que no son strings)
+  const updateOcrField = (field: IneTextField, val: string) => {
     if (!editableOcr) return;
-    setEditableOcr({ ...editableOcr, [field]: val });
+    // Cuando el usuario edita manualmente un campo, marcar su confianza como 1.0
+    // (el usuario ha verificado/corregido el valor — Decisión §5 del parser)
+    const updatedFieldConf = {
+      ...(editableOcr.fieldConfidence ?? {}),
+      [field]: 1.0,
+    };
+    setEditableOcr({ ...editableOcr, [field]: val, fieldConfidence: updatedFieldConf });
   };
 
   // OCR field config for rendering
-  const ocrFields: { key: keyof INEOcrResult; label: string }[] = [
+  const ocrFields: { key: IneTextField; label: string }[] = [
     { key: "nombre", label: "Nombre(s)" },
     { key: "apellidoPaterno", label: "Apellido Paterno" },
     { key: "apellidoMaterno", label: "Apellido Materno" },
@@ -841,10 +741,13 @@ export function INEQuestion({
           </Text>
 
           {ocrFields.map(({ key, label }) => {
-            // Determine per-field confidence: fields with content are likely OK
+            // Usar confianza individual del parser en vez de la global
+            // (Decisión §5 en lib/ocr/ine-ocr-parser.ts)
             const fieldValue = String(editableOcr[key] ?? "");
+            const fieldConf = editableOcr.fieldConfidence?.[key] ?? (fieldValue ? 0.5 : 0);
             const hasContent = fieldValue.length > 0;
-            const isLowConfidence = !hasContent || editableOcr.confidence < 0.7;
+            const isLowConfidence = !hasContent || fieldConf < 0.7;
+            const confidencePct = Math.round(fieldConf * 100);
             return (
               <View key={key} style={styles.ocrFieldRow}>
                 <View style={styles.ocrFieldLabelRow}>
@@ -860,6 +763,23 @@ export function INEQuestion({
                   >
                     {label}
                   </Text>
+                  {hasContent && (
+                    <Text
+                      style={[
+                        styles.ocrFieldConfPct,
+                        {
+                          color:
+                            fieldConf >= 0.9
+                              ? colors.success
+                              : fieldConf >= 0.7
+                                ? (colors.warning ?? "#f59e0b")
+                                : colors.error,
+                        },
+                      ]}
+                    >
+                      {confidencePct}%
+                    </Text>
+                  )}
                   {isLowConfidence && (
                     <Ionicons
                       name="alert-circle"
@@ -1220,6 +1140,12 @@ const styles = StyleSheet.create({
     flexDirection: "row" as const,
     alignItems: "center" as const,
     gap: 4,
+  },
+  ocrFieldConfPct: {
+    fontSize: 10,
+    fontWeight: "700" as const,
+    marginLeft: "auto" as any,
+    paddingHorizontal: 4,
   },
   ocrFieldLabel: {
     fontSize: 12,
