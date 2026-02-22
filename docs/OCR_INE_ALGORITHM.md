@@ -197,14 +197,14 @@ Esto no está implementado en la versión actual porque `@react-native-ml-kit/te
 
 ## 9. Cómo mejorar la precisión (roadmap)
 
-1. **Tests unitarios con strings OCR reales** — capturar el texto que regresa ML Kit de varias INEs reales y añadirlos como fixtures en `lib/ocr/__tests__/ine-ocr-parser.test.ts`.
-
-2. **Ordenar bloques por `frame.y`** — antes de concatenar, ordenar `blocks` por `frame.y` ascendente para garantizar el orden top-→bottom independientemente de lo que retorne ML Kit.
-
-3. **ROI por modelo** — una vez que `detectIneModelo()` identifique el modelo, aplicar filtros espaciales para reducir el texto candidato a nombres/domicilio.
-
-4. **Preprocesamiento de imagen** — usar `expo-image-manipulator` para aumentar contraste (+30%) y convertir a escala de grises antes de pasar a ML Kit. Reduce artefactos de reflejo.
-
-5. **Endpoint OCR en backend** — endpoint `/ocr/ine` (FastAPI) que reciba la imagen y llame a Google Vision API (con `document_text_detection`) para obtener layout completo y confianza por palabra. Más preciso pero requiere conexión.
-
-6. **Mejorar domicilio** — actualmente se detiene en el primer `LABEL_TOKEN`. En modelos donde el domicilio tiene muchas líneas (colonia + municipio + estado separados), expandir el límite de 4 líneas a 6 y ajustar los `LABEL_TOKENS`.
+| # | Mejora | Estado |
+|---|--------|--------|
+| 1 | **Ordenar bloques por `frame.y`** — ordenar `blocks` por `frame.y` ascendente para garantizar orden top→bottom | ✅ Implementado |
+| 2 | **Filtrar líneas MRZ** (`<<<`) del reverso que confunden el regex de CURP | ✅ Implementado |
+| 3 | **Exponer `modeloDetected`** en `IneOcrResult` y mostrar badge en la UI | ✅ Implementado |
+| 4 | **Imagen más grande para OCR** — resize 1200 → 1600px antes de ML Kit | ✅ Implementado |
+| 5 | **Tests unitarios con strings OCR reales** — fixtures en `lib/ocr/__tests__/ine-ocr-parser.test.ts` | ⬜ Pendiente |
+| 6 | **ROI por modelo** — filtros espaciales (`frame.y / imageHeight`) por modelo para nombres/domicilio | ⬜ Pendiente |
+| 7 | **Preprocesamiento avanzado** — contraste/grayscale cuando `expo-image-manipulator` lo soporte | ⬜ Pendiente |
+| 8 | **Endpoint OCR en backend** — FastAPI `/ocr/ine` con Google Vision `document_text_detection` | ⬜ Pendiente |
+| 9 | **Mejorar domicilio** — expandir de 4 a 6 líneas y ajustar `LABEL_TOKENS` para modelos con colonia/municipio/estado separados | ⬜ Pendiente |

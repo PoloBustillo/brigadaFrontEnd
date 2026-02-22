@@ -101,10 +101,12 @@ export interface IneOcrResult {
   seccion: string;
   vigencia: string;        // año YYYY
   domicilio: string;
+  /** Modelo de credencial detectado (Decisión §6) */
+  modeloDetected: IneModelo;
   /** Confianza global 0–1 calculada como media de campos con valor */
   confidence: number;
   /** Confianza individual 0–1 por campo (para UI por campo) */
-  fieldConfidence: Record<keyof Omit<IneOcrResult, "confidence" | "fieldConfidence">, number>;
+  fieldConfidence: Record<keyof Omit<IneOcrResult, "confidence" | "fieldConfidence" | "modeloDetected">, number>;
 }
 
 /** Versión del modelo de credencial detectada */
@@ -226,6 +228,10 @@ export function normalizeOcrText(raw: string): string {
     .map((line) => line.replace(/\s+/g, " ").trim())
     // c) Eliminar ruido (líneas muy cortas que no son valor de campo)
     .filter((line) => line.length >= 2)
+    // d) Filtrar líneas MRZ (Machine-Readable Zone: contienen <<<)
+    //    que aparecen en el reverso de algunos modelos y confunden
+    //    el regex de CURP con cadenas similares de 18 chars.
+    .filter((line) => !line.includes("<"))
     .join("\n");
 }
 
@@ -510,11 +516,11 @@ function cleanNameValue(s: string): string {
 // ── Cálculo de confianza global (Decisión §5) ─────────────────────────────────
 
 type FieldConf = Record<
-  keyof Omit<IneOcrResult, "confidence" | "fieldConfidence">,
+  keyof Omit<IneOcrResult, "confidence" | "fieldConfidence" | "modeloDetected">,
   number
 >;
 
-function computeOverallConfidence(fields: FieldConf, results: Omit<IneOcrResult, "confidence" | "fieldConfidence">): number {
+function computeOverallConfidence(fields: FieldConf, results: Omit<IneOcrResult, "confidence" | "fieldConfidence" | "modeloDetected">): number {
   const scored: number[] = Object.keys(fields).map((k) => {
     const key = k as keyof typeof fields;
     // Un campo vacío pesa 0, un campo con valor pesa según su confianza
@@ -701,11 +707,15 @@ export function parseIneOcrText(
     }
   }
 
+  // ── Modelo de credencial ─────────────────────────────────────────────────
+  const modeloDetected = detectIneModelo(combined);
+
   // ── Confianza global ─────────────────────────────────────────────────────
   const confidence = computeOverallConfidence(fc, res);
 
   return {
     ...res,
+    modeloDetected,
     confidence,
     fieldConfidence: fc,
   };

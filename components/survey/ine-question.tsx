@@ -51,7 +51,12 @@ function getDocumentScanner(): DocumentScannerModule | null {
 // build the module is present via auto-linking and works normally.
 type TextRecognitionResult = {
   text: string;
-  blocks: { text: string; lines: { text: string; confidence?: number }[] }[];
+  blocks: {
+    text: string;
+    /** Bounding box of the block in the source image (pixels) */
+    frame?: { x: number; y: number; width: number; height: number };
+    lines: { text: string; confidence?: number }[];
+  }[];
 };
 type TextRecognitionModule = {
   recognize(uri: string): Promise<TextRecognitionResult>;
@@ -87,8 +92,8 @@ type INEData = {
 /** OCR-extracted data from the INE — re-exported from the parser module */
 export type INEOcrResult = IneOcrResult;
 
-/** Campos editables del resultado OCR (excluye las propiedades de confianza) */
-type IneTextField = keyof Omit<INEOcrResult, "confidence" | "fieldConfidence">;
+/** Campos editables del resultado OCR (excluye las propiedades de confianza y el modelo) */
+type IneTextField = keyof Omit<INEOcrResult, "confidence" | "fieldConfidence" | "modeloDetected">;
 
 function parseValue(value: any): INEData {
   if (!value) return { front: null, back: null, ocrData: null };
@@ -102,12 +107,14 @@ function parseValue(value: any): INEData {
 }
 
 async function processDocumentImage(uri: string): Promise<string> {
-  // Auto-correct: resize to standard ID width, compress for upload
+  // Resize to 1600px: wide enough for crisp OCR yet reasonable for upload.
+  // (Previous default was 1200px; ML Kit accuracy improves with larger input
+  //  — especially for the 10pt CURP/Clave Elector text on Modelo D.)
   const result = await ImageManipulator.manipulateAsync(
     uri,
-    [{ resize: { width: 1200 } }],
+    [{ resize: { width: 1600 } }],
     {
-      compress: 0.8,
+      compress: 0.85,
       format: ImageManipulator.SaveFormat.JPEG,
     },
   );
@@ -133,6 +140,7 @@ async function extractIneOcr(
     nombre: "", apellidoPaterno: "", apellidoMaterno: "",
     claveElector: "", curp: "", fechaNacimiento: "",
     sexo: "", seccion: "", vigencia: "", domicilio: "",
+    modeloDetected: "unknown",
     confidence: 0,
     fieldConfidence: {
       nombre: 0, apellidoPaterno: 0, apellidoMaterno: 0,
@@ -150,7 +158,12 @@ async function extractIneOcr(
   if (frontUri) {
     try {
       const r = await TextRecognition.recognize(frontUri);
-      frontText = r.text ?? "";
+      // Sort blocks top→bottom by frame.y so the parser sees lines in
+      // reading order regardless of ML Kit's internal block ordering.
+      const sorted = [...r.blocks].sort(
+        (a, b) => (a.frame?.y ?? 0) - (b.frame?.y ?? 0),
+      );
+      frontText = sorted.map((b) => b.text).join("\n");
     } catch (err) {
       if (isNotLinkedError(err)) return empty;
       console.error("[INE OCR] front error:", err);
@@ -160,7 +173,10 @@ async function extractIneOcr(
   if (backUri) {
     try {
       const r = await TextRecognition.recognize(backUri);
-      backText = r.text ?? "";
+      const sorted = [...r.blocks].sort(
+        (a, b) => (a.frame?.y ?? 0) - (b.frame?.y ?? 0),
+      );
+      backText = sorted.map((b) => b.text).join("\n");
     } catch (err) {
       if (isNotLinkedError(err)) return empty;
       console.error("[INE OCR] back error:", err);
@@ -731,6 +747,19 @@ export function INEQuestion({
                 </Text>
               </View>
             )}
+            {editableOcr.modeloDetected && editableOcr.modeloDetected !== "unknown" && (
+              <View
+                style={[
+                  styles.modeloBadge,
+                  { backgroundColor: colors.primary + "15", borderColor: colors.primary + "40" },
+                ]}
+              >
+                <Ionicons name="id-card-outline" size={12} color={colors.primary} />
+                <Text style={[styles.modeloBadgeText, { color: colors.primary }]}>
+                  {editableOcr.modeloDetected.replace("_", " ")}
+                </Text>
+              </View>
+            )}
           </View>
           <Text style={[styles.ocrSubtitle, { color: colors.textSecondary }]}>
             {editableOcr.confidence > 0.9
@@ -841,6 +870,19 @@ export function INEQuestion({
             <Text style={[styles.ocrTitle, { color: colors.success }]}>
               Datos confirmados
             </Text>
+            {data.ocrData.modeloDetected && data.ocrData.modeloDetected !== "unknown" && (
+              <View
+                style={[
+                  styles.modeloBadge,
+                  { backgroundColor: colors.primary + "15", borderColor: colors.primary + "40" },
+                ]}
+              >
+                <Ionicons name="id-card-outline" size={12} color={colors.primary} />
+                <Text style={[styles.modeloBadgeText, { color: colors.primary }]}>
+                  {data.ocrData.modeloDetected.replace("_", " ")}
+                </Text>
+              </View>
+            )}
             <TouchableOpacity
               onPress={() => {
                 setEditableOcr(data.ocrData);
@@ -1082,6 +1124,19 @@ const styles = StyleSheet.create({
   confidenceText: {
     fontSize: 11,
     fontWeight: "700",
+  },
+  modeloBadge: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    gap: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  modeloBadgeText: {
+    fontSize: 11,
+    fontWeight: "600",
   },
   // Pre-OCR preview confirmation
   previewConfirmCard: {
