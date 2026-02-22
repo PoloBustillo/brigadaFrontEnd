@@ -25,13 +25,24 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  LayoutAnimation,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
+  UIManager,
   View,
 } from "react-native";
+
+// Enable LayoutAnimation on Android
+if (
+  Platform.OS === "android" &&
+  UIManager.setLayoutAnimationEnabledExperimental
+) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 // Lazy-load the native DocumentScanner module so the component doesn't crash
 // in Expo Go (where native modules aren't linked).
@@ -225,15 +236,12 @@ export function INEQuestion({
     useState<CurpValidationResult | null>(null);
   const [validatingCurp, setValidatingCurp] = useState(false);
 
-  // Modelo hint: el brigadista puede pre-seleccionar el tipo de INE
-  // para mejorar la precisión del OCR (Decisión §10 del parser)
-  const [modeloHint, setModeloHint] = useState<IneModelo | undefined>(undefined);
-
   // Pre-OCR preview state: captured photo waiting for user confirmation
   const [pendingCapture, setPendingCapture] = useState<{
     side: "front" | "back";
     uri: string;
   } | null>(null);
+  const [showTips, setShowTips] = useState(false);
 
   const data = parseValue(value);
   const hasFront = !!data.front;
@@ -241,9 +249,6 @@ export function INEQuestion({
   const isComplete = hasFront && hasBack;
   // Progress step: 0=Frente, 1=Reverso, 2=OCR, 3=Listo
   const currentStep = !hasFront ? 0 : !hasBack ? 1 : !data.ocrData ? 2 : 3;
-  const stageCaptureDone = hasFront && hasBack;
-  const stageOcrDone = !!editableOcr || !!data.ocrData;
-  const stageCurpValidationDone = !!curpValidation;
 
   // Run OCR when both sides are captured
   const runOcr = useCallback(
@@ -251,7 +256,7 @@ export function INEQuestion({
       if (!frontUri) return;
       setLoading("ocr");
       try {
-        const ocrResult = await extractIneOcr(frontUri, backUri, modeloHint);
+        const ocrResult = await extractIneOcr(frontUri, backUri);
         setEditableOcr(ocrResult);
         setOcrEditing(true);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -265,7 +270,7 @@ export function INEQuestion({
         setLoading(null);
       }
     },
-    [modeloHint],
+    [],
   );
 
   const captureImage = async (
@@ -729,106 +734,41 @@ export function INEQuestion({
         })}
       </View>
 
-      {/* Instructions */}
-      <View
-        style={[styles.instructionCard, { backgroundColor: colors.overlay }]}
-      >
-        <Ionicons name="information-circle" size={20} color={colors.primary} />
-        <View style={styles.instructionTextWrap}>
-          <Text style={[styles.instructionTitle, { color: colors.text }]}>
-            Captura tu credencial INE
-          </Text>
-          <Text
-            style={[styles.instructionBody, { color: colors.textSecondary }]}
-          >
-            • Coloca el documento sobre una superficie plana{"\n"}• Asegúrate de
-            buena iluminación, sin reflejos{"\n"}• Encuadra todo el documento
-            dentro del recuadro{"\n"}• La información se extraerá
-            automáticamente
-          </Text>
-        </View>
-      </View>
-
-      {/* INE model selector — helps OCR accuracy (Decisión §10) */}
+      {/* Compact instruction tip */}
       {!data.ocrData && !ocrEditing && (
         <View
-          style={[
-            styles.modelSelectorCard,
-            { backgroundColor: colors.surface, borderColor: colors.border },
-          ]}
+          style={[styles.tipCard, { backgroundColor: colors.primary + "0D" }]}
         >
-          <View style={styles.modelSelectorHeader}>
-            <Ionicons name="id-card-outline" size={18} color={colors.primary} />
-            <Text style={[styles.modelSelectorTitle, { color: colors.text }]}>
-              Tipo de credencial
+          <View style={styles.tipRow}>
+            <Ionicons name="scan-outline" size={18} color={colors.primary} />
+            <Text style={[styles.tipText, { color: colors.text }]}>
+              Captura ambos lados de tu INE
             </Text>
+            <TouchableOpacity
+              onPress={() => {
+                LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                setShowTips(!showTips);
+              }}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Text style={[styles.tipToggle, { color: colors.primary }]}>
+                {showTips ? "Ocultar" : "Tips"}
+              </Text>
+            </TouchableOpacity>
           </View>
-          <Text
-            style={[
-              styles.modelSelectorHint,
-              { color: colors.textSecondary },
-            ]}
-          >
-            Selecciona el tipo de INE para mejorar la lectura automática.
-            Si no estás seguro, déjalo en "Detectar automáticamente".
-          </Text>
-          <View style={styles.modelSelectorOptions}>
-            {(
-              [
-                { value: undefined, label: "Detectar automáticamente", icon: "sparkles-outline" },
-                { value: "A_IFE2008" as IneModelo, label: "IFE (2008–2013)", icon: "time-outline" },
-                { value: "C_INE2015" as IneModelo, label: "INE (2015–2018)", icon: "card-outline" },
-                { value: "D_INE2019" as IneModelo, label: "INE (2019+)", icon: "card" },
-              ] as { value: IneModelo | undefined; label: string; icon: React.ComponentProps<typeof Ionicons>["name"] }[]
-            ).map((opt) => {
-              const isSelected = modeloHint === opt.value;
-              return (
-                <TouchableOpacity
-                  key={opt.label}
-                  style={[
-                    styles.modelOption,
-                    {
-                      borderColor: isSelected
-                        ? colors.primary
-                        : colors.border,
-                      backgroundColor: isSelected
-                        ? colors.primary + "12"
-                        : colors.background,
-                    },
-                  ]}
-                  onPress={() => {
-                    setModeloHint(opt.value);
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons
-                    name={opt.icon}
-                    size={16}
-                    color={isSelected ? colors.primary : colors.textSecondary}
-                  />
-                  <Text
-                    style={[
-                      styles.modelOptionText,
-                      {
-                        color: isSelected ? colors.primary : colors.text,
-                        fontWeight: isSelected ? "700" : "400",
-                      },
-                    ]}
-                  >
-                    {opt.label}
-                  </Text>
-                  {isSelected && (
-                    <Ionicons
-                      name="checkmark-circle"
-                      size={16}
-                      color={colors.primary}
-                    />
-                  )}
-                </TouchableOpacity>
-              );
-            })}
-          </View>
+          {showTips && (
+            <View style={styles.tipDetails}>
+              <Text style={[styles.tipDetail, { color: colors.textSecondary }]}>
+                • Superficie plana, buena luz, sin reflejos
+              </Text>
+              <Text style={[styles.tipDetail, { color: colors.textSecondary }]}>
+                • Encuadra todo el documento
+              </Text>
+              <Text style={[styles.tipDetail, { color: colors.textSecondary }]}>
+                • Los datos se extraen automáticamente
+              </Text>
+            </View>
+          )}
         </View>
       )}
 
@@ -928,177 +868,14 @@ export function INEQuestion({
             { backgroundColor: colors.surface, borderColor: colors.primary },
           ]}
         >
-          <View style={styles.stageRow}>
-            <View
-              style={[
-                styles.stageBadge,
-                {
-                  backgroundColor:
-                    stageCaptureDone && stageOcrDone
-                      ? colors.success + "18"
-                      : colors.primary + "15",
-                  borderColor:
-                    stageCaptureDone && stageOcrDone
-                      ? colors.success + "40"
-                      : colors.primary + "40",
-                },
-              ]}
-            >
-              <Ionicons
-                name={
-                  stageCaptureDone && stageOcrDone
-                    ? "checkmark-circle"
-                    : "scan-outline"
-                }
-                size={12}
-                color={
-                  stageCaptureDone && stageOcrDone
-                    ? colors.success
-                    : colors.primary
-                }
-              />
-              <Text
-                style={[
-                  styles.stageBadgeText,
-                  {
-                    color:
-                      stageCaptureDone && stageOcrDone
-                        ? colors.success
-                        : colors.primary,
-                  },
-                ]}
-              >
-                1. Captura + OCR
-              </Text>
-            </View>
-            <View
-              style={[
-                styles.stageBadge,
-                {
-                  backgroundColor: stageCurpValidationDone
-                    ? colors.success + "18"
-                    : (colors.warning ?? "#f59e0b") + "18",
-                  borderColor: stageCurpValidationDone
-                    ? colors.success + "40"
-                    : (colors.warning ?? "#f59e0b") + "40",
-                },
-              ]}
-            >
-              <Ionicons
-                name={
-                  stageCurpValidationDone
-                    ? "shield-checkmark"
-                    : "shield-outline"
-                }
-                size={12}
-                color={
-                  stageCurpValidationDone
-                    ? colors.success
-                    : (colors.warning ?? "#f59e0b")
-                }
-              />
-              <Text
-                style={[
-                  styles.stageBadgeText,
-                  {
-                    color: stageCurpValidationDone
-                      ? colors.success
-                      : (colors.warning ?? "#f59e0b"),
-                  },
-                ]}
-              >
-                2. Verificación (opcional)
-              </Text>
-            </View>
-          </View>
           <View style={styles.ocrHeader}>
             <Ionicons name="scan-outline" size={20} color={colors.primary} />
             <Text style={[styles.ocrTitle, { color: colors.text }]}>
               Datos extraídos
             </Text>
-            {editableOcr.confidence > 0 && (
-              <View
-                style={[
-                  styles.confidenceBadge,
-                  {
-                    backgroundColor:
-                      editableOcr.confidence > 0.9
-                        ? colors.success + "20"
-                        : editableOcr.confidence > 0.7
-                          ? colors.warning + "20"
-                          : colors.error + "20",
-                  },
-                ]}
-              >
-                <Ionicons
-                  name={
-                    editableOcr.confidence > 0.9
-                      ? "checkmark-circle"
-                      : editableOcr.confidence > 0.7
-                        ? "alert-circle"
-                        : "close-circle"
-                  }
-                  size={14}
-                  color={
-                    editableOcr.confidence > 0.9
-                      ? colors.success
-                      : editableOcr.confidence > 0.7
-                        ? (colors.warning ?? "#f59e0b")
-                        : colors.error
-                  }
-                />
-                <Text
-                  style={[
-                    styles.confidenceText,
-                    {
-                      color:
-                        editableOcr.confidence > 0.9
-                          ? colors.success
-                          : editableOcr.confidence > 0.7
-                            ? (colors.warning ?? "#f59e0b")
-                            : colors.error,
-                    },
-                  ]}
-                >
-                  {editableOcr.confidence > 0.9
-                    ? "Verificado"
-                    : editableOcr.confidence > 0.7
-                      ? "Revisar"
-                      : "Corregir"}{" "}
-                  ({Math.round(editableOcr.confidence * 100)}%)
-                </Text>
-              </View>
-            )}
-            {editableOcr.modeloDetected &&
-              editableOcr.modeloDetected !== "unknown" && (
-                <View
-                  style={[
-                    styles.modeloBadge,
-                    {
-                      backgroundColor: colors.primary + "15",
-                      borderColor: colors.primary + "40",
-                    },
-                  ]}
-                >
-                  <Ionicons
-                    name="id-card-outline"
-                    size={12}
-                    color={colors.primary}
-                  />
-                  <Text
-                    style={[styles.modeloBadgeText, { color: colors.primary }]}
-                  >
-                    {editableOcr.modeloDetected.replace("_", " ")}
-                  </Text>
-                </View>
-              )}
           </View>
           <Text style={[styles.ocrSubtitle, { color: colors.textSecondary }]}>
-            {editableOcr.confidence > 0.9
-              ? "Los datos se extrajeron con alta confianza. Verifica que sean correctos."
-              : editableOcr.confidence > 0.7
-                ? "Algunos datos necesitan revisión. Los campos resaltados pueden tener errores."
-                : "La calidad de lectura fue baja. Por favor revisa y corrige todos los campos."}
+            Verifica y corrige los datos si es necesario.
           </Text>
 
           {ocrFields.map(
@@ -1117,7 +894,6 @@ export function INEQuestion({
                 editableOcr.fieldConfidence?.[key] ?? (fieldValue ? 0.5 : 0);
               const hasContent = fieldValue.length > 0;
               const isLowConfidence = !hasContent || fieldConf < 0.7;
-              const confidencePct = Math.round(fieldConf * 100);
               return (
                 <View key={key} style={styles.ocrFieldRow}>
                   <View style={styles.ocrFieldLabelRow}>
@@ -1133,23 +909,6 @@ export function INEQuestion({
                     >
                       {label}
                     </Text>
-                    {hasContent && (
-                      <Text
-                        style={[
-                          styles.ocrFieldConfPct,
-                          {
-                            color:
-                              fieldConf >= 0.9
-                                ? colors.success
-                                : fieldConf >= 0.7
-                                  ? (colors.warning ?? "#f59e0b")
-                                  : colors.error,
-                          },
-                        ]}
-                      >
-                        {confidencePct}%
-                      </Text>
-                    )}
                     {isLowConfidence && (
                       <Ionicons
                         name="alert-circle"
@@ -1316,65 +1075,6 @@ export function INEQuestion({
             },
           ]}
         >
-          <View style={styles.stageRow}>
-            <View
-              style={[
-                styles.stageBadge,
-                {
-                  backgroundColor: colors.success + "18",
-                  borderColor: colors.success + "40",
-                },
-              ]}
-            >
-              <Ionicons
-                name="checkmark-circle"
-                size={12}
-                color={colors.success}
-              />
-              <Text style={[styles.stageBadgeText, { color: colors.success }]}>
-                1. Captura + OCR
-              </Text>
-            </View>
-            <View
-              style={[
-                styles.stageBadge,
-                {
-                  backgroundColor: stageCurpValidationDone
-                    ? colors.success + "18"
-                    : (colors.warning ?? "#f59e0b") + "18",
-                  borderColor: stageCurpValidationDone
-                    ? colors.success + "40"
-                    : (colors.warning ?? "#f59e0b") + "40",
-                },
-              ]}
-            >
-              <Ionicons
-                name={
-                  stageCurpValidationDone
-                    ? "shield-checkmark"
-                    : "shield-outline"
-                }
-                size={12}
-                color={
-                  stageCurpValidationDone
-                    ? colors.success
-                    : (colors.warning ?? "#f59e0b")
-                }
-              />
-              <Text
-                style={[
-                  styles.stageBadgeText,
-                  {
-                    color: stageCurpValidationDone
-                      ? colors.success
-                      : (colors.warning ?? "#f59e0b"),
-                  },
-                ]}
-              >
-                2. Verificación (opcional)
-              </Text>
-            </View>
-          </View>
           <View style={styles.ocrHeader}>
             <Ionicons
               name="checkmark-circle"
@@ -1384,29 +1084,6 @@ export function INEQuestion({
             <Text style={[styles.ocrTitle, { color: colors.success }]}>
               Datos confirmados
             </Text>
-            {data.ocrData.modeloDetected &&
-              data.ocrData.modeloDetected !== "unknown" && (
-                <View
-                  style={[
-                    styles.modeloBadge,
-                    {
-                      backgroundColor: colors.primary + "15",
-                      borderColor: colors.primary + "40",
-                    },
-                  ]}
-                >
-                  <Ionicons
-                    name="id-card-outline"
-                    size={12}
-                    color={colors.primary}
-                  />
-                  <Text
-                    style={[styles.modeloBadgeText, { color: colors.primary }]}
-                  >
-                    {data.ocrData.modeloDetected.replace("_", " ")}
-                  </Text>
-                </View>
-              )}
             <TouchableOpacity
               onPress={() => {
                 setEditableOcr(data.ocrData);
@@ -1519,60 +1196,34 @@ const styles = StyleSheet.create({
   stepLabel: {
     fontSize: 11,
   },
-  instructionCard: {
-    flexDirection: "row",
-    gap: 10,
-    padding: 14,
-    borderRadius: 14,
-    alignItems: "flex-start",
+  // Compact tip
+  tipCard: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    gap: 6,
   },
-  instructionTextWrap: {
-    flex: 1,
-    gap: 4,
-  },
-  instructionTitle: {
-    fontSize: 14,
-    fontWeight: "700",
-  },
-  instructionBody: {
-    fontSize: 13,
-    lineHeight: 20,
-  },
-  // Model selector
-  modelSelectorCard: {
-    padding: 14,
-    borderRadius: 14,
-    borderWidth: 1,
-    gap: 10,
-  },
-  modelSelectorHeader: {
+  tipRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
   },
-  modelSelectorTitle: {
+  tipText: {
     fontSize: 14,
-    fontWeight: "700",
+    fontWeight: "600",
+    flex: 1,
   },
-  modelSelectorHint: {
+  tipToggle: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  tipDetails: {
+    paddingLeft: 26,
+    gap: 2,
+  },
+  tipDetail: {
     fontSize: 12,
     lineHeight: 18,
-  },
-  modelSelectorOptions: {
-    gap: 6,
-  },
-  modelOption: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 10,
-    borderWidth: 1.5,
-  },
-  modelOptionText: {
-    flex: 1,
-    fontSize: 14,
   },
   sideSection: {
     gap: 8,
@@ -1698,31 +1349,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginBottom: 4,
   },
-  confidenceBadge: {
-    flexDirection: "row" as const,
-    alignItems: "center" as const,
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
-  },
-  confidenceText: {
-    fontSize: 11,
-    fontWeight: "700",
-  },
-  modeloBadge: {
-    flexDirection: "row" as const,
-    alignItems: "center" as const,
-    gap: 4,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    borderRadius: 8,
-    borderWidth: 1,
-  },
-  modeloBadgeText: {
-    fontSize: 11,
-    fontWeight: "600",
-  },
+
   reLeerBtn: {
     flexDirection: "row" as const,
     alignItems: "center" as const,
@@ -1736,25 +1363,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "600",
   },
-  stageRow: {
-    flexDirection: "row" as const,
-    alignItems: "center" as const,
-    gap: 8,
-    flexWrap: "wrap" as const,
-  },
-  stageBadge: {
-    flexDirection: "row" as const,
-    alignItems: "center" as const,
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 9,
-    borderWidth: 1,
-  },
-  stageBadgeText: {
-    fontSize: 11,
-    fontWeight: "700",
-  },
+
   curpVerifyRow: {
     gap: 8,
     marginTop: 4,
@@ -1844,12 +1453,7 @@ const styles = StyleSheet.create({
     alignItems: "center" as const,
     gap: 4,
   },
-  ocrFieldConfPct: {
-    fontSize: 10,
-    fontWeight: "700" as const,
-    marginLeft: "auto" as any,
-    paddingHorizontal: 4,
-  },
+
   ocrFieldLabel: {
     fontSize: 12,
     fontWeight: "600",
