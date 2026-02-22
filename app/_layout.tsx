@@ -158,6 +158,26 @@ function RootNavigator() {
     }
   }, [user, appReady]);
 
+  // ── Sentry user context ─────────────────────────────────────────────────
+  // Attach user identity to every error/trace so Sentry shows who was affected.
+  useEffect(() => {
+    if (user) {
+      Sentry.setUser({
+        id: String(user.id),
+        email: user.email,
+        username: user.name ?? undefined,
+        // Extra fields appear in the "User" section of Sentry events
+        data: {
+          role: user.role,
+          state: user.state,
+        },
+      });
+    } else {
+      // Clear on logout / session expiry so no stale identity lingers
+      Sentry.setUser(null);
+    }
+  }, [user]);
+
   const handleLoadComplete = async (state: any) => {
     console.log("[App] Splash completed:", state);
 
