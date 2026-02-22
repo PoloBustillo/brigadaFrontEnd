@@ -10,26 +10,65 @@ const ERROR_MAP: [RegExp, string][] = [
   [/incorrect.*username.*password/i, "Usuario o contraseña incorrectos"],
   [/incorrect.*email.*password/i, "Email o contraseña incorrectos"],
   [/invalid.*credentials/i, "Credenciales inválidas"],
-  [/cuenta.*desactivada/i, "Tu cuenta está desactivada. Contacta al administrador."],
+  [
+    /cuenta.*desactivada/i,
+    "Tu cuenta está desactivada. Contacta al administrador.",
+  ],
   [/not.*authorized/i, "No tienes autorización para esta acción"],
   [/token.*expired/i, "Tu sesión expiró. Inicia sesión de nuevo"],
   [/could.*not.*validate/i, "Error de autenticación. Inicia sesión de nuevo"],
   // Rate limiting
-  [/too.*many.*requests/i, "Demasiadas solicitudes. Intenta de nuevo en unos minutos."],
+  [
+    /too.*many.*requests/i,
+    "Demasiadas solicitudes. Intenta de nuevo en unos minutos.",
+  ],
   [/rate.*limit/i, "Demasiadas solicitudes. Intenta de nuevo en unos minutos."],
-  [/demasiadas.*solicitudes/i, "Demasiadas solicitudes. Intenta de nuevo en unos minutos."],
+  [
+    /demasiadas.*solicitudes/i,
+    "Demasiadas solicitudes. Intenta de nuevo en unos minutos.",
+  ],
   // Activation
-  [/invalid.*activation.*code/i, "Código incorrecto. Verifica los 6 dígitos e intenta nuevamente"],
-  [/activation.*code.*invalid/i, "Código incorrecto. Verifica los 6 dígitos e intenta nuevamente"],
-  [/activation.*code.*not.*found/i, "Código no encontrado. Verifica los dígitos o pide uno nuevo al administrador"],
-  [/activation.*code.*expired/i, "El código ha expirado. Pide al administrador que genere uno nuevo"],
-  [/activation.*code.*locked/i, "Código bloqueado por demasiados intentos. Pide al administrador que genere uno nuevo"],
-  [/code.*already.*used/i, "Este código ya fue utilizado. Contacta a tu administrador"],
-  [/code.*expired/i, "El código ha expirado. Pide al administrador que genere uno nuevo"],
-  [/code.*locked/i, "Código bloqueado. Pide al administrador que genere uno nuevo"],
-  [/identifier.*does.*not.*match/i, "El correo no coincide con la invitación. Usa el mismo correo con el que te registró el administrador"],
+  [
+    /invalid.*activation.*code/i,
+    "Código incorrecto. Verifica los 6 dígitos e intenta nuevamente",
+  ],
+  [
+    /activation.*code.*invalid/i,
+    "Código incorrecto. Verifica los 6 dígitos e intenta nuevamente",
+  ],
+  [
+    /activation.*code.*not.*found/i,
+    "Código no encontrado. Verifica los dígitos o pide uno nuevo al administrador",
+  ],
+  [
+    /activation.*code.*expired/i,
+    "El código ha expirado. Pide al administrador que genere uno nuevo",
+  ],
+  [
+    /activation.*code.*locked/i,
+    "Código bloqueado por demasiados intentos. Pide al administrador que genere uno nuevo",
+  ],
+  [
+    /code.*already.*used/i,
+    "Este código ya fue utilizado. Contacta a tu administrador",
+  ],
+  [
+    /code.*expired/i,
+    "El código ha expirado. Pide al administrador que genere uno nuevo",
+  ],
+  [
+    /code.*locked/i,
+    "Código bloqueado. Pide al administrador que genere uno nuevo",
+  ],
+  [
+    /identifier.*does.*not.*match/i,
+    "El correo no coincide con la invitación. Usa el mismo correo con el que te registró el administrador",
+  ],
   // Network
-  [/network.*error/i, "Sin conexión. Verifica tu internet e intenta nuevamente"],
+  [
+    /network.*error/i,
+    "Sin conexión. Verifica tu internet e intenta nuevamente",
+  ],
   [/network/i, "Sin conexión. Verifica tu internet e intenta nuevamente"],
   [/timeout/i, "El servidor tardó demasiado. Intenta de nuevo"],
   [/econnrefused/i, "No se pudo conectar al servidor"],

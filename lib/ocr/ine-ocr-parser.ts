@@ -95,6 +95,26 @@
  *      en el reverso — puede confundir el regex de CURP con cadenas similares.
  */
 
+// ── Imports ───────────────────────────────────────────────────────────────────
+
+import {
+  scoreAsNombre,
+  scoreAsApellido,
+  correctNameFromDictionary,
+  matchCurpInitials,
+  fixNameOcr,
+} from "./mexican-names";
+import {
+  type OcrBlock,
+  classifyFrontBlocks,
+  classifyBackBlocks,
+  extractNamesFromSpatial,
+  extractAddressFromSpatial,
+} from "./ine-spatial";
+
+// Re-export OcrBlock for use by consumers
+export type { OcrBlock };
+
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
 /** Resultado de la extracción OCR con confianza por campo */
@@ -420,7 +440,7 @@ interface NameResult {
   nombre: string;
   apellidoPaterno: string;
   apellidoMaterno: string;
-  method: "labels" | "block" | "curp_initials" | "none";
+  method: "spatial" | "labels" | "block" | "curp_initials" | "none";
 }
 
 function splitFullName(full: string): {
@@ -1017,12 +1037,16 @@ function computeOverallConfidence(
  * @param backText    Texto crudo del reverso
  * @param modeloHint  Modelo de credencial seleccionado por el brigadista (Decisión §10).
  *                    Cuando se provee y la auto-detección falla, se usa este valor.
+ * @param frontBlocks Bloques OCR con coordenadas espaciales del anverso
+ * @param backBlocks  Bloques OCR con coordenadas espaciales del reverso
  * @returns IneOcrResult con todos los campos y confianzas
  */
 export function parseIneOcrText(
   frontText: string | null,
   backText: string | null,
   modeloHint?: IneModelo,
+  frontBlocks?: OcrBlock[],
+  backBlocks?: OcrBlock[],
 ): IneOcrResult {
   // Paso 1: Normalizar ambos textos
   const front = normalizeOcrText(frontText ?? "");
@@ -1164,20 +1188,26 @@ export function parseIneOcrText(
 
   // ── Campos: Nombres ──────────────────────────────────────────────────────
   // Cascada de estrategias (Decisión §7)
+  // Prioridad: spatial > labels > block > curp_initials
+  const namesBySpatial = frontBlocks
+    ? extractNamesFromSpatial(classifyFrontBlocks(frontBlocks).nameBlocks)
+    : null;
   const namesByLabels = extractNamesFromLabels(lines);
   const namesByBlock = extractNamesFromBlock(lines, res.curp);
   const namesFallback = res.curp ? extractNamesFromCurp(res.curp) : null;
 
-  const nameResult = namesByLabels ??
+  const nameResult = namesBySpatial ??
+    namesByLabels ??
     namesByBlock ??
     namesFallback ?? {
       nombre: "",
       apellidoPaterno: "",
       apellidoMaterno: "",
-      method: "none",
+      method: "none" as const,
     };
 
   const nameConfidenceMap: Record<NameResult["method"], number> = {
+    spatial: 0.95,
     labels: 0.9,
     block: 0.7,
     curp_initials: 0.3,
@@ -1185,25 +1215,84 @@ export function parseIneOcrText(
   };
   const nameConf = nameConfidenceMap[nameResult.method];
 
-  res.nombre = nameResult.nombre;
-  res.apellidoPaterno = nameResult.apellidoPaterno;
-  res.apellidoMaterno = nameResult.apellidoMaterno;
+  // Aplicar corrección OCR y diccionario a nombres
+  res.nombre = correctNameFromDictionary(fixNameOcr(nameResult.nombre));
+  res.apellidoPaterno = correctNameFromDictionary(fixNameOcr(nameResult.apellidoPaterno));
+  res.apellidoMaterno = correctNameFromDictionary(fixNameOcr(nameResult.apellidoMaterno));
+
+  // ── Cross-validación CURP ↔ Nombres ──────────────────────────────────────
+  // Verificar que los campos nombre/apellidos coinciden con posiciones del CURP.
+  // Si no coinciden, intentar intercambiar campos.
+  if (res.curp.length === 18 && (res.nombre || res.apellidoPaterno)) {
+    const curpMatch = matchCurpInitials(
+      res.curp,
+      res.nombre,
+      res.apellidoPaterno,
+      res.apellidoMaterno,
+    );
+
+    if (curpMatch.score < 0.5) {
+      // Intentar intercambios: si nombre↔paterno o nombre↔materno da mejor score
+      const swaps: [string, string, string][] = [
+        // [nombre, paterno, materno]
+        [res.apellidoPaterno, res.nombre, res.apellidoMaterno],
+        [res.apellidoMaterno, res.apellidoPaterno, res.nombre],
+        [res.nombre, res.apellidoMaterno, res.apellidoPaterno],
+      ];
+
+      let bestScore = curpMatch.score;
+      let bestSwap: [string, string, string] | null = null;
+
+      for (const [n, p, m] of swaps) {
+        const s = matchCurpInitials(res.curp, n, p, m);
+        if (s.score > bestScore) {
+          bestScore = s.score;
+          bestSwap = [n, p, m];
+        }
+      }
+
+      if (bestSwap) {
+        [res.nombre, res.apellidoPaterno, res.apellidoMaterno] = bestSwap;
+      }
+    }
+
+    // Usar diccionario para desambiguar nombre vs apellido si el score sigue bajo
+    if (!res.nombre && res.apellidoPaterno) {
+      // Si apellidoPaterno parece más nombre que apellido, moverlo
+      const nomScore = scoreAsNombre(res.apellidoPaterno);
+      const apeScore = scoreAsApellido(res.apellidoPaterno);
+      if (nomScore > apeScore && nomScore > 0.3) {
+        res.nombre = res.apellidoPaterno;
+        res.apellidoPaterno = "";
+      }
+    }
+  }
   fc.nombre = res.nombre ? nameConf : 0;
   fc.apellidoPaterno = res.apellidoPaterno ? nameConf : 0;
   fc.apellidoMaterno = res.apellidoMaterno ? nameConf : 0;
 
   // ── Campo: Domicilio ─────────────────────────────────────────────────────
-  // Solo en el reverso (Decisión §8)
+  // Cascada: spatial > text-based (Decisión §8)
   {
+    // Intentar extracción espacial primero
+    const spatialAddr = backBlocks
+      ? extractAddressFromSpatial(classifyBackBlocks(backBlocks).addressBlocks)
+      : null;
+
+    // Extracción basada en texto como fallback
     const backLines = back
       .split("\n")
       .map((l) => l.trim())
       .filter((l) => l.length >= 2);
+    const textAddr = extractDomicilio(backLines);
 
-    const domResult = extractDomicilio(backLines);
-    if (domResult.value) {
-      res.domicilio = domResult.value;
-      fc.domicilio = domResult.confidence;
+    // Usar la fuente con mayor confianza
+    if (spatialAddr && spatialAddr.value && spatialAddr.confidence > (textAddr.confidence || 0)) {
+      res.domicilio = spatialAddr.value;
+      fc.domicilio = spatialAddr.confidence;
+    } else if (textAddr.value) {
+      res.domicilio = textAddr.value;
+      fc.domicilio = textAddr.confidence;
     }
   }
 

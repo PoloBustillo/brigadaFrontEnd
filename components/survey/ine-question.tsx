@@ -15,7 +15,12 @@ import {
   validateCurp,
   type CurpValidationResult,
 } from "@/lib/ocr/curp-validator";
-import { parseIneOcrText, type IneOcrResult, type IneModelo } from "@/lib/ocr/ine-ocr-parser";
+import {
+  parseIneOcrText,
+  type IneModelo,
+  type IneOcrResult,
+  type OcrBlock,
+} from "@/lib/ocr/ine-ocr-parser";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as ImageManipulator from "expo-image-manipulator";
@@ -188,6 +193,8 @@ async function extractIneOcr(
 
   let frontText: string | null = null;
   let backText: string | null = null;
+  let frontBlocks: OcrBlock[] | undefined;
+  let backBlocks: OcrBlock[] | undefined;
 
   if (frontUri) {
     try {
@@ -198,6 +205,15 @@ async function extractIneOcr(
         (a, b) => (a.frame?.y ?? 0) - (b.frame?.y ?? 0),
       );
       frontText = sorted.map((b) => b.text).join("\n");
+      // Preservar bloques con datos espaciales para el parser
+      frontBlocks = sorted.map((b) => ({
+        text: b.text,
+        frame: b.frame,
+        lines: (b.lines ?? []).map((l: { text: string; confidence?: number }) => ({
+          text: l.text,
+          confidence: l.confidence,
+        })),
+      }));
     } catch (err) {
       if (isNotLinkedError(err)) return empty;
       console.error("[INE OCR] front error:", err);
@@ -211,6 +227,15 @@ async function extractIneOcr(
         (a, b) => (a.frame?.y ?? 0) - (b.frame?.y ?? 0),
       );
       backText = sorted.map((b) => b.text).join("\n");
+      // Preservar bloques con datos espaciales para el parser
+      backBlocks = sorted.map((b) => ({
+        text: b.text,
+        frame: b.frame,
+        lines: (b.lines ?? []).map((l: { text: string; confidence?: number }) => ({
+          text: l.text,
+          confidence: l.confidence,
+        })),
+      }));
     } catch (err) {
       if (isNotLinkedError(err)) return empty;
       console.error("[INE OCR] back error:", err);
@@ -218,7 +243,7 @@ async function extractIneOcr(
   }
 
   // Delegar toda la lógica de extracción al parser puro
-  return parseIneOcrText(frontText, backText, modeloHint);
+  return parseIneOcrText(frontText, backText, modeloHint, frontBlocks, backBlocks);
 }
 
 export function INEQuestion({
@@ -746,7 +771,9 @@ export function INEQuestion({
             </Text>
             <TouchableOpacity
               onPress={() => {
-                LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                LayoutAnimation.configureNext(
+                  LayoutAnimation.Presets.easeInEaseOut,
+                );
                 setShowTips(!showTips);
               }}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
