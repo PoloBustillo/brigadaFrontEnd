@@ -325,10 +325,7 @@ export function SignatureQuestion({
             ]}
           >
             {isEmpty && (
-              <View
-                pointerEvents="none"
-                style={styles.fullscreenCanvasHint}
-              >
+              <View pointerEvents="none" style={styles.fullscreenCanvasHint}>
                 <Ionicons
                   name="pencil-outline"
                   size={36}

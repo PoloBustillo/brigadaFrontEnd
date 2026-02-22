@@ -50,10 +50,10 @@ Cada `block`, `line` y `element` tiene un campo `frame` con la posición exacta 
 
 ## 2. Dos enfoques posibles: coordenadas vs. texto
 
-| Enfoque | Cómo funciona | Ventajas | Desventajas |
-|---------|--------------|----------|-------------|
-| **Coordenadas (spatial)** | Dividir la imagen en zonas fijas (p. ej. "CURP siempre está en X 165–345, Y 50–90") y mapear bloques a esas zonas por su `frame.x/y` | Muy preciso si el layout es constante | El layout varía entre modelos A/B/C/D; requiere calibración por modelo; falla si la foto está rotada o perspectivada |
-| **Texto relativo (adoptado)** | Extraer `.text` de cada bloque, concatenar en orden de lectura, aplicar regex + heurística de "línea siguiente a etiqueta" | Funciona independientemente de tamaño y modelo de INE; tolera rotación leve | Depende de que ML Kit preserve el orden de bloques (generalmente lo hace top→bottom, left→right) |
+| Enfoque                       | Cómo funciona                                                                                                                        | Ventajas                                                                    | Desventajas                                                                                                          |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| **Coordenadas (spatial)**     | Dividir la imagen en zonas fijas (p. ej. "CURP siempre está en X 165–345, Y 50–90") y mapear bloques a esas zonas por su `frame.x/y` | Muy preciso si el layout es constante                                       | El layout varía entre modelos A/B/C/D; requiere calibración por modelo; falla si la foto está rotada o perspectivada |
+| **Texto relativo (adoptado)** | Extraer `.text` de cada bloque, concatenar en orden de lectura, aplicar regex + heurística de "línea siguiente a etiqueta"           | Funciona independientemente de tamaño y modelo de INE; tolera rotación leve | Depende de que ML Kit preserve el orden de bloques (generalmente lo hace top→bottom, left→right)                     |
 
 ### ¿Por qué elegimos el enfoque de texto?
 
@@ -128,22 +128,22 @@ El parser aplica correcciones **posicionales** —distintas al layout de la imag
 
 ### CURP (18 chars)
 
-| Posiciones | Tipo esperado | Correcciones |
-|------------|---------------|--------------|
-| 0-3 | Letra | `0→O`, `1→I`, `8→B`, `5→S`, `2→Z`, `6→G` |
-| 4-9 | Dígito (fecha YYMMDD) | `O→0`, `I→1`, `L→1`, `B→8`, `S→5`, `Z→2` |
-| 10 | Letra (H/M) | mismas correcciones de letra |
-| 11-13 | Letra (estado) | mismas correcciones de letra |
-| 14-17 | Alfanumérico | sin corrección (ambos son válidos) |
+| Posiciones | Tipo esperado         | Correcciones                             |
+| ---------- | --------------------- | ---------------------------------------- |
+| 0-3        | Letra                 | `0→O`, `1→I`, `8→B`, `5→S`, `2→Z`, `6→G` |
+| 4-9        | Dígito (fecha YYMMDD) | `O→0`, `I→1`, `L→1`, `B→8`, `S→5`, `Z→2` |
+| 10         | Letra (H/M)           | mismas correcciones de letra             |
+| 11-13      | Letra (estado)        | mismas correcciones de letra             |
+| 14-17      | Alfanumérico          | sin corrección (ambos son válidos)       |
 
 ### Clave de Elector (18 chars)
 
-| Posiciones | Tipo esperado | Correcciones |
-|------------|---------------|--------------|
-| 0-5 | Letra | `0→O`, `1→I`, etc. |
-| 6-13 | Dígito | `O→0`, `I→1`, etc. |
-| 14 | Letra (H/M) | correcciones de letra |
-| 15-17 | Dígito | correcciones de dígito |
+| Posiciones | Tipo esperado | Correcciones           |
+| ---------- | ------------- | ---------------------- |
+| 0-5        | Letra         | `0→O`, `1→I`, etc.     |
+| 6-13       | Dígito        | `O→0`, `I→1`, etc.     |
+| 14         | Letra (H/M)   | correcciones de letra  |
+| 15-17      | Dígito        | correcciones de dígito |
 
 ---
 
@@ -151,15 +151,15 @@ El parser aplica correcciones **posicionales** —distintas al layout de la imag
 
 La confianza no es la confianza de ML Kit (que aplica a nivel de elemento gráfico, no semántico). Se calcula por la **estrategia de extracción** usada:
 
-| Estrategia | Confianza | Cuándo aplica |
-|------------|-----------|---------------|
-| Strict regex + validación post-corrección | **1.0** | CURP/Clave que pasan el regex estricto |
-| Heurística con etiqueta explícita | **0.9** | Nombre via "APELLIDO PATERNO" label |
-| Heurística sin etiqueta (bloque pre-CURP) | **0.7** | Nombre via posición relativa al CURP |
-| Loose regex / regex sin validación estricta | **0.75** | CURP/Clave que no pasan regex estricto |
-| Derivado de otro campo (ej. sexo desde CURP) | **0.85** | Sexo inferido de CURP[10] |
-| Fallback (iniciales desde CURP) | **0.3** | Nombres solo como iniciales |
-| No encontrado | **0.0** | Campo vacío |
+| Estrategia                                   | Confianza | Cuándo aplica                          |
+| -------------------------------------------- | --------- | -------------------------------------- |
+| Strict regex + validación post-corrección    | **1.0**   | CURP/Clave que pasan el regex estricto |
+| Heurística con etiqueta explícita            | **0.9**   | Nombre via "APELLIDO PATERNO" label    |
+| Heurística sin etiqueta (bloque pre-CURP)    | **0.7**   | Nombre via posición relativa al CURP   |
+| Loose regex / regex sin validación estricta  | **0.75**  | CURP/Clave que no pasan regex estricto |
+| Derivado de otro campo (ej. sexo desde CURP) | **0.85**  | Sexo inferido de CURP[10]              |
+| Fallback (iniciales desde CURP)              | **0.3**   | Nombres solo como iniciales            |
+| No encontrado                                | **0.0**   | Campo vacío                            |
 
 La confianza global es: `sum(fieldConf[i] para campos con valor) / totalCampos`
 
@@ -167,13 +167,13 @@ La confianza global es: `sum(fieldConf[i] para campos con valor) / totalCampos`
 
 ## 7. Limitaciones conocidas
 
-| Limitación | Impacto | Mitigación posible |
-|------------|---------|--------------------|
-| ML Kit no garantiza orden de bloques | Estrategia de bloque puede fallar | Usar `frame.y` para ordenar manualmente |
-| No se usan coordenadas de ML Kit | Perdemos información de layout | Implementar ROI por modelo (ver §3) |
-| Credenciales muy reflejadas | Texto demasiado ruidoso | Preprocesar imagen (contrast/threshold) con expo-image-manipulator |
-| MRZ en reverso de algunos modelos | Confunde regex de CURP | Filtrar líneas con `<<<` o dígitos de check |
-| Solo probado con texto sintético | Resultados reales pueden diferir | Unit tests con strings OCR reales capturados |
+| Limitación                           | Impacto                           | Mitigación posible                                                 |
+| ------------------------------------ | --------------------------------- | ------------------------------------------------------------------ |
+| ML Kit no garantiza orden de bloques | Estrategia de bloque puede fallar | Usar `frame.y` para ordenar manualmente                            |
+| No se usan coordenadas de ML Kit     | Perdemos información de layout    | Implementar ROI por modelo (ver §3)                                |
+| Credenciales muy reflejadas          | Texto demasiado ruidoso           | Preprocesar imagen (contrast/threshold) con expo-image-manipulator |
+| MRZ en reverso de algunos modelos    | Confunde regex de CURP            | Filtrar líneas con `<<<` o dígitos de check                        |
+| Solo probado con texto sintético     | Resultados reales pueden diferir  | Unit tests con strings OCR reales capturados                       |
 
 ---
 
@@ -184,11 +184,11 @@ ML Kit también expone `confidence` a nivel de `element` (palabra). Podría usar
 ```ts
 // Filtrar palabras con baja confianza antes de concatenar
 const highConfidenceText = visionText.blocks
-  .flatMap(b => b.lines)
-  .flatMap(l => l.elements)
-  .filter(e => (e.confidence ?? 1) > 0.7)
-  .map(e => e.text)
-  .join(' ');
+  .flatMap((b) => b.lines)
+  .flatMap((l) => l.elements)
+  .filter((e) => (e.confidence ?? 1) > 0.7)
+  .map((e) => e.text)
+  .join(" ");
 ```
 
 Esto no está implementado en la versión actual porque `@react-native-ml-kit/text-recognition` no expone `confidence` directamente en su interface TypeScript (depende de la versión nativa).
@@ -197,14 +197,14 @@ Esto no está implementado en la versión actual porque `@react-native-ml-kit/te
 
 ## 9. Cómo mejorar la precisión (roadmap)
 
-| # | Mejora | Estado |
-|---|--------|--------|
-| 1 | **Ordenar bloques por `frame.y`** — ordenar `blocks` por `frame.y` ascendente para garantizar orden top→bottom | ✅ Implementado |
-| 2 | **Filtrar líneas MRZ** (`<<<`) del reverso que confunden el regex de CURP | ✅ Implementado |
-| 3 | **Exponer `modeloDetected`** en `IneOcrResult` y mostrar badge en la UI | ✅ Implementado |
-| 4 | **Imagen más grande para OCR** — resize 1200 → 1600px antes de ML Kit | ✅ Implementado |
-| 5 | **Tests unitarios con strings OCR reales** — fixtures en `lib/ocr/__tests__/ine-ocr-parser.test.ts` | ⬜ Pendiente |
-| 6 | **ROI por modelo** — filtros espaciales (`frame.y / imageHeight`) por modelo para nombres/domicilio | ⬜ Pendiente |
-| 7 | **Preprocesamiento avanzado** — contraste/grayscale cuando `expo-image-manipulator` lo soporte | ⬜ Pendiente |
-| 8 | **Endpoint OCR en backend** — FastAPI `/ocr/ine` con Google Vision `document_text_detection` | ⬜ Pendiente |
-| 9 | **Mejorar domicilio** — expandir de 4 a 6 líneas y ajustar `LABEL_TOKENS` para modelos con colonia/municipio/estado separados | ⬜ Pendiente |
+| #   | Mejora                                                                                                                        | Estado          |
+| --- | ----------------------------------------------------------------------------------------------------------------------------- | --------------- |
+| 1   | **Ordenar bloques por `frame.y`** — ordenar `blocks` por `frame.y` ascendente para garantizar orden top→bottom                | ✅ Implementado |
+| 2   | **Filtrar líneas MRZ** (`<<<`) del reverso que confunden el regex de CURP                                                     | ✅ Implementado |
+| 3   | **Exponer `modeloDetected`** en `IneOcrResult` y mostrar badge en la UI                                                       | ✅ Implementado |
+| 4   | **Imagen más grande para OCR** — resize 1200 → 1600px antes de ML Kit                                                         | ✅ Implementado |
+| 5   | **Tests unitarios con strings OCR reales** — fixtures en `lib/ocr/__tests__/ine-ocr-parser.test.ts`                           | ⬜ Pendiente    |
+| 6   | **ROI por modelo** — filtros espaciales (`frame.y / imageHeight`) por modelo para nombres/domicilio                           | ⬜ Pendiente    |
+| 7   | **Preprocesamiento avanzado** — contraste/grayscale cuando `expo-image-manipulator` lo soporte                                | ⬜ Pendiente    |
+| 8   | **Endpoint OCR en backend** — FastAPI `/ocr/ine` con Google Vision `document_text_detection`                                  | ⬜ Pendiente    |
+| 9   | **Mejorar domicilio** — expandir de 4 a 6 líneas y ajustar `LABEL_TOKENS` para modelos con colonia/municipio/estado separados | ⬜ Pendiente    |

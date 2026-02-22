@@ -845,24 +845,39 @@ export function INEQuestion({
               style={[
                 styles.stageBadge,
                 {
-                  backgroundColor: stageCaptureDone && stageOcrDone
-                    ? colors.success + "18"
-                    : colors.primary + "15",
-                  borderColor: stageCaptureDone && stageOcrDone
-                    ? colors.success + "40"
-                    : colors.primary + "40",
+                  backgroundColor:
+                    stageCaptureDone && stageOcrDone
+                      ? colors.success + "18"
+                      : colors.primary + "15",
+                  borderColor:
+                    stageCaptureDone && stageOcrDone
+                      ? colors.success + "40"
+                      : colors.primary + "40",
                 },
               ]}
             >
               <Ionicons
-                name={stageCaptureDone && stageOcrDone ? "checkmark-circle" : "scan-outline"}
+                name={
+                  stageCaptureDone && stageOcrDone
+                    ? "checkmark-circle"
+                    : "scan-outline"
+                }
                 size={12}
-                color={stageCaptureDone && stageOcrDone ? colors.success : colors.primary}
+                color={
+                  stageCaptureDone && stageOcrDone
+                    ? colors.success
+                    : colors.primary
+                }
               />
               <Text
                 style={[
                   styles.stageBadgeText,
-                  { color: stageCaptureDone && stageOcrDone ? colors.success : colors.primary },
+                  {
+                    color:
+                      stageCaptureDone && stageOcrDone
+                        ? colors.success
+                        : colors.primary,
+                  },
                 ]}
               >
                 1. Captura + OCR
@@ -882,14 +897,26 @@ export function INEQuestion({
               ]}
             >
               <Ionicons
-                name={stageCurpValidationDone ? "shield-checkmark" : "shield-outline"}
+                name={
+                  stageCurpValidationDone
+                    ? "shield-checkmark"
+                    : "shield-outline"
+                }
                 size={12}
-                color={stageCurpValidationDone ? colors.success : (colors.warning ?? "#f59e0b")}
+                color={
+                  stageCurpValidationDone
+                    ? colors.success
+                    : (colors.warning ?? "#f59e0b")
+                }
               />
               <Text
                 style={[
                   styles.stageBadgeText,
-                  { color: stageCurpValidationDone ? colors.success : (colors.warning ?? "#f59e0b") },
+                  {
+                    color: stageCurpValidationDone
+                      ? colors.success
+                      : (colors.warning ?? "#f59e0b"),
+                  },
                 ]}
               >
                 2. Validación CURP
@@ -1211,8 +1238,12 @@ export function INEQuestion({
                 },
               ]}
             >
-              <Ionicons name="checkmark-circle" size={12} color={colors.success} />
-              <Text style={[styles.stageBadgeText, { color: colors.success }]}> 
+              <Ionicons
+                name="checkmark-circle"
+                size={12}
+                color={colors.success}
+              />
+              <Text style={[styles.stageBadgeText, { color: colors.success }]}>
                 1. Captura + OCR
               </Text>
             </View>
@@ -1230,14 +1261,26 @@ export function INEQuestion({
               ]}
             >
               <Ionicons
-                name={stageCurpValidationDone ? "shield-checkmark" : "shield-outline"}
+                name={
+                  stageCurpValidationDone
+                    ? "shield-checkmark"
+                    : "shield-outline"
+                }
                 size={12}
-                color={stageCurpValidationDone ? colors.success : (colors.warning ?? "#f59e0b")}
+                color={
+                  stageCurpValidationDone
+                    ? colors.success
+                    : (colors.warning ?? "#f59e0b")
+                }
               />
               <Text
                 style={[
                   styles.stageBadgeText,
-                  { color: stageCurpValidationDone ? colors.success : (colors.warning ?? "#f59e0b") },
+                  {
+                    color: stageCurpValidationDone
+                      ? colors.success
+                      : (colors.warning ?? "#f59e0b"),
+                  },
                 ]}
               >
                 2. Validación CURP

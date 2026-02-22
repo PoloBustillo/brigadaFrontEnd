@@ -30,6 +30,7 @@ import { offlineSyncService } from "@/lib/services/offline-sync";
 import type { FillQuestion } from "@/types/survey-schema.types";
 import { getErrorMessage } from "@/utils/translate-error";
 import { Ionicons } from "@expo/vector-icons";
+import { useFocusEffect } from "@react-navigation/native";
 import * as Haptics from "expo-haptics";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, {
@@ -237,15 +238,17 @@ export default function FillSurveyScreen() {
     }).start();
   }, [progressPercent, progressAnim]);
 
-  // Android hardware back button → same as handleBack
-  useEffect(() => {
-    if (Platform.OS !== "android" || showSuccess) return;
-    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
-      handleBack();
-      return true; // prevent default
-    });
-    return () => sub.remove();
-  }, [isFirst, showSuccess]);
+  // Android hardware back button only while this screen is focused
+  useFocusEffect(
+    useCallback(() => {
+      if (Platform.OS !== "android" || showSuccess) return;
+      const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+        handleBack();
+        return true;
+      });
+      return () => sub.remove();
+    }, [showSuccess, isFirst]),
+  );
 
   // Countdown: remaining questions
   const remaining = total - currentIndex - 1;
@@ -317,10 +320,10 @@ export default function FillSurveyScreen() {
           style: "destructive",
           onPress: async () => {
             await discardDraft();
-                setAnswers({});
-                draftIdRef.current = null;
-                setCurrentIndex(0);
-                router.back();
+            setAnswers({});
+            draftIdRef.current = null;
+            setCurrentIndex(0);
+            router.back();
           },
         },
       ],
@@ -396,44 +399,9 @@ export default function FillSurveyScreen() {
       setSubmitLoading(false);
     }
   };
-        const result = await offlineSyncService.submitResponseTwoPhase(
-          {
-            responseId,
-            versionId,
-            startedAt,
-            answers: answersPayload,
-          },
-          { attemptImmediateSync: isOnline },
-        );
 
-        if (!result.success) {
-          throw new Error(result.error ?? "No se pudo guardar localmente");
-        }
-
-        // Always add to pending immediately (phase 1 complete).
-        addPendingItem({
-          id: responseId,
-          type: "response",
-        });
-
-        // Show confirmation instantly; sync proceeds in background.
-        setSyncedOnSubmit(false);
-        setShowSuccess(true);
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-
-        // Trigger a non-blocking sync attempt if online.
-        if (isOnline) {
-          setTimeout(() => {
-            offlineSyncService.processSyncQueue().catch(() => {
-              // Ignore — pending queue will retry later.
-            });
-          }, 300);
-        }
-          <Text style={[styles.backBtnText, { color: "#fff" }]}>Volver</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
+  // Current answer value for the visible question (needed by QuestionInput)
+  const currentValue = current ? (answers[current.id] ?? null) : null;
 
   if (draftLoading) {
     return (

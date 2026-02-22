@@ -307,7 +307,7 @@ export default function LoginScreen() {
               <Text style={[styles.title, { color: colors.text }]}>
                 Inicia sesión
               </Text>
-              <Text style={[styles.subtitle, { color: colors.textSecondary }]}> 
+              <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
                 Ingresa tu correo y contraseña para continuar.
               </Text>
               <TouchableOpacity
@@ -322,7 +322,9 @@ export default function LoginScreen() {
                   size={14}
                   color={colors.primary}
                 />
-                <Text style={[styles.helpToggleText, { color: colors.primary }]}> 
+                <Text
+                  style={[styles.helpToggleText, { color: colors.primary }]}
+                >
                   {showHelp ? "Ocultar ayuda" : "¿Cómo funciona el acceso?"}
                 </Text>
               </TouchableOpacity>
@@ -336,10 +338,13 @@ export default function LoginScreen() {
                     },
                   ]}
                 >
-                  <Text style={[styles.helpText, { color: colors.textSecondary }]}> 
-                    • Tu cuenta debe estar activada por tu encargado o admin{"\n"}
-                    • Si no recuerdas tu contraseña, usa “¿Olvidaste tu contraseña?”{"\n"}
-                    • Puedes llenar encuestas sin conexión; se sincronizan después
+                  <Text
+                    style={[styles.helpText, { color: colors.textSecondary }]}
+                  >
+                    • Tu cuenta debe estar activada por tu encargado o admin
+                    {"\n"}• Si no recuerdas tu contraseña, usa “¿Olvidaste tu
+                    contraseña?”{"\n"}• Puedes llenar encuestas sin conexión; se
+                    sincronizan después
                   </Text>
                 </View>
               )}

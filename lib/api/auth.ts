@@ -17,6 +17,33 @@ import type {
 
 const APP_VERSION = Application.nativeApplicationVersion ?? "1.0.0";
 
+function getApiErrorMessage(error: any, fallback: string): string {
+  const data = error?.response?.data;
+
+  // New API envelope: { code, message, retriable, request_id }
+  if (typeof data?.message === "string" && data.message.trim().length > 0) {
+    return data.message;
+  }
+
+  // Legacy FastAPI style: { detail: "..." } or { detail: [{ msg: "..." }] }
+  if (typeof data?.detail === "string" && data.detail.trim().length > 0) {
+    return data.detail;
+  }
+
+  if (Array.isArray(data?.detail) && data.detail.length > 0) {
+    const firstMsg = data.detail[0]?.msg;
+    if (typeof firstMsg === "string" && firstMsg.trim().length > 0) {
+      return firstMsg;
+    }
+  }
+
+  if (typeof error?.message === "string" && error.message.trim().length > 0) {
+    return error.message;
+  }
+
+  return fallback;
+}
+
 /** Stable device identifier (persisted across sessions) */
 let _deviceId: string | null = null;
 async function getDeviceId(): Promise<string> {
@@ -85,7 +112,7 @@ export async function login(
       throw new Error("Email o contraseña incorrectos");
     }
 
-    throw new Error(error.response?.data?.detail || "Error al iniciar sesión");
+    throw new Error(getApiErrorMessage(error, "Error al iniciar sesión"));
   }
 }
 
@@ -121,7 +148,7 @@ export async function getCurrentUser(): Promise<User> {
     return user;
   } catch (error: any) {
     console.error("Get current user error:", error);
-    throw new Error(error.response?.data?.detail || "Error al obtener perfil");
+    throw new Error(getApiErrorMessage(error, "Error al obtener perfil"));
   }
 }
 
@@ -152,9 +179,7 @@ export async function updateProfile(
     return user;
   } catch (error: any) {
     console.error("Update profile error:", error);
-    throw new Error(
-      error.response?.data?.detail || "Error al actualizar perfil",
-    );
+    throw new Error(getApiErrorMessage(error, "Error al actualizar perfil"));
   }
 }
 
@@ -200,7 +225,8 @@ export async function uploadAvatar(imageUri: string): Promise<User> {
     };
     return user;
   } catch (error: any) {
-    const detail = error.response?.data?.detail;
+    const detail =
+      error.response?.data?.detail ?? error.response?.data?.message;
     if (typeof detail === "string") throw new Error(detail);
     throw new Error("No se pudo subir la foto de perfil");
   }
@@ -217,7 +243,7 @@ export async function createUser(
     return response.data;
   } catch (error: any) {
     console.error("Create user error:", error);
-    throw new Error(error.response?.data?.detail || "Error al crear usuario");
+    throw new Error(getApiErrorMessage(error, "Error al crear usuario"));
   }
 }
 
@@ -237,9 +263,7 @@ export async function getAllUsers(params?: {
     return response.data;
   } catch (error: any) {
     console.error("Get all users error:", error);
-    throw new Error(
-      error.response?.data?.detail || "Error al obtener usuarios",
-    );
+    throw new Error(getApiErrorMessage(error, "Error al obtener usuarios"));
   }
 }
 
@@ -255,9 +279,7 @@ export async function updateUser(
     return response.data;
   } catch (error: any) {
     console.error("Update user error:", error);
-    throw new Error(
-      error.response?.data?.detail || "Error al actualizar usuario",
-    );
+    throw new Error(getApiErrorMessage(error, "Error al actualizar usuario"));
   }
 }
 
@@ -269,9 +291,7 @@ export async function deleteUser(userId: number): Promise<void> {
     await api.delete(`/users/${userId}`);
   } catch (error: any) {
     console.error("Delete user error:", error);
-    throw new Error(
-      error.response?.data?.detail || "Error al eliminar usuario",
-    );
+    throw new Error(getApiErrorMessage(error, "Error al eliminar usuario"));
   }
 }
 
@@ -325,7 +345,10 @@ export async function validateActivationCode(
     // object-spread in the axios interceptor, so check multiple sources.
     const detail = error?.response?.data?.detail;
     if (Array.isArray(detail)) {
-      const msg = detail.map((e: any) => e?.msg).filter(Boolean).join(", ");
+      const msg = detail
+        .map((e: any) => e?.msg)
+        .filter(Boolean)
+        .join(", ");
       return { valid: false, error: msg || "Invalid code format" };
     }
     if (typeof detail === "string") {

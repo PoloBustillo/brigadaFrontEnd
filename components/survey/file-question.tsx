@@ -132,12 +132,7 @@ export function FileQuestion({
     const iconName = iconForMime(value.mimeType) as any;
     const isImage = value.mimeType?.startsWith("image/");
     return (
-      <View
-        style={[
-          styles.attachedCard,
-          isImage && styles.attachedCardImage,
-        ]}
-      >
+      <View style={[styles.attachedCard, isImage && styles.attachedCardImage]}>
         {isImage ? (
           /* ── Image preview thumbnail ── */
           <View style={styles.imageThumbnailWrap}>

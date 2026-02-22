@@ -23,11 +23,11 @@ const API_BASE = APP_CONFIG.api.baseUrl;
 
 /** Estado del CURP según RENAPO */
 export type RenapoStatus =
-  | "VIGE"           // Vigente — el más común
-  | "RCN"            // Registrado, Certificado No confirmado (acta nueva)
-  | "BAJA"           // Baja del padrón
-  | "NO_ENCONTRADO"  // No existe en la base del padrón
-  | null;            // No se pudo consultar RENAPO
+  | "VIGE" // Vigente — el más común
+  | "RCN" // Registrado, Certificado No confirmado (acta nueva)
+  | "BAJA" // Baja del padrón
+  | "NO_ENCONTRADO" // No existe en la base del padrón
+  | null; // No se pudo consultar RENAPO
 
 export interface CurpValidationResult {
   curp: string;
@@ -139,16 +139,18 @@ function mapRenapoStatus(raw: string | null | undefined): RenapoStatus {
   return null;
 }
 
-function buildDisplayMessage(
-  status: RenapoStatus,
-  reachable: boolean,
-): string {
+function buildDisplayMessage(status: RenapoStatus, reachable: boolean): string {
   if (!reachable) return "Formato válido. No se pudo contactar a RENAPO.";
   switch (status) {
-    case "VIGE":         return "✓ CURP vigente en el padrón RENAPO.";
-    case "RCN":          return "CURP registrado, acta pendiente de certificación (RCN).";
-    case "BAJA":         return "⚠ CURP dado de baja en el padrón.";
-    case "NO_ENCONTRADO": return "⚠ CURP no encontrado en el padrón RENAPO.";
-    default:             return "CURP válido en formato. Sin respuesta de RENAPO.";
+    case "VIGE":
+      return "✓ CURP vigente en el padrón RENAPO.";
+    case "RCN":
+      return "CURP registrado, acta pendiente de certificación (RCN).";
+    case "BAJA":
+      return "⚠ CURP dado de baja en el padrón.";
+    case "NO_ENCONTRADO":
+      return "⚠ CURP no encontrado en el padrón RENAPO.";
+    default:
+      return "CURP válido en formato. Sin respuesta de RENAPO.";
   }
 }

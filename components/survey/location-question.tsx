@@ -12,7 +12,7 @@ import { useThemeColors } from "@/contexts/theme-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as Location from "expo-location";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -29,6 +29,7 @@ export interface LocationValue {
   longitude: number;
   accuracy: number | null;
   timestamp: number;
+  address?: string | null;
 }
 
 interface LocationQuestionProps {
@@ -76,7 +77,27 @@ function buildMapHtml(lat: number, lon: number): string {
       iconAnchor: [12, 12],
       className: ''
     });
-    L.marker([${lat}, ${lon}], { icon: icon }).addTo(map);
+    var marker = L.marker([${lat}, ${lon}], { icon: icon, draggable: true }).addTo(map);
+
+    function emit(lat, lon) {
+      if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+          type: 'location_changed',
+          latitude: lat,
+          longitude: lon
+        }));
+      }
+    }
+
+    marker.on('dragend', function(e) {
+      var p = e.target.getLatLng();
+      emit(p.lat, p.lng);
+    });
+
+    map.on('click', function(e) {
+      marker.setLatLng(e.latlng);
+      emit(e.latlng.lat, e.latlng.lng);
+    });
   </script>
 </body>
 </html>`;
@@ -90,6 +111,44 @@ export function LocationQuestion({
   const themeColors = useThemeColors();
   const colors = colorsProp ?? themeColors;
   const [loading, setLoading] = useState(false);
+  const [addressLoading, setAddressLoading] = useState(false);
+  const [addressError, setAddressError] = useState<string | null>(null);
+
+  const resolveAddress = async (latitude: number, longitude: number) => {
+    try {
+      setAddressLoading(true);
+      setAddressError(null);
+      const result = await Location.reverseGeocodeAsync({
+        latitude,
+        longitude,
+      });
+      if (!result?.length) return null;
+      const first = result[0];
+      const parts = [
+        first.street,
+        first.streetNumber,
+        first.district,
+        first.city,
+        first.region,
+        first.postalCode,
+      ].filter(Boolean);
+      return parts.join(", ") || null;
+    } catch {
+      setAddressError("No se pudo obtener la dirección exacta.");
+      return null;
+    } finally {
+      setAddressLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!value?.latitude || !value?.longitude || value.address) return;
+    resolveAddress(value.latitude, value.longitude).then((address) => {
+      if (!address || !value) return;
+      onChange({ ...value, address });
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value?.latitude, value?.longitude]);
 
   const captureLocation = async () => {
     try {
@@ -113,11 +172,16 @@ export function LocationQuestion({
       });
 
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      const address = await resolveAddress(
+        pos.coords.latitude,
+        pos.coords.longitude,
+      );
       onChange({
         latitude: pos.coords.latitude,
         longitude: pos.coords.longitude,
         accuracy: pos.coords.accuracy,
         timestamp: pos.timestamp,
+        address,
       });
     } catch (err) {
       console.error("LocationQuestion error:", err);
@@ -222,6 +286,61 @@ export function LocationQuestion({
           </View>
         )}
 
+        <View
+          style={[
+            styles.addressCard,
+            {
+              borderColor: colors.border ?? "#e0e0e0",
+              backgroundColor: colors.surface ?? "#fafafa",
+            },
+          ]}
+        >
+          <Ionicons name="home-outline" size={14} color={colors.primary} />
+          <View style={{ flex: 1 }}>
+            <Text
+              style={[
+                styles.addressLabel,
+                { color: colors.textSecondary ?? "#888" },
+              ]}
+            >
+              Dirección aproximada
+            </Text>
+            {addressLoading ? (
+              <Text
+                style={[
+                  styles.addressValue,
+                  { color: colors.textSecondary ?? "#888" },
+                ]}
+              >
+                Buscando dirección…
+              </Text>
+            ) : value.address ? (
+              <Text style={[styles.addressValue, { color: colors.text }]}>
+                {value.address}
+              </Text>
+            ) : (
+              <Text
+                style={[
+                  styles.addressValue,
+                  { color: colors.textSecondary ?? "#888" },
+                ]}
+              >
+                No disponible
+              </Text>
+            )}
+            {addressError ? (
+              <Text
+                style={[
+                  styles.addressError,
+                  { color: colors.error ?? "#ff3b30" },
+                ]}
+              >
+                {addressError}
+              </Text>
+            ) : null}
+          </View>
+        </View>
+
         {/* Embedded map preview */}
         <View style={[styles.mapContainer, { borderColor: colors.border }]}>
           <WebView
@@ -229,6 +348,38 @@ export function LocationQuestion({
             style={styles.mapWebView}
             scrollEnabled={false}
             javaScriptEnabled
+            onMessage={(event) => {
+              try {
+                const payload = JSON.parse(event.nativeEvent.data || "{}");
+                if (payload?.type !== "location_changed") return;
+                const latitude = Number(payload.latitude);
+                const longitude = Number(payload.longitude);
+                if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+                  return;
+                }
+
+                onChange({
+                  ...value,
+                  latitude,
+                  longitude,
+                  timestamp: Date.now(),
+                  address: null,
+                });
+
+                resolveAddress(latitude, longitude).then((address) => {
+                  if (!address) return;
+                  onChange({
+                    ...value,
+                    latitude,
+                    longitude,
+                    timestamp: Date.now(),
+                    address,
+                  });
+                });
+              } catch {
+                // Ignore malformed webview messages
+              }
+            }}
             originWhitelist={["*"]}
             mixedContentMode="always"
             androidLayerType="hardware"
@@ -246,7 +397,7 @@ export function LocationQuestion({
           >
             <Ionicons name="map-outline" size={16} color={colors.primary} />
             <Text style={[styles.actionBtnText, { color: colors.primary }]}>
-              Ver en mapa
+              Abrir Maps
             </Text>
           </TouchableOpacity>
 
@@ -268,7 +419,7 @@ export function LocationQuestion({
               />
             )}
             <Text style={[styles.actionBtnText, { color: colors.primary }]}>
-              Actualizar
+              GPS actual
             </Text>
           </TouchableOpacity>
 
@@ -421,6 +572,28 @@ const styles = StyleSheet.create({
   accuracyText: {
     fontSize: 12,
     fontWeight: "500",
+  },
+  addressCard: {
+    borderRadius: 10,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+  },
+  addressLabel: {
+    fontSize: 11,
+    fontWeight: "600",
+    marginBottom: 2,
+  },
+  addressValue: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  addressError: {
+    fontSize: 11,
+    marginTop: 4,
   },
   mapContainer: {
     borderRadius: 10,

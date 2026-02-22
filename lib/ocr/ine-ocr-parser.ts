@@ -97,20 +97,31 @@ export interface IneOcrResult {
   claveElector: string;
   curp: string;
   fechaNacimiento: string; // formato DD/MM/YYYY
-  sexo: string;            // "H" | "M"
+  sexo: string; // "H" | "M"
   seccion: string;
-  vigencia: string;        // año YYYY
+  vigencia: string; // año YYYY
   domicilio: string;
   /** Modelo de credencial detectado (Decisión §6) */
   modeloDetected: IneModelo;
   /** Confianza global 0–1 calculada como media de campos con valor */
   confidence: number;
   /** Confianza individual 0–1 por campo (para UI por campo) */
-  fieldConfidence: Record<keyof Omit<IneOcrResult, "confidence" | "fieldConfidence" | "modeloDetected">, number>;
+  fieldConfidence: Record<
+    keyof Omit<
+      IneOcrResult,
+      "confidence" | "fieldConfidence" | "modeloDetected"
+    >,
+    number
+  >;
 }
 
 /** Versión del modelo de credencial detectada */
-export type IneModelo = "A_IFE2008" | "B_IFE2013" | "C_INE2015" | "D_INE2019" | "unknown";
+export type IneModelo =
+  | "A_IFE2008"
+  | "B_IFE2013"
+  | "C_INE2015"
+  | "D_INE2019"
+  | "unknown";
 
 // ── Constantes ────────────────────────────────────────────────────────────────
 
@@ -157,9 +168,9 @@ const LABEL_TOKENS = [
   /^INSTITUTO/i,
   // Campos de domicilio que actúan como separadores entre secciones del reverso
   /^COLONIA/i,
-  /^C[OÓ]DIGO/i,   // CODIGO POSTAL
+  /^C[OÓ]DIGO/i, // CODIGO POSTAL
   /^C\.P\./i,
-  /^NOMBRE/i,       // previene que líneas "NOMBRE" de otra sección se incluyan en domicilio
+  /^NOMBRE/i, // previene que líneas "NOMBRE" de otra sección se incluyan en domicilio
   /^APELLIDO/i,
 ];
 
@@ -184,8 +195,7 @@ const CURP_LOOSE_RE =
  * 6 letras + 8 dígitos + H/M + 3 dígitos
  * También capturamos variante loose para corrección post-match.
  */
-const CLAVE_ELECTOR_LOOSE_RE =
-  /\b[A-Z0-9]{6}\d{8}[HM01][0-9]{3}\b/;
+const CLAVE_ELECTOR_LOOSE_RE = /\b[A-Z0-9]{6}\d{8}[HM01][0-9]{3}\b/;
 
 /** Sección electoral: etiqueta + 4 dígitos */
 const SECCION_RE = /SECCI[OÓ]N\s*[:\-]?\s*(\d{3,4})/i;
@@ -198,9 +208,18 @@ const FECHA_SLASH_RE = /\b(\d{2})\/(\d{2})\/(\d{4})\b/;
 
 /** Fecha "DD ENE 1990" — meses en español abreviados (Decisión §9) */
 const MESES: Record<string, string> = {
-  ENE: "01", FEB: "02", MAR: "03", ABR: "04",
-  MAY: "05", JUN: "06", JUL: "07", AGO: "08",
-  SEP: "09", OCT: "10", NOV: "11", DIC: "12",
+  ENE: "01",
+  FEB: "02",
+  MAR: "03",
+  ABR: "04",
+  MAY: "05",
+  JUN: "06",
+  JUL: "07",
+  AGO: "08",
+  SEP: "09",
+  OCT: "10",
+  NOV: "11",
+  DIC: "12",
 };
 const FECHA_MES_RE =
   /\b(\d{2})\s+(ENE|FEB|MAR|ABR|MAY|JUN|JUL|AGO|SEP|OCT|NOV|DIC)\s+(\d{4})\b/i;
@@ -225,28 +244,30 @@ const SEXO_RE = /\bSEXO\s*[:\-]?\s*([HM])\b/i;
  *  e) Eliminar líneas que son solo dígitos < 2 chars (bordes de frame).
  */
 export function normalizeOcrText(raw: string): string {
-  return raw
-    .toUpperCase()
-    // a) ANTES de eliminar la virgulilla (~), reconstruir la Ñ que ML Kit
-    //    puede haber separado en dos caracteres: "MUN~OZ" → "MUÑOZ".
-    //    Patrones comunes según el motor OCR:
-    //      N˜  (N + virgulilla combinatoria U+02DC)
-    //      N~   (N + tilde ASCII)
-    //      ~N   (tilde al revés, menos frecuente)
-    .replace(/N[˜~]/g, "Ñ")
-    .replace(/[˜~]N/g, "Ñ")
-    // b) Reemplazar símbolos de marca de agua / bordes (ahora que ~ ya fue manejada)
-    .replace(/[◆●■»*|~#@%^&]/g, " ")
-    // c) Colapsar whitespace interno
-    .split("\n")
-    .map((line) => line.replace(/\s+/g, " ").trim())
-    // d) Eliminar ruido (líneas muy cortas que no son valor de campo)
-    .filter((line) => line.length >= 2)
-    // e) Filtrar líneas MRZ (Machine-Readable Zone: contienen <)
-    //    que aparecen en el reverso de algunos modelos y confunden
-    //    el regex de CURP con cadenas similares de 18 chars.
-    .filter((line) => !line.includes("<"))
-    .join("\n");
+  return (
+    raw
+      .toUpperCase()
+      // a) ANTES de eliminar la virgulilla (~), reconstruir la Ñ que ML Kit
+      //    puede haber separado en dos caracteres: "MUN~OZ" → "MUÑOZ".
+      //    Patrones comunes según el motor OCR:
+      //      N˜  (N + virgulilla combinatoria U+02DC)
+      //      N~   (N + tilde ASCII)
+      //      ~N   (tilde al revés, menos frecuente)
+      .replace(/N[˜~]/g, "Ñ")
+      .replace(/[˜~]N/g, "Ñ")
+      // b) Reemplazar símbolos de marca de agua / bordes (ahora que ~ ya fue manejada)
+      .replace(/[◆●■»*|~#@%^&]/g, " ")
+      // c) Colapsar whitespace interno
+      .split("\n")
+      .map((line) => line.replace(/\s+/g, " ").trim())
+      // d) Eliminar ruido (líneas muy cortas que no son valor de campo)
+      .filter((line) => line.length >= 2)
+      // e) Filtrar líneas MRZ (Machine-Readable Zone: contienen <)
+      //    que aparecen en el reverso de algunos modelos y confunden
+      //    el regex de CURP con cadenas similares de 18 chars.
+      .filter((line) => !line.includes("<"))
+      .join("\n")
+  );
 }
 
 // ── Corrección de caracteres OCR en campos con formato fijo (Decisión §3) ─────
@@ -307,7 +328,9 @@ export function fixClaveElectorOcr(raw: string): string {
  * Prueba los tres formatos en orden de confianza.
  * Retorna null si no encuentra nada válido.
  */
-export function extractFecha(text: string): { value: string; confidence: number } | null {
+export function extractFecha(
+  text: string,
+): { value: string; confidence: number } | null {
   // 1. Formato DD/MM/YYYY (más común y directo)
   const slashMatch = text.match(FECHA_SLASH_RE);
   if (slashMatch) {
@@ -388,6 +411,34 @@ interface NameResult {
   method: "labels" | "block" | "curp_initials" | "none";
 }
 
+function splitFullName(full: string): {
+  apellidoPaterno: string;
+  apellidoMaterno: string;
+  nombre: string;
+} {
+  const clean = cleanNameValue(full);
+  const parts = clean.split(/\s+/).filter(Boolean);
+  if (parts.length >= 3) {
+    return {
+      apellidoPaterno: parts[0],
+      apellidoMaterno: parts[1],
+      nombre: parts.slice(2).join(" "),
+    };
+  }
+  if (parts.length === 2) {
+    return {
+      apellidoPaterno: parts[0],
+      apellidoMaterno: "",
+      nombre: parts[1],
+    };
+  }
+  return {
+    apellidoPaterno: "",
+    apellidoMaterno: "",
+    nombre: clean,
+  };
+}
+
 /**
  * Estrategia A – Etiquetas explícitas
  * Busca líneas "APELLIDO PATERNO", "APELLIDO MATERNO", "NOMBRE(S)" y toma
@@ -425,6 +476,23 @@ function extractNamesFromLabels(lines: string[]): NameResult | null {
       result.apellidoMaterno = cleanNameValue(inlineAM[1]);
       found = true;
     }
+
+    // Casos donde OCR devuelve "NOMBRE(S) JUAN PEREZ LOPEZ" en una sola línea
+    const inlineNombre =
+      line.match(/^NOMBRE\(S\)\s+(.+)$/i) || line.match(/^NOMBRE\s+(.+)$/i);
+    if (inlineNombre) {
+      result.nombre = cleanNameValue(inlineNombre[1]);
+      found = true;
+    }
+  }
+
+  // Fallback: si solo tenemos "nombre" completo y no los apellidos separados,
+  // asumir formato mexicano más común: PATERNO MATERNO NOMBRE(S).
+  if (result.nombre && !result.apellidoPaterno && !result.apellidoMaterno) {
+    const split = splitFullName(result.nombre);
+    result.apellidoPaterno = split.apellidoPaterno;
+    result.apellidoMaterno = split.apellidoMaterno;
+    result.nombre = split.nombre;
   }
 
   return found ? { ...result, method: "labels" } : null;
@@ -438,7 +506,10 @@ function extractNamesFromLabels(lines: string[]): NameResult | null {
  * Busca el índice del CURP (o fecha) y retrocede 1-3 líneas capturando
  * candidatos: solo letras, sin números, longitud >= 3.
  */
-function extractNamesFromBlock(lines: string[], curp: string): NameResult | null {
+function extractNamesFromBlock(
+  lines: string[],
+  curp: string,
+): NameResult | null {
   // Ancla primaria: línea que contiene los primeros 10 chars del CURP
   let anchorIdx = curp
     ? lines.findIndex((l) => l.includes(curp.substring(0, 10)))
@@ -495,7 +566,12 @@ function extractNamesFromBlock(lines: string[], curp: string): NameResult | null
  */
 function extractNamesFromCurp(curp: string): NameResult {
   if (curp.length < 4) {
-    return { nombre: "", apellidoPaterno: "", apellidoMaterno: "", method: "none" };
+    return {
+      nombre: "",
+      apellidoPaterno: "",
+      apellidoMaterno: "",
+      method: "none",
+    };
   }
   return {
     apellidoPaterno: curp[0] + curp[1] + "...",
@@ -507,7 +583,10 @@ function extractNamesFromCurp(curp: string): NameResult {
 
 // ── Extracción de domicilio (Decisión §8) ─────────────────────────────────────
 
-function extractDomicilio(lines: string[]): { value: string; confidence: number } {
+function extractDomicilio(lines: string[]): {
+  value: string;
+  confidence: number;
+} {
   const domIdx = lines.findIndex((l) => /^DOMICILIO/i.test(l));
   if (domIdx < 0) return { value: "", confidence: 0 };
 
@@ -555,19 +634,25 @@ type FieldConf = Record<
  * Domicilio y Sección son secundarios para identificación → peso menor.
  */
 const FIELD_WEIGHTS: Partial<Record<keyof FieldConf, number>> = {
-  curp:            2.0,
-  claveElector:    1.5,
-  nombre:          1.5,
+  curp: 2.0,
+  claveElector: 1.5,
+  nombre: 1.5,
   apellidoPaterno: 1.2,
   apellidoMaterno: 1.0,
   fechaNacimiento: 1.2,
-  sexo:            0.8,
-  seccion:         0.6,
-  vigencia:        0.6,
-  domicilio:       0.8,
+  sexo: 0.8,
+  seccion: 0.6,
+  vigencia: 0.6,
+  domicilio: 0.8,
 };
 
-function computeOverallConfidence(fields: FieldConf, results: Omit<IneOcrResult, "confidence" | "fieldConfidence" | "modeloDetected">): number {
+function computeOverallConfidence(
+  fields: FieldConf,
+  results: Omit<
+    IneOcrResult,
+    "confidence" | "fieldConfidence" | "modeloDetected"
+  >,
+): number {
   let totalWeight = 0;
   let weightedScore = 0;
 
@@ -608,42 +693,43 @@ export function parseIneOcrText(
 
   // Paso 3: Inicializar confianzas por campo (Decisión §5)
   const fc: FieldConf = {
-    curp:            0,
-    claveElector:    0,
-    nombre:          0,
+    curp: 0,
+    claveElector: 0,
+    nombre: 0,
     apellidoPaterno: 0,
     apellidoMaterno: 0,
     fechaNacimiento: 0,
-    sexo:            0,
-    seccion:         0,
-    vigencia:        0,
-    domicilio:       0,
+    sexo: 0,
+    seccion: 0,
+    vigencia: 0,
+    domicilio: 0,
   };
 
   const res = {
-    curp:            "",
-    claveElector:    "",
-    nombre:          "",
+    curp: "",
+    claveElector: "",
+    nombre: "",
     apellidoPaterno: "",
     apellidoMaterno: "",
     fechaNacimiento: "",
-    sexo:            "",
-    seccion:         "",
-    vigencia:        "",
-    domicilio:       "",
+    sexo: "",
+    seccion: "",
+    vigencia: "",
+    domicilio: "",
   };
 
   // ── Campo: CURP ──────────────────────────────────────────────────────────
   // CURP está en el reverso (todos los modelos) y en el anverso (modelo C/D).
   // Probamos combined primero; si hay múltiples matches tomamos el de 18 chars.
   {
-    const candidates = [...combined.matchAll(new RegExp(CURP_LOOSE_RE.source, "g"))]
+    const candidates = [
+      ...combined.matchAll(new RegExp(CURP_LOOSE_RE.source, "g")),
+    ]
       .map((m) => m[0])
       .filter((c) => c.length >= 17 && c.length <= 19);
 
-    const best = candidates
-      .map(fixCurpOcr)
-      .find((c) => c.length === 18) ?? null;
+    const best =
+      candidates.map(fixCurpOcr).find((c) => c.length === 18) ?? null;
 
     if (best) {
       res.curp = best;
@@ -654,7 +740,9 @@ export function parseIneOcrText(
 
   // ── Campo: Clave de Elector ──────────────────────────────────────────────
   {
-    const candidates = [...combined.matchAll(new RegExp(CLAVE_ELECTOR_LOOSE_RE.source, "g"))]
+    const candidates = [
+      ...combined.matchAll(new RegExp(CLAVE_ELECTOR_LOOSE_RE.source, "g")),
+    ]
       .map((m) => m[0])
       .filter((c) => c.length === 18);
 
@@ -670,7 +758,9 @@ export function parseIneOcrText(
     // Primero buscar en "FECHA DE NACIMIENTO ..." si existe como contexto
     const fechaContextLine = lines.find((l) => /FECHA\s+DE\s+NAC/i.test(l));
     const searchText = fechaContextLine
-      ? fechaContextLine + "\n" + (lines[lines.indexOf(fechaContextLine) + 1] ?? "")
+      ? fechaContextLine +
+        "\n" +
+        (lines[lines.indexOf(fechaContextLine) + 1] ?? "")
       : combined;
 
     const fechaResult = extractFecha(searchText);
@@ -691,7 +781,7 @@ export function parseIneOcrText(
     // Sólo usar si los valores son plausibles
     if (isValidDate(dd, mm, String(year))) {
       res.fechaNacimiento = `${dd}/${mm}/${year}`;
-      fc.fechaNacimiento  = 0.8; // Derivado de CURP — confiable pero no literal
+      fc.fechaNacimiento = 0.8; // Derivado de CURP — confiable pero no literal
     }
   }
   // ── Campo: Sexo ──────────────────────────────────────────────────────────
@@ -731,28 +821,32 @@ export function parseIneOcrText(
   // ── Campos: Nombres ──────────────────────────────────────────────────────
   // Cascada de estrategias (Decisión §7)
   const namesByLabels = extractNamesFromLabels(lines);
-  const namesByBlock  = extractNamesFromBlock(lines, res.curp);
+  const namesByBlock = extractNamesFromBlock(lines, res.curp);
   const namesFallback = res.curp ? extractNamesFromCurp(res.curp) : null;
 
-  const nameResult =
-    namesByLabels ??
+  const nameResult = namesByLabels ??
     namesByBlock ??
-    namesFallback ?? { nombre: "", apellidoPaterno: "", apellidoMaterno: "", method: "none" };
+    namesFallback ?? {
+      nombre: "",
+      apellidoPaterno: "",
+      apellidoMaterno: "",
+      method: "none",
+    };
 
   const nameConfidenceMap: Record<NameResult["method"], number> = {
-    labels:         0.9,
-    block:          0.7,
-    curp_initials:  0.3,
-    none:           0.0,
+    labels: 0.9,
+    block: 0.7,
+    curp_initials: 0.3,
+    none: 0.0,
   };
   const nameConf = nameConfidenceMap[nameResult.method];
 
-  res.nombre          = nameResult.nombre;
+  res.nombre = nameResult.nombre;
   res.apellidoPaterno = nameResult.apellidoPaterno;
   res.apellidoMaterno = nameResult.apellidoMaterno;
-  fc.nombre           = res.nombre          ? nameConf : 0;
-  fc.apellidoPaterno  = res.apellidoPaterno  ? nameConf : 0;
-  fc.apellidoMaterno  = res.apellidoMaterno  ? nameConf : 0;
+  fc.nombre = res.nombre ? nameConf : 0;
+  fc.apellidoPaterno = res.apellidoPaterno ? nameConf : 0;
+  fc.apellidoMaterno = res.apellidoMaterno ? nameConf : 0;
 
   // ── Campo: Domicilio ─────────────────────────────────────────────────────
   // Solo en el reverso (Decisión §8)
@@ -765,7 +859,7 @@ export function parseIneOcrText(
     const domResult = extractDomicilio(backLines);
     if (domResult.value) {
       res.domicilio = domResult.value;
-      fc.domicilio  = domResult.confidence;
+      fc.domicilio = domResult.confidence;
     }
   }
 

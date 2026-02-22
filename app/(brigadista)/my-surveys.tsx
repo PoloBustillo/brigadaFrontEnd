@@ -201,13 +201,21 @@ export default function BrigadistaSurveysScreen() {
           {unifiedStatus.type === "sync" ? (
             <ActivityIndicator size="small" color={unifiedStatus.fg} />
           ) : (
-            <Ionicons name={unifiedStatus.icon} size={16} color={unifiedStatus.fg} />
+            <Ionicons
+              name={unifiedStatus.icon}
+              size={16}
+              color={unifiedStatus.fg}
+            />
           )}
-          <Text style={[styles.statusBarText, { color: unifiedStatus.fg }]}> 
+          <Text style={[styles.statusBarText, { color: unifiedStatus.fg }]}>
             {unifiedStatus.text}
           </Text>
           {unifiedStatus.action && (
-            <Ionicons name="refresh-outline" size={16} color={unifiedStatus.fg} />
+            <Ionicons
+              name="refresh-outline"
+              size={16}
+              color={unifiedStatus.fg}
+            />
           )}
         </TouchableOpacity>
       )}
