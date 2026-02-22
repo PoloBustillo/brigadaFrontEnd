@@ -53,7 +53,10 @@ async function retryWithBackoff<T>(
       if (
         lastError.message.includes("Email no autorizado") ||
         lastError.message.includes("Usuario o contraseña incorrectos") ||
-        lastError.message.includes("desactivada")
+        lastError.message.includes("Incorrect email or password") ||
+        lastError.message.includes("desactivada") ||
+        lastError.message.includes("Too many requests") ||
+        lastError.message.includes("Demasiadas solicitudes")
       ) {
         throw lastError;
       }

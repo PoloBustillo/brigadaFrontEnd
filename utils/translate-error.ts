@@ -8,10 +8,16 @@ import * as Sentry from "@sentry/react-native";
 const ERROR_MAP: [RegExp, string][] = [
   // Auth
   [/incorrect.*username.*password/i, "Usuario o contraseña incorrectos"],
+  [/incorrect.*email.*password/i, "Email o contraseña incorrectos"],
   [/invalid.*credentials/i, "Credenciales inválidas"],
+  [/cuenta.*desactivada/i, "Tu cuenta está desactivada. Contacta al administrador."],
   [/not.*authorized/i, "No tienes autorización para esta acción"],
   [/token.*expired/i, "Tu sesión expiró. Inicia sesión de nuevo"],
   [/could.*not.*validate/i, "Error de autenticación. Inicia sesión de nuevo"],
+  // Rate limiting
+  [/too.*many.*requests/i, "Demasiadas solicitudes. Intenta de nuevo en unos minutos."],
+  [/rate.*limit/i, "Demasiadas solicitudes. Intenta de nuevo en unos minutos."],
+  [/demasiadas.*solicitudes/i, "Demasiadas solicitudes. Intenta de nuevo en unos minutos."],
   // Activation
   [/invalid.*activation.*code/i, "Código incorrecto. Verifica los 6 dígitos e intenta nuevamente"],
   [/activation.*code.*invalid/i, "Código incorrecto. Verifica los 6 dígitos e intenta nuevamente"],
@@ -98,7 +104,7 @@ export function getErrorMessage(err: unknown): string {
       const translated = translateError(err.message);
       // Only capture truly unexpected errors (not auth / network / validation)
       const isExpected =
-        /sesión|conexión|servidor|credenciales|autoriza|permiso|encuesta|asignada|publicada|encontrado|validaci/i.test(
+        /sesión|conexión|servidor|credenciales|autoriza|permiso|encuesta|asignada|publicada|encontrado|validaci|desactivada|solicitudes/i.test(
           translated,
         );
       if (!isExpected) {
