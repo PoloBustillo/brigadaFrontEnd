@@ -177,7 +177,10 @@ export default function FillSurveyScreen() {
   const allQuestions = useMemo<FillQuestion[]>(() => {
     try {
       const raw: QuestionResponse[] = JSON.parse(params.questionsJson ?? "[]");
-      return raw.map(mapApiQuestion);
+      return raw
+        .slice()
+        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+        .map(mapApiQuestion);
     } catch {
       return [];
     }

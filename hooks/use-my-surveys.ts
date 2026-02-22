@@ -113,7 +113,9 @@ function mapApiSurvey(
     status: raw.assignment_status === "active" ? "ACTIVE" : "COMPLETED",
     assignedAt: raw.assigned_at,
     versionId: raw.latest_version?.id ?? 0,
-    questionsJson: JSON.stringify(raw.latest_version?.questions ?? []),
+    questionsJson: JSON.stringify(
+      (raw.latest_version?.questions ?? []).slice().sort((a, b) => a.order - b.order),
+    ),
   };
 }
 
