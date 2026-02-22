@@ -49,8 +49,8 @@ export default function BrigadistaProfileScreen() {
     router.replace("/(auth)/welcome" as any);
   };
 
-  // TODO: Get avatar from user object when field is added
-  const avatarUrl = null; // user?.avatar_url
+  // Get avatar from user auth context
+  const avatarUrl = user?.avatar_url || null;
 
   const profileMenuItems = [
     {
