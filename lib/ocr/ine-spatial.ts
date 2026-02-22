@@ -5,38 +5,43 @@
  * bloques de texto a campos específicos de la INE basándose en la
  * disposición física conocida de la credencial.
  *
- * ── Layout de la INE (frente) ───────────────────────────────────────────────
+ * ── Layout REAL de la INE (frente) ──────────────────────────────────────────
  *
  *   ┌─────────────────────────────────────────────┐
- *   │  INSTITUTO NACIONAL ELECTORAL               │  ← header (y: 0–10%)
+ *   │  INSTITUTO NACIONAL ELECTORAL               │  ← header (y: 0–8%)
  *   ├─────────┬───────────────────────────────────┤
- *   │         │  APELLIDO PATERNO                  │
- *   │  FOTO   │  GARCIA                            │  ← nombres (y: 10–50%, x: >30%)
- *   │         │  APELLIDO MATERNO                  │
- *   │         │  LOPEZ                             │
- *   │         │  NOMBRE(S)                         │
- *   │         │  JUAN ANTONIO                      │
- *   ├─────────┼───────────────────────────────────┤
- *   │         │  DOMICILIO (solo en algunos)       │
- *   │ FIRMA   │  CURP: GALJ900101HMCRPN09         │  ← datos (y: 50–80%)
- *   │         │  FECHA NAC: 01/01/1990  SEXO: H   │
+ *   │         │  NOMBRE                            │
+ *   │  FOTO   │  línea apellido paterno             │  ← nombres (y: 8–30%, x >25%)
+ *   │         │  línea apellido materno             │
+ *   │         │  línea nombre(s)                    │
+ *   │         ├───────────────────────────────────┤
+ *   │         │  DOMICILIO                         │
+ *   │         │  calle y número                    │  ← domicilio (y: 30–55%, x >25%)
+ *   │         │  colonia, C.P.                     │
+ *   │         │  municipio, estado                 │
+ *   │         ├───────────────────────────────────┤
+ *   │         │  CLAVE DE ELECTOR                  │
+ *   │ FIRMA   │  CURP                              │  ← datos (y: 55–80%, x >25%)
+ *   │         │  SECCIÓN  AÑO REGISTRO             │
+ *   │         │  FECHA NACIMIENTO                  │
  *   ├─────────┴───────────────────────────────────┤
- *   │  CLAVE: GLPJNN90...  SECCIÓN: 1234  VIG: 2029│ ← footer (y: 80–100%)
+ *   │  SEXO (derecha)  │  MRZ inferior             │  ← footer (y: 80–100%)
  *   └─────────────────────────────────────────────┘
+ *
+ * **El DOMICILIO está en el FRENTE** de la INE, entre los nombres y los
+ * datos de identificación (CURP, clave, sección).
  *
  * ── Layout de la INE (reverso) ──────────────────────────────────────────────
  *
  *   ┌─────────────────────────────────────────────┐
- *   │  DOMICILIO                                   │  ← dirección (y: 0–45%)
- *   │  CALLE REFORMA 123                           │
- *   │  COL. CENTRO                                 │
- *   │  MUNICIPIO CUAUHTÉMOC                        │
- *   │  ESTADO CIUDAD DE MÉXICO  C.P. 06000         │
- *   ├─────────────────────────────────────────────┤
- *   │  CLAVE: ...  CURP: ...  SECCIÓN: ...        │  ← datos (y: 45–75%)
- *   ├─────────────────────────────────────────────┤
- *   │  MRZ / código de barras / QR                │  ← footer (y: 75–100%)
+ *   │  Datos adicionales / código de barras        │
+ *   │  MRZ (Machine Readable Zone)                │
+ *   │  QR code / datos magnéticos                 │
  *   └─────────────────────────────────────────────┘
+ *
+ *   El reverso NO contiene el domicilio en la mayoría de los modelos.
+ *   Algunos modelos antiguos (IFE) pueden tener info aquí, por eso
+ *   mantenemos la búsqueda en reverso como fallback.
  *
  * Estas proporciones son aproximadas (±5%) y varían según el modelo de INE.
  * La clave es que son RELATIVAS al tamaño total de la imagen, no absolutas.
@@ -55,15 +60,15 @@ export interface OcrBlock {
 export interface SpatialZones {
   /** Bloques en la zona de nombres (frente, derecha-superior) */
   nameBlocks: OcrBlock[];
+  /** Bloques en la zona de domicilio (frente, debajo de nombres) */
+  addressBlocks: OcrBlock[];
   /** Bloques en la zona de datos (frente, parte media-baja) */
   dataBlocks: OcrBlock[];
-  /** Bloques en la zona de dirección (reverso, parte superior) */
-  addressBlocks: OcrBlock[];
   /** Bloques en la zona de datos del reverso */
   backDataBlocks: OcrBlock[];
   /** Texto combinado de la zona de nombres (para el parser) */
   nameText: string;
-  /** Texto combinado de la zona de dirección */
+  /** Texto combinado de la zona de dirección (del frente) */
   addressText: string;
   /** Dimensiones de la imagen (para normalización) */
   imageWidth: number;
@@ -80,11 +85,19 @@ export interface SpatialZones {
 const FRONT_ZONES = {
   /** X mínimo para excluir la foto (proporción del ancho) */
   photoRightEdge: 0.25,
-  /** Zona de nombres: Y entre 8% y 55% del alto */
+  /** Zona de nombres: Y entre 8% y 32% del alto */
   nameYMin: 0.08,
-  nameYMax: 0.55,
-  /** Zona de datos (CURP, fecha, sexo): Y entre 45% y 85% */
-  dataYMin: 0.45,
+  nameYMax: 0.32,
+  /**
+   * Zona de domicilio: Y entre 28% y 58% del alto.
+   * Está justo debajo de los nombres, arriba de CURP/CLAVE.
+   * Se solapa ligeramente con nombres (28–32%) para captar etiqueta
+   * "DOMICILIO" que puede estar pegada a la última línea de nombre.
+   */
+  addressYMin: 0.28,
+  addressYMax: 0.58,
+  /** Zona de datos (CURP, CLAVE, SECCIÓN): Y entre 55% y 85% */
+  dataYMin: 0.55,
   dataYMax: 0.85,
   /** Header institucional: Y < 10% */
   headerYMax: 0.10,
@@ -92,7 +105,9 @@ const FRONT_ZONES = {
 
 /**
  * Zonas del reverso de la INE.
- * La dirección está en la mitad superior.
+ * El reverso contiene MRZ, códigos de barras, QR y datos duplicados.
+ * El domicilio NO está aquí en modelos modernos (está en el frente).
+ * Se mantiene por compatibilidad con modelos antiguos (IFE).
  */
 const BACK_ZONES = {
   /** Zona de dirección: Y entre 0% y 50% */
@@ -134,22 +149,32 @@ function estimateImageDimensions(blocks: OcrBlock[]): {
 /**
  * Clasifica bloques del frente de la INE en zonas espaciales.
  * Usa las proporciones conocidas del layout para determinar si un bloque
- * pertenece a la zona de nombres, datos, o header.
+ * pertenece a la zona de nombres, domicilio, datos, o header.
+ *
+ * El domicilio está en el FRENTE de la INE, justo debajo de los nombres
+ * y arriba de CURP/CLAVE DE ELECTOR. Ver diagrama en el header del archivo.
  */
 export function classifyFrontBlocks(blocks: OcrBlock[]): {
   nameBlocks: OcrBlock[];
+  addressBlocks: OcrBlock[];
   dataBlocks: OcrBlock[];
   headerBlocks: OcrBlock[];
 } {
   const dims = estimateImageDimensions(blocks);
   const nameBlocks: OcrBlock[] = [];
+  const addressBlocks: OcrBlock[] = [];
   const dataBlocks: OcrBlock[] = [];
   const headerBlocks: OcrBlock[] = [];
 
   for (const block of blocks) {
     if (!block.frame) {
       // Sin coordenadas — clasificar por contenido textual
-      dataBlocks.push(block);
+      // Revisar si contiene ancla de domicilio
+      if (/D[O0]M[I1]C[I1]L[I1][O0]|COL\.?\s|C\.?\s*P\.?\s*\d{5}/i.test(block.text)) {
+        addressBlocks.push(block);
+      } else {
+        dataBlocks.push(block);
+      }
       continue;
     }
 
@@ -164,17 +189,35 @@ export function classifyFrontBlocks(blocks: OcrBlock[]): {
       continue;
     }
 
-    // Zona de nombres: a la derecha de la foto, mitad superior
+    // Necesitamos estar a la derecha de la foto para nombres y domicilio
+    const rightOfPhoto = relX >= FRONT_ZONES.photoRightEdge;
+
+    // Zona de nombres: derecha de foto, parte superior
     if (
-      relX >= FRONT_ZONES.photoRightEdge &&
+      rightOfPhoto &&
       relCenterY >= FRONT_ZONES.nameYMin &&
       relCenterY <= FRONT_ZONES.nameYMax
     ) {
-      nameBlocks.push(block);
+      // Si el bloque contiene "DOMICILIO", clasificar como dirección
+      if (/D[O0]M[I1]C[I1]L[I1][O0]/i.test(block.text)) {
+        addressBlocks.push(block);
+      } else {
+        nameBlocks.push(block);
+      }
       continue;
     }
 
-    // Zona de datos: mitad inferior
+    // Zona de domicilio: derecha de foto, debajo de nombres
+    if (
+      rightOfPhoto &&
+      relCenterY >= FRONT_ZONES.addressYMin &&
+      relCenterY <= FRONT_ZONES.addressYMax
+    ) {
+      addressBlocks.push(block);
+      continue;
+    }
+
+    // Zona de datos: parte inferior
     if (
       relCenterY >= FRONT_ZONES.dataYMin &&
       relCenterY <= FRONT_ZONES.dataYMax
@@ -187,11 +230,12 @@ export function classifyFrontBlocks(blocks: OcrBlock[]): {
     dataBlocks.push(block);
   }
 
-  // Ordenar bloques de nombres por Y (lectura top→bottom)
+  // Ordenar bloques por Y (lectura top→bottom)
   nameBlocks.sort((a, b) => (a.frame?.y ?? 0) - (b.frame?.y ?? 0));
+  addressBlocks.sort((a, b) => (a.frame?.y ?? 0) - (b.frame?.y ?? 0));
   dataBlocks.sort((a, b) => (a.frame?.y ?? 0) - (b.frame?.y ?? 0));
 
-  return { nameBlocks, dataBlocks, headerBlocks };
+  return { nameBlocks, addressBlocks, dataBlocks, headerBlocks };
 }
 
 /**
@@ -320,9 +364,9 @@ export function extractNamesFromSpatial(
 
 /**
  * @deprecated Usar extractAddressFromSpatialExpert de ine-address.ts
- * Extrae dirección de los bloques espaciales del reverso.
- * Los bloques en la zona de dirección (mitad superior del reverso)
- * se concatenan en orden Y para formar la dirección completa.
+ * Extrae dirección de los bloques espaciales (versión simple).
+ * Puede recibir bloques del frente o del reverso.
+ * Los bloques se concatenan en orden Y para formar la dirección completa.
  */
 export function extractAddressFromSpatial(
   addressBlocks: OcrBlock[],

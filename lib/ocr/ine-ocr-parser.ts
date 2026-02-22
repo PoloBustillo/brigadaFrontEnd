@@ -66,10 +66,12 @@
  *      Si lo único que tenemos es el CURP, al menos podemos sugerir iniciales.
  *
  * 8. DOMICILIO: RECOLECCIÓN MULTI-LÍNEA
- *    El reverso tiene el domicilio en 2–6 líneas seguidas. Se recolectan
- *    hasta la primera línea que parece una etiqueta de campo (mayúsculas
- *    cortas: "CLAVE", "ESTADO", "MUNICIPIO", etc.) o hasta máximo 6 líneas.
- *    Se buscan múltiples anclas: "DOMICILIO", "CALLE", "AV ", "BLVD".
+ *    El FRENTE de la INE tiene el domicilio entre los nombres y el CURP,
+ *    en 2–6 líneas seguidas. Se recolectan hasta la primera línea que
+ *    parece una etiqueta de campo (CLAVE, CURP, SECCIÓN, etc.) o hasta
+ *    máximo 6 líneas. Se buscan múltiples anclas: "DOMICILIO", "COL.",
+ *    "C.P.", "AV ", "BLVD". El reverso se busca como fallback para
+ *    modelos antiguos de IFE.
  *
  * 10. MODELO HINT (USUARIO)
  *    El brigadista puede pre-seleccionar el tipo de INE antes de capturar.
@@ -1038,8 +1040,14 @@ export function parseIneOcrText(
   // ── Campos: Nombres ──────────────────────────────────────────────────────
   // Cascada de estrategias (Decisión §7)
   // Prioridad: spatial > labels > block > curp_initials
-  const namesBySpatial = frontBlocks
-    ? extractNamesFromSpatial(classifyFrontBlocks(frontBlocks).nameBlocks)
+  //
+  // Clasificamos los bloques del frente UNA sola vez; usaremos
+  // frontClassified.addressBlocks más abajo para el domicilio.
+  const frontClassified = frontBlocks
+    ? classifyFrontBlocks(frontBlocks)
+    : null;
+  const namesBySpatial = frontClassified
+    ? extractNamesFromSpatial(frontClassified.nameBlocks)
     : null;
   const namesByLabels = extractNamesFromLabels(lines);
   const namesByBlock = extractNamesFromBlock(lines, res.curp);
@@ -1121,33 +1129,78 @@ export function parseIneOcrText(
   fc.apellidoMaterno = res.apellidoMaterno ? nameConf : 0;
 
   // ── Campo: Domicilio ─────────────────────────────────────────────────────
-  // Cascada multi-estrategia: spatial_expert > text_expert (Decisión §8)
+  // El domicilio está en el FRENTE de la INE, entre los nombres y los datos
+  // de identificación (CURP, CLAVE, SECCIÓN). Ver layout en ine-spatial.ts.
+  //
+  // Cascada multi-estrategia:
+  //   1. Espacial del FRENTE (zona de dirección)
+  //   2. Texto del FRENTE (busca anclas DOMICILIO, COL., C.P.)
+  //   3. Espacial del REVERSO (fallback para modelos IFE antiguos)
+  //   4. Texto del REVERSO (fallback)
   {
-    // Extracción espacial mejorada (usa zonas + heurísticas)
-    const spatialAddr = backBlocks
+    // ─── 1. Extracción espacial del FRENTE ──────────────────────────────
+    const frontSpatialAddr = frontClassified?.addressBlocks?.length
+      ? extractAddressFromSpatialExpert(frontClassified.addressBlocks)
+      : null;
+
+    // ─── 2. Extracción textual del FRENTE ───────────────────────────────
+    const frontLines = front
+      .split("\n")
+      .map((l) => l.trim())
+      .filter((l) => l.length >= 2);
+    const frontTextAddr = extractDomicilioExpert(frontLines);
+
+    // ─── 3. Extracción espacial del REVERSO (fallback) ──────────────────
+    const backSpatialAddr = backBlocks
       ? extractAddressFromSpatialExpert(
           classifyBackBlocks(backBlocks).addressBlocks,
         )
       : null;
 
-    // Extracción basada en texto con 6 estrategias independientes
+    // ─── 4. Extracción textual del REVERSO (fallback) ───────────────────
     const backLines = back
       .split("\n")
       .map((l) => l.trim())
       .filter((l) => l.length >= 2);
-    const textAddr = extractDomicilioExpert(backLines);
+    const backTextAddr = extractDomicilioExpert(backLines);
 
-    // Usar la fuente con mayor confianza
-    if (
-      spatialAddr &&
-      spatialAddr.value &&
-      spatialAddr.confidence > (textAddr.confidence || 0)
-    ) {
-      res.domicilio = spatialAddr.value;
-      fc.domicilio = spatialAddr.confidence;
-    } else if (textAddr.value) {
-      res.domicilio = textAddr.value;
-      fc.domicilio = textAddr.confidence;
+    // Elegir la mejor fuente (mayor confianza)
+    // Damos un boost de +0.05 al frente (es la ubicación canónica)
+    const candidates: { value: string; confidence: number; source: string }[] = [];
+    if (frontSpatialAddr?.value) {
+      candidates.push({
+        value: frontSpatialAddr.value,
+        confidence: Math.min(frontSpatialAddr.confidence + 0.05, 1.0),
+        source: "front_spatial",
+      });
+    }
+    if (frontTextAddr?.value) {
+      candidates.push({
+        value: frontTextAddr.value,
+        confidence: Math.min(frontTextAddr.confidence + 0.05, 1.0),
+        source: "front_text",
+      });
+    }
+    if (backSpatialAddr?.value) {
+      candidates.push({
+        value: backSpatialAddr.value,
+        confidence: backSpatialAddr.confidence,
+        source: "back_spatial",
+      });
+    }
+    if (backTextAddr?.value) {
+      candidates.push({
+        value: backTextAddr.value,
+        confidence: backTextAddr.confidence,
+        source: "back_text",
+      });
+    }
+
+    // Seleccionar candidato con mayor confianza
+    candidates.sort((a, b) => b.confidence - a.confidence);
+    if (candidates.length > 0) {
+      res.domicilio = candidates[0].value;
+      fc.domicilio = candidates[0].confidence;
     }
   }
 

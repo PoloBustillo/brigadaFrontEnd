@@ -3,7 +3,11 @@
  * =============================================
  *
  * Este módulo implementa una cascada de 5 estrategias independientes para
- * extraer la dirección del reverso de la INE, priorizando por confianza.
+ * extraer la dirección de la INE, priorizando por confianza.
+ *
+ * NOTA: El domicilio está en el FRENTE de la INE, entre los nombres y los
+ * datos de identificación (CURP, CLAVE, SECCIÓN). El reverso se busca
+ * como fallback para modelos antiguos de IFE.
  *
  * ── Filosofía ───────────────────────────────────────────────────────────────
  *
@@ -14,9 +18,9 @@
  *   2. CÓDIGO POSTAL    – Los 5 dígitos de C.P. son un ancla muy fuerte.
  *                         La dirección siempre está alrededor del C.P.
  *   3. ESTADO MEXICANO  – Si detectamos un nombre de estado (CDMX, JALISCO…)
- *                         la dirección termina ahí. Inciamos hacia atrás.
+ *                         la dirección termina ahí. Iniciamos hacia atrás.
  *   4. COLONIA/COL.     – Patrón muy reconocible. La calle está arriba.
- *   5. FILTRADO NEGATIVO – Último recurso: tomamos TODO el reverso y quitamos
+ *   5. FILTRADO NEGATIVO – Último recurso: tomamos TODO el texto y quitamos
  *                         lo que sabemos que NO es dirección (CURP, clave,
  *                         MRZ, fechas, encabezados institucionales…).
  *                         Lo que sobra es probablemente dirección.
@@ -792,10 +796,10 @@ export function extractDomicilioExpert(backLines: string[]): {
 }
 
 /**
- * Extrae dirección de bloques espaciales del reverso (versión mejorada).
+ * Extrae dirección de bloques espaciales (versión mejorada).
  *
- * Usa las coordenadas de los bloques para seleccionar la zona de dirección,
- * luego aplica las mismas heurísticas de filtrado y scoring.
+ * Recibe bloques ya clasificados en la zona de dirección (del frente
+ * o del reverso) y aplica las mismas heurísticas de filtrado y scoring.
  */
 export function extractAddressFromSpatialExpert(
   addressBlocks: { text: string; lines: { text: string; confidence?: number }[] }[],
