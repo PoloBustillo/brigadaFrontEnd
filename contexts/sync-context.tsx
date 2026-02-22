@@ -10,6 +10,7 @@
 
 import { syncRepository } from "@/lib/db/repositories/sync.repository";
 import { offlineSyncService } from "@/lib/services/offline-sync";
+import { fileUploadService } from "@/lib/services/file-upload.service";
 import NetInfo, { NetInfoState } from "@react-native-community/netinfo";
 import React, {
   createContext,
@@ -23,7 +24,7 @@ import React, {
 // REGLA 6: Estados extendidos para manejo de errores
 interface SyncItem {
   id: string;
-  type: "survey" | "response" | "user";
+  type: "survey" | "response" | "user" | "file";
   timestamp: number;
   retryCount: number; // Número de reintentos realizados
   lastAttempt?: number; // Timestamp del último intento
@@ -38,6 +39,7 @@ interface SyncContextType {
     surveys: number;
     responses: number;
     users: number;
+    files: number;
   };
   errorCount: number; // Items con error
   isOnline: boolean; // Estado de conectividad
@@ -81,6 +83,7 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
     surveys: pendingItems.filter((item) => item.type === "survey").length,
     responses: pendingItems.filter((item) => item.type === "response").length,
     users: pendingItems.filter((item) => item.type === "user").length,
+    files: pendingItems.filter((item) => item.type === "file").length,
   };
 
   const errorCount = pendingItems.filter(
@@ -205,6 +208,17 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
             return true;
           }
           console.warn(`⚠️ No queued items were synced for ${item.id}`);
+          return false;
+        }
+
+        if (item.type === "file") {
+          // Upload pending files to Cloudinary
+          const uploaded = await fileUploadService.uploadPendingFiles(5);
+          if (uploaded > 0) {
+            console.log(`✅ Uploaded ${uploaded} file(s)`);
+            return true;
+          }
+          console.warn(`⚠️ No files uploaded for ${item.id}`);
           return false;
         }
 

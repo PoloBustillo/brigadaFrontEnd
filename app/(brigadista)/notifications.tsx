@@ -24,6 +24,22 @@ import {
   View,
 } from "react-native";
 
+const iconForType = (type: string): keyof typeof Ionicons.glyphMap => {
+  switch (type) {
+    case "survey_created":
+    case "version_published":
+      return "document-text";
+    case "assignment_created":
+      return "clipboard";
+    case "survey_deleted":
+      return "trash";
+    default:
+      return "notifications";
+  }
+};
+
+const ItemSeparator = () => <View style={{ height: 10 }} />;
+
 export default function NotificationsScreen() {
   const colors = useThemeColors();
   const { contentPadding } = useTabBarHeight();
@@ -82,21 +98,7 @@ export default function NotificationsScreen() {
     }
   }, []);
 
-  const iconForType = (type: string): keyof typeof Ionicons.glyphMap => {
-    switch (type) {
-      case "survey_created":
-      case "version_published":
-        return "document-text";
-      case "assignment_created":
-        return "clipboard";
-      case "survey_deleted":
-        return "trash";
-      default:
-        return "notifications";
-    }
-  };
-
-  const renderItem = ({ item }: { item: NotificationItem }) => (
+  const renderItem = useCallback(({ item }: { item: NotificationItem }) => (
     <TouchableOpacity
       style={[
         styles.card,
@@ -155,7 +157,7 @@ export default function NotificationsScreen() {
         <View style={[styles.dot, { backgroundColor: colors.primary }]} />
       )}
     </TouchableOpacity>
-  );
+  ), [colors, handleMarkRead]);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -222,7 +224,7 @@ export default function NotificationsScreen() {
               tintColor={colors.primary}
             />
           }
-          ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
+          ItemSeparatorComponent={ItemSeparator}
         />
       )}
     </View>

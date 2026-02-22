@@ -10,7 +10,7 @@
 import { useThemeColors } from "@/contexts/theme-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import React from "react";
+import React, { useCallback } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 interface Option {
@@ -36,14 +36,14 @@ export function MultiSelectQuestion({
 
   const selected = value ?? [];
 
-  const toggle = (optValue: string) => {
+  const toggle = useCallback((optValue: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (selected.includes(optValue)) {
       onChange(selected.filter((v) => v !== optValue));
     } else {
       onChange([...selected, optValue]);
     }
-  };
+  }, [selected, onChange]);
 
   if (!options || options.length === 0) {
     return (

@@ -7,7 +7,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { format, isValid } from "date-fns";
 import { es } from "date-fns/locale";
 import * as Haptics from "expo-haptics";
-import { useCallback, useRef, useState } from "react";
+import React, { useCallback, useRef, useState } from "react";
 import {
   FlatList,
   Modal,
@@ -43,7 +43,7 @@ const MINUTES = Array.from({ length: 60 }, (_, i) => i);
 
 const ITEM_HEIGHT = 44;
 
-function WheelColumn<T extends number>({
+const WheelColumn = React.memo(function WheelColumn<T extends number>({
   data,
   selected,
   onSelect,
@@ -69,6 +69,32 @@ function WheelColumn<T extends number>({
     }
   }, [selectedIndex]);
 
+  const renderItem = useCallback(({ item }: { item: T }) => {
+    const isSelected = item === selected;
+    return (
+      <Pressable
+        onPress={() => {
+          Haptics.selectionAsync();
+          onSelect(item);
+        }}
+        style={[styles.wheelItem, { height: ITEM_HEIGHT }]}
+      >
+        <Text
+          style={[
+            styles.wheelText,
+            {
+              color: isSelected ? colors.primary : colors.text,
+              fontWeight: isSelected ? "700" : "400",
+              fontSize: isSelected ? 18 : 15,
+            },
+          ]}
+        >
+          {formatFn ? formatFn(item) : String(item).padStart(2, "0")}
+        </Text>
+      </Pressable>
+    );
+  }, [selected, onSelect, colors.primary, colors.text, formatFn]);
+
   return (
     <View style={{ flex: 1, height: ITEM_HEIGHT * 5 }}>
       {/* highlight overlay */}
@@ -92,35 +118,17 @@ function WheelColumn<T extends number>({
         decelerationRate="fast"
         showsVerticalScrollIndicator={false}
         onLayout={scrollToSelected}
-        renderItem={({ item }) => {
-          const isSelected = item === selected;
-          return (
-            <Pressable
-              onPress={() => {
-                Haptics.selectionAsync();
-                onSelect(item);
-              }}
-              style={[styles.wheelItem, { height: ITEM_HEIGHT }]}
-            >
-              <Text
-                style={[
-                  styles.wheelText,
-                  {
-                    color: isSelected ? colors.primary : colors.text,
-                    fontWeight: isSelected ? "700" : "400",
-                    fontSize: isSelected ? 18 : 15,
-                  },
-                ]}
-              >
-                {formatFn ? formatFn(item) : String(item).padStart(2, "0")}
-              </Text>
-            </Pressable>
-          );
-        }}
+        renderItem={renderItem}
       />
     </View>
   );
-}
+}) as <T extends number>(props: {
+  data: T[];
+  selected: T;
+  onSelect: (v: T) => void;
+  formatFn?: (v: T) => string;
+  colors: any;
+}) => React.ReactElement;
 
 export function DateQuestion({
   question,

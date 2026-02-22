@@ -11,7 +11,7 @@ import { getCached, setCached } from "@/lib/api/memory-cache";
 import type { AssignmentDetail } from "@/lib/api/assignments";
 import { getMyCreatedAssignments } from "@/lib/api/assignments";
 import { Ionicons } from "@expo/vector-icons";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   RefreshControl,
@@ -62,7 +62,7 @@ export default function EncargadoSurveys() {
   const [hasLoadedOnce, setHasLoadedOnce] = useState(!!initialSurveys);
   const [refreshing, setRefreshing] = useState(false);
 
-  const statusConfig = {
+  const statusConfig = useMemo(() => ({
     active: {
       label: "Activa",
       color: colors.success,
@@ -73,7 +73,7 @@ export default function EncargadoSurveys() {
       color: colors.textSecondary,
       icon: "pause-circle" as const,
     },
-  };
+  }), [colors.success, colors.textSecondary]);
 
   const fetchSurveys = async (silent = false) => {
     if (!silent) setIsLoading(true);
@@ -101,8 +101,8 @@ export default function EncargadoSurveys() {
     fetchSurveys();
   };
 
-  const totalResponses = surveys.reduce((acc, s) => acc + s.totalResponses, 0);
-  const activeSurveys = surveys.filter((s) => s.status === "active").length;
+  const totalResponses = useMemo(() => surveys.reduce((acc, s) => acc + s.totalResponses, 0), [surveys]);
+  const activeSurveys = useMemo(() => surveys.filter((s) => s.status === "active").length, [surveys]);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>

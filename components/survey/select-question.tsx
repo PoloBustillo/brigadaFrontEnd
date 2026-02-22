@@ -10,7 +10,7 @@
 import { useThemeColors } from "@/contexts/theme-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import React from "react";
+import React, { useCallback } from "react";
 import {
   ScrollView,
   StyleSheet,
@@ -40,10 +40,10 @@ export function SelectQuestion({
   const themeColors = useThemeColors();
   const colors = colorsProp ?? themeColors;
 
-  const handlePress = (opt: Option) => {
+  const handlePress = useCallback((opt: Option) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     onChange(opt.value);
-  };
+  }, [onChange]);
 
   if (!options || options.length === 0) {
     return (

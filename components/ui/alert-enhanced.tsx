@@ -86,6 +86,8 @@ export function AlertEnhanced({
         },
         style,
       ]}
+      accessibilityRole="alert"
+      accessibilityLabel={title ? `${title}: ${message}` : message}
     >
       <View style={styles.content}>
         {showIcon && (

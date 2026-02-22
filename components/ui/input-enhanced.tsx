@@ -190,6 +190,9 @@ export function InputEnhanced({
           onBlur={handleBlur}
           value={value}
           maxLength={maxLength}
+          accessibilityLabel={label || props.placeholder}
+          accessibilityState={{ disabled: !props.editable === undefined ? false : !props.editable }}
+          accessibilityHint={error ? `Error: ${error}` : helperText}
           {...props}
         />
 

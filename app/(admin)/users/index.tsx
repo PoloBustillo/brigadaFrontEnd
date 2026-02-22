@@ -10,7 +10,7 @@ import { useTabBarHeight } from "@/hooks/use-tab-bar-height";
 import { AdminUser, getAdminUsers } from "@/lib/api/admin";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   RefreshControl,
@@ -74,8 +74,8 @@ export default function AdminUsers() {
     fetchUsers(true);
   };
 
-  const activeCount = users.filter((u) => u.is_active).length;
-  const brigadistaCount = users.filter((u) => u.role === "brigadista").length;
+  const activeCount = useMemo(() => users.filter((u) => u.is_active).length, [users]);
+  const brigadistaCount = useMemo(() => users.filter((u) => u.role === "brigadista").length, [users]);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>

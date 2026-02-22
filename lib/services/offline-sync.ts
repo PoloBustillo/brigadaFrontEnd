@@ -25,6 +25,7 @@ import {
   type CreateResponseParams,
 } from "@/lib/db/repositories/response.repository";
 import { syncRepository } from "@/lib/db/repositories/sync.repository";
+import { fileUploadService } from "@/lib/services/file-upload.service";
 import * as Application from "expo-application";
 import * as Crypto from "expo-crypto";
 import { Platform } from "react-native";
@@ -312,6 +313,12 @@ class OfflineSyncService {
 
           successCount++;
           console.log(`✅ Synced queued response: ${item.entity_id}`);
+        } else if (item.operation_type === "upload_file") {
+          // Upload pending files for this response
+          const uploaded = await fileUploadService.uploadPendingFiles(10);
+          await syncRepository.markAsCompleted(item.queue_id);
+          successCount++;
+          console.log(`✅ Uploaded ${uploaded} file(s) for: ${item.entity_id}`);
         } else {
           // Unknown operation type
           await syncRepository.markAsCompleted(item.queue_id);
@@ -367,6 +374,7 @@ class OfflineSyncService {
 
   /**
    * Save a file reference (photo, signature, INE) linked to a response
+   * and queue it for upload.
    */
   async saveFileReference(params: {
     responseId: string;
@@ -389,6 +397,16 @@ class OfflineSyncService {
       file_name: params.fileName,
       mime_type: params.mimeType,
       ine_ocr_data: params.ocrData,
+    });
+
+    // Queue file upload in sync queue
+    await syncRepository.addToQueue({
+      queue_id: Crypto.randomUUID(),
+      operation_type: "upload_file",
+      entity_type: "file",
+      entity_id: fileId,
+      payload: { file_id: fileId, response_id: params.responseId },
+      priority: 2, // Lower priority than response submission
     });
 
     return fileId;

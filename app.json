@@ -77,7 +77,8 @@
         {
           "locationAlwaysAndWhenInUsePermission": "Permite registrar tu ubicación en las encuestas de campo."
         }
-      ]
+      ],
+      "@sentry/react-native"
     ],
     "experiments": {
       "typedRoutes": true,
