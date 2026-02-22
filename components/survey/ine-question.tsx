@@ -468,6 +468,13 @@ export function INEQuestion({
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   };
 
+  /** Re-run ML Kit on the already-captured images without re-taking them */
+  const reRunOcr = useCallback(() => {
+    if (!data.front) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    runOcr(data.front, data.back);
+  }, [data.front, data.back, runOcr]);
+
   // Campos de texto editables (excluye los de confianza que no son strings)
   const updateOcrField = (field: IneTextField, val: string) => {
     if (!editableOcr) return;
@@ -481,17 +488,24 @@ export function INEQuestion({
   };
 
   // OCR field config for rendering
-  const ocrFields: { key: IneTextField; label: string }[] = [
-    { key: "nombre", label: "Nombre(s)" },
-    { key: "apellidoPaterno", label: "Apellido Paterno" },
-    { key: "apellidoMaterno", label: "Apellido Materno" },
-    { key: "curp", label: "CURP" },
-    { key: "claveElector", label: "Clave de Elector" },
-    { key: "fechaNacimiento", label: "Fecha de Nacimiento" },
-    { key: "sexo", label: "Sexo" },
-    { key: "seccion", label: "Sección" },
-    { key: "vigencia", label: "Vigencia" },
-    { key: "domicilio", label: "Domicilio" },
+  const ocrFields: {
+    key: IneTextField;
+    label: string;
+    autoCapitalize?: "none" | "sentences" | "words" | "characters";
+    keyboardType?: "default" | "numeric" | "numbers-and-punctuation";
+    maxLength?: number;
+    autoCorrect?: boolean;
+  }[] = [
+    { key: "nombre",          label: "Nombre(s)",          autoCapitalize: "characters", autoCorrect: false },
+    { key: "apellidoPaterno", label: "Apellido Paterno",   autoCapitalize: "characters", autoCorrect: false },
+    { key: "apellidoMaterno", label: "Apellido Materno",   autoCapitalize: "characters", autoCorrect: false },
+    { key: "curp",            label: "CURP",               autoCapitalize: "characters", autoCorrect: false, maxLength: 18 },
+    { key: "claveElector",    label: "Clave de Elector",   autoCapitalize: "characters", autoCorrect: false, maxLength: 18 },
+    { key: "fechaNacimiento", label: "Fecha de Nacimiento", keyboardType: "numbers-and-punctuation", maxLength: 10 },
+    { key: "sexo",            label: "Sexo (H / M)",       autoCapitalize: "characters", autoCorrect: false, maxLength: 1 },
+    { key: "seccion",         label: "Sección",            keyboardType: "numeric",      maxLength: 4 },
+    { key: "vigencia",        label: "Vigencia",           keyboardType: "numeric",      maxLength: 4 },
+    { key: "domicilio",       label: "Domicilio",          autoCapitalize: "characters", autoCorrect: false },
   ];
 
   return (
@@ -769,7 +783,7 @@ export function INEQuestion({
                 : "La calidad de lectura fue baja. Por favor revisa y corrige todos los campos."}
           </Text>
 
-          {ocrFields.map(({ key, label }) => {
+          {ocrFields.map(({ key, label, autoCapitalize, autoCorrect, keyboardType, maxLength }) => {
             // Usar confianza individual del parser en vez de la global
             // (Decisión §5 en lib/ocr/ine-ocr-parser.ts)
             const fieldValue = String(editableOcr[key] ?? "");
@@ -832,8 +846,13 @@ export function INEQuestion({
                   ]}
                   value={fieldValue}
                   onChangeText={(v) => updateOcrField(key, v)}
-                  placeholder={`Sin datos`}
+                  placeholder="Sin datos"
                   placeholderTextColor={colors.textTertiary}
+                  autoCapitalize={autoCapitalize ?? "none"}
+                  autoCorrect={autoCorrect ?? false}
+                  spellCheck={false}
+                  keyboardType={keyboardType ?? "default"}
+                  maxLength={maxLength}
                 />
               </View>
             );
@@ -893,6 +912,20 @@ export function INEQuestion({
                 Editar
               </Text>
             </TouchableOpacity>
+            {data.front && (
+              <TouchableOpacity
+                onPress={reRunOcr}
+                accessibilityLabel="Re-leer OCR"
+                accessibilityRole="button"
+              >
+                <View style={[styles.reLeerBtn, { borderColor: colors.primary + "50" }]}>
+                  <Ionicons name="refresh-outline" size={13} color={colors.primary} />
+                  <Text style={[styles.reLeerBtnText, { color: colors.primary }]}>
+                    Re-leer
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            )}
           </View>
           {data.ocrData.nombre ? (
             <Text style={[styles.ocrSummaryLine, { color: colors.text }]}>
@@ -1135,6 +1168,19 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   modeloBadgeText: {
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  reLeerBtn: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    gap: 3,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  reLeerBtnText: {
     fontSize: 11,
     fontWeight: "600",
   },

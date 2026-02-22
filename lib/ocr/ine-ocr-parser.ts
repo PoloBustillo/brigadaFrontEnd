@@ -155,6 +155,12 @@ const LABEL_TOKENS = [
   /^INE/i,
   /^IFE/i,
   /^INSTITUTO/i,
+  // Campos de domicilio que actúan como separadores entre secciones del reverso
+  /^COLONIA/i,
+  /^C[OÓ]DIGO/i,   // CODIGO POSTAL
+  /^C\.P\./i,
+  /^NOMBRE/i,       // previene que líneas "NOMBRE" de otra sección se incluyan en domicilio
+  /^APELLIDO/i,
 ];
 
 // ── Regex de extracción (Decisión §6 + §3) ────────────────────────────────────
@@ -347,7 +353,12 @@ function isValidDate(dd: string, mm: string, yyyy: string): boolean {
  */
 export function detectIneModelo(normalizedText: string): IneModelo {
   if (/INSTITUTO\s+FEDERAL\s+ELECTORAL/.test(normalizedText)) {
-    // IFE: distinguir A vs B por vigencia (B tiene vigencias 2014+) — simplificamos a A
+    // B_IFE2013 se distribuyó entre 2011 y 2017 con vigencias 2014–2021.
+    // Si la vigencia es ≥ 2014 asumimos Modelo B (QR visible, layout ligeramente distinto).
+    const vigenciaIfeMtch = normalizedText.match(VIGENCIA_RE);
+    if (vigenciaIfeMtch && parseInt(vigenciaIfeMtch[1], 10) >= 2014) {
+      return "B_IFE2013";
+    }
     return "A_IFE2008";
   }
   if (/INSTITUTO\s+NACIONAL\s+ELECTORAL/.test(normalizedText)) {
@@ -420,10 +431,18 @@ function extractNamesFromLabels(lines: string[]): NameResult | null {
  * candidatos: solo letras, sin números, longitud >= 3.
  */
 function extractNamesFromBlock(lines: string[], curp: string): NameResult | null {
-  // Ancla: índice de la línea que contiene el CURP
-  const anchorIdx = curp
+  // Ancla primaria: línea que contiene los primeros 10 chars del CURP
+  let anchorIdx = curp
     ? lines.findIndex((l) => l.includes(curp.substring(0, 10)))
     : -1;
+
+  // Ancla secundaria: cuando el CURP no está disponible, anclar en
+  // "FECHA DE NACIMIENTO" — los nombres siempre la preceden en todos los
+  // modelos INE. Esto mejora la extracción cuando OCR del reverso falla.
+  if (anchorIdx < 2) {
+    const fechaIdx = lines.findIndex((l) => /FECHA\s+DE\s+NAC/i.test(l));
+    if (fechaIdx >= 2) anchorIdx = fechaIdx;
+  }
 
   if (anchorIdx < 2) return null;
 
@@ -485,7 +504,9 @@ function extractDomicilio(lines: string[]): { value: string; confidence: number 
   if (domIdx < 0) return { value: "", confidence: 0 };
 
   const addressLines: string[] = [];
-  for (let i = domIdx + 1; i < Math.min(domIdx + 5, lines.length); i++) {
+  // Hasta 6 líneas — modelos con colonia/municipio/estado separados pueden
+  // tener más de 4 líneas de dirección (Decisión §8, roadmap item 9).
+  for (let i = domIdx + 1; i < Math.min(domIdx + 7, lines.length); i++) {
     if (isLabel(lines[i])) break;
     // Filtrar líneas que son solo números cortos (números de página, etc.)
     if (/^\d{1,3}$/.test(lines[i])) continue;
@@ -520,18 +541,37 @@ type FieldConf = Record<
   number
 >;
 
-function computeOverallConfidence(fields: FieldConf, results: Omit<IneOcrResult, "confidence" | "fieldConfidence" | "modeloDetected">): number {
-  const scored: number[] = Object.keys(fields).map((k) => {
-    const key = k as keyof typeof fields;
-    // Un campo vacío pesa 0, un campo con valor pesa según su confianza
-    const hasValue = String((results as any)[key]).length > 0;
-    return hasValue ? fields[key] : 0;
-  });
+/**
+ * Pesos relativos por campo.
+ * CURP y Clave de Elector son validables con regex estricto → peso mayor.
+ * Domicilio y Sección son secundarios para identificación → peso menor.
+ */
+const FIELD_WEIGHTS: Partial<Record<keyof FieldConf, number>> = {
+  curp:            2.0,
+  claveElector:    1.5,
+  nombre:          1.5,
+  apellidoPaterno: 1.2,
+  apellidoMaterno: 1.0,
+  fechaNacimiento: 1.2,
+  sexo:            0.8,
+  seccion:         0.6,
+  vigencia:        0.6,
+  domicilio:       0.8,
+};
 
-  const total = scored.reduce((a, b) => a + b, 0);
-  const nonZero = scored.filter((v) => v > 0).length;
-  // Normalizar: media de los campos que se lograron extraer
-  return nonZero > 0 ? Math.min(total / (scored.length), 1) : 0;
+function computeOverallConfidence(fields: FieldConf, results: Omit<IneOcrResult, "confidence" | "fieldConfidence" | "modeloDetected">): number {
+  let totalWeight = 0;
+  let weightedScore = 0;
+
+  for (const k of Object.keys(fields)) {
+    const key = k as keyof FieldConf;
+    const weight = FIELD_WEIGHTS[key] ?? 1.0;
+    const hasValue = String((results as any)[key]).length > 0;
+    totalWeight += weight;
+    if (hasValue) weightedScore += fields[key] * weight;
+  }
+
+  return totalWeight > 0 ? Math.min(weightedScore / totalWeight, 1) : 0;
 }
 
 // ── Función principal (Decisión §2) ───────────────────────────────────────────
