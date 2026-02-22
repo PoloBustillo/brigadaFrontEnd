@@ -109,8 +109,11 @@ import {
   classifyFrontBlocks,
   classifyBackBlocks,
   extractNamesFromSpatial,
-  extractAddressFromSpatial,
 } from "./ine-spatial";
+import {
+  extractDomicilioExpert,
+  extractAddressFromSpatialExpert,
+} from "./ine-address";
 
 // Re-export OcrBlock for use by consumers
 export type { OcrBlock };
@@ -811,162 +814,8 @@ function isDomicilioStop(line: string): boolean {
   return DOMICILIO_STOP_TOKENS.some((re) => re.test(line));
 }
 
-/**
- * Extrae el domicilio del reverso de la INE.
- *
- * Mejoras v2:
- *  - Ancla principal: "DOMICILIO" con OCR tolerante (D0MICILIO, DOM1CILIO, etc.)
- *  - Ancla secundaria: líneas que empiezan con patrón de dirección mexicana
- *  - Ancla terciaria: líneas con C.P./COLONIA/COL. que indican contexto de dirección
- *  - Recolecta también HACIA ATRÁS desde C.P./COLONIA para capturar la calle
- *  - Recolecta hasta 8 líneas, filtrando líneas de ruido
- *  - Limpia artefactos comunes (# sueltos, pipes)
- */
-function extractDomicilio(lines: string[]): {
-  value: string;
-  confidence: number;
-} {
-  // Ancla primaria: etiqueta "DOMICILIO" — OCR tolerante
-  //   D→D, O→0, M→M, I→1/I, C→C, L→L, O→0
-  let domIdx = lines.findIndex((l) => /^D[O0]M[I1]C[I1]L[I1][O0]/i.test(l));
-
-  // Ancla secundaria: si "DOMICILIO" no aparece, buscar la primera línea
-  // que parece inicio de una dirección mexicana
-  if (domIdx < 0) {
-    domIdx = lines.findIndex(
-      (l) =>
-        /^(?:CALLE|C\.\s|AV[.\s]|AVDA|AVENIDA|BLVD|BOULEVARD|PRIV|PRIVADA|AND[.\s]|ANDADOR|CDA|CERRADA|PROL|PROLONGACI[OÓ]N|CALZ|CALZADA|CAMINO|CARR|CARRETERA)/i.test(
-          l,
-        ) ||
-        // Patrón: "ALGO #123" o "ALGO NUM 123" — dirección con número exterior
-        /\b(?:NUM\.?\s*\d+|#\s*\d+|\d{1,5}\s*(?:INT|EXT))\b/i.test(l),
-    );
-  }
-
-  // Ancla terciaria: buscar "COLONIA" / "COL." / "C.P." / "CODIGO POSTAL"
-  // y reconstruir dirección hacia atrás y adelante desde ahí
-  if (domIdx < 0) {
-    const colIdx = lines.findIndex(
-      (l) =>
-        /^(?:COL\.?|COLONIA)\s+/i.test(l) ||
-        /^C\.?\s*P\.?\s*\d{5}/i.test(l) ||
-        /^C[OÓ]D(?:IGO)?\s*P(?:OSTAL)?/i.test(l),
-    );
-    if (colIdx >= 0) {
-      // Buscar hacia atrás para encontrar la calle (hasta 4 líneas)
-      let startIdx = colIdx;
-      for (let i = colIdx - 1; i >= Math.max(0, colIdx - 4); i--) {
-        const l = lines[i];
-        if (isDomicilioStop(l)) break;
-        if (l.length < 3) continue;
-        // Si la línea tiene contenido tipo dirección, incluirla
-        if (/[A-ZÁÉÍÓÚÑÜ]{2,}/.test(l) && !/^\d{1,3}$/.test(l)) {
-          startIdx = i;
-        } else {
-          break;
-        }
-      }
-      domIdx = startIdx;
-    }
-  }
-
-  // Ancla cuaternaria: buscar líneas con código postal (5 dígitos) en contexto
-  if (domIdx < 0) {
-    const cpIdx = lines.findIndex(
-      (l) => /\b\d{5}\b/.test(l) && l.length >= 5 && l.length <= 60,
-    );
-    if (cpIdx >= 0) {
-      // Reconstruir hacia atrás
-      let startIdx = cpIdx;
-      for (let i = cpIdx - 1; i >= Math.max(0, cpIdx - 4); i--) {
-        const l = lines[i];
-        if (isDomicilioStop(l) || l.length < 3) break;
-        if (/[A-ZÁÉÍÓÚÑÜ]{2,}/.test(l)) startIdx = i;
-        else break;
-      }
-      domIdx = startIdx;
-    }
-  }
-
-  if (domIdx < 0) return { value: "", confidence: 0 };
-
-  const addressLines: string[] = [];
-  // Decidir si la ancla misma contiene valor útil o es solo etiqueta
-  const anchorLine = lines[domIdx];
-  const anchorHasValue = anchorLine
-    .replace(/^D[O0]M[I1]C[I1]L[I1][O0]\s*/i, "")
-    .trim();
-  if (
-    anchorHasValue.length >= 3 &&
-    !/^D[O0]M[I1]C[I1]L[I1][O0]$/i.test(anchorLine)
-  ) {
-    // La etiqueta tiene valor inline: "DOMICILIO CALLE REFORMA 123"
-    addressLines.push(anchorHasValue);
-  } else if (!/D[O0]M[I1]C[I1]L[I1][O0]/i.test(anchorLine)) {
-    // La ancla no es "DOMICILIO" (es una línea de dirección directa)
-    addressLines.push(anchorLine);
-  }
-
-  // Recolectar hasta 8 líneas después de la ancla
-  for (let i = domIdx + 1; i < Math.min(domIdx + 9, lines.length); i++) {
-    const line = lines[i];
-    if (isDomicilioStop(line)) break;
-    // Líneas que son parte del domicilio aunque empiecen con etiqueta de dirección:
-    // "COLONIA SAN MIGUEL", "MUNICIPIO CUAUHTÉMOC", "ESTADO DE MÉXICO", "C.P. 12345"
-    const isAddressLabel =
-      /^(?:COL\.?|COLONIA|MUNICIPIO|DELEGACI[OÓ]N|DELEG|ESTADO|EDO\.?|C\.?\s*P\.?|C[OÓ]D(?:IGO)?\s*P(?:OSTAL)?|LOCALIDAD)\s/i.test(
-        line,
-      );
-    if (isAddressLabel) {
-      addressLines.push(line);
-      continue;
-    }
-    // Filtrar líneas que son solo números cortos (nro de página, sección)
-    if (/^\d{1,3}$/.test(line)) continue;
-    // Filtrar líneas muy cortas que son ruido OCR
-    if (line.length < 3) continue;
-    addressLines.push(line);
-  }
-
-  if (addressLines.length === 0) return { value: "", confidence: 0 };
-
-  // Limpiar artefactos OCR comunes en la dirección
-  const cleanedAddress = addressLines
-    .map((l) =>
-      l
-        .replace(/[|]/g, "") // pipes que OCR confunde con bordes
-        .replace(/\s+/g, " ")
-        .trim(),
-    )
-    .filter((l) => l.length >= 2)
-    .join(", ");
-
-  // Mejor confianza si detectamos patrones típicos de dirección mexicana
-  const hasNumero = /\d{1,5}/.test(cleanedAddress);
-  const hasCP =
-    /C\.?\s*P\.?\s*\d{5}/i.test(cleanedAddress) ||
-    /\b\d{5}\b/.test(cleanedAddress);
-  const hasColonia = /COL\.?|COLONIA|FRACC\.?|FRACCIONAMIENTO/i.test(
-    cleanedAddress,
-  );
-  const matchCount = [
-    hasNumero,
-    hasCP,
-    hasColonia,
-    addressLines.length >= 2,
-  ].filter(Boolean).length;
-
-  const confidence =
-    matchCount >= 3
-      ? 0.95
-      : matchCount >= 2
-        ? 0.85
-        : matchCount >= 1
-          ? 0.65
-          : 0.4;
-
-  return { value: cleanedAddress, confidence };
-}
+// NOTA: extractDomicilio fue reemplazado por extractDomicilioExpert en ine-address.ts
+// que implementa 6 estrategias independientes con scoring y fusión.
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -1272,22 +1121,28 @@ export function parseIneOcrText(
   fc.apellidoMaterno = res.apellidoMaterno ? nameConf : 0;
 
   // ── Campo: Domicilio ─────────────────────────────────────────────────────
-  // Cascada: spatial > text-based (Decisión §8)
+  // Cascada multi-estrategia: spatial_expert > text_expert (Decisión §8)
   {
-    // Intentar extracción espacial primero
+    // Extracción espacial mejorada (usa zonas + heurísticas)
     const spatialAddr = backBlocks
-      ? extractAddressFromSpatial(classifyBackBlocks(backBlocks).addressBlocks)
+      ? extractAddressFromSpatialExpert(
+          classifyBackBlocks(backBlocks).addressBlocks,
+        )
       : null;
 
-    // Extracción basada en texto como fallback
+    // Extracción basada en texto con 6 estrategias independientes
     const backLines = back
       .split("\n")
       .map((l) => l.trim())
       .filter((l) => l.length >= 2);
-    const textAddr = extractDomicilio(backLines);
+    const textAddr = extractDomicilioExpert(backLines);
 
     // Usar la fuente con mayor confianza
-    if (spatialAddr && spatialAddr.value && spatialAddr.confidence > (textAddr.confidence || 0)) {
+    if (
+      spatialAddr &&
+      spatialAddr.value &&
+      spatialAddr.confidence > (textAddr.confidence || 0)
+    ) {
       res.domicilio = spatialAddr.value;
       fc.domicilio = spatialAddr.confidence;
     } else if (textAddr.value) {

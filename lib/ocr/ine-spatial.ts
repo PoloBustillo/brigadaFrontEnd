@@ -319,6 +319,7 @@ export function extractNamesFromSpatial(
 }
 
 /**
+ * @deprecated Usar extractAddressFromSpatialExpert de ine-address.ts
  * Extrae dirección de los bloques espaciales del reverso.
  * Los bloques en la zona de dirección (mitad superior del reverso)
  * se concatenan en orden Y para formar la dirección completa.
