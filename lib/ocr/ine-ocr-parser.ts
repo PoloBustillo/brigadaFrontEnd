@@ -227,14 +227,22 @@ const SEXO_RE = /\bSEXO\s*[:\-]?\s*([HM])\b/i;
 export function normalizeOcrText(raw: string): string {
   return raw
     .toUpperCase()
-    // a) Reemplazar símbolos de marca de agua / bordes
+    // a) ANTES de eliminar la virgulilla (~), reconstruir la Ñ que ML Kit
+    //    puede haber separado en dos caracteres: "MUN~OZ" → "MUÑOZ".
+    //    Patrones comunes según el motor OCR:
+    //      N˜  (N + virgulilla combinatoria U+02DC)
+    //      N~   (N + tilde ASCII)
+    //      ~N   (tilde al revés, menos frecuente)
+    .replace(/N[˜~]/g, "Ñ")
+    .replace(/[˜~]N/g, "Ñ")
+    // b) Reemplazar símbolos de marca de agua / bordes (ahora que ~ ya fue manejada)
     .replace(/[◆●■»*|~#@%^&]/g, " ")
-    // b) Colapsar whitespace interno
+    // c) Colapsar whitespace interno
     .split("\n")
     .map((line) => line.replace(/\s+/g, " ").trim())
-    // c) Eliminar ruido (líneas muy cortas que no son valor de campo)
+    // d) Eliminar ruido (líneas muy cortas que no son valor de campo)
     .filter((line) => line.length >= 2)
-    // d) Filtrar líneas MRZ (Machine-Readable Zone: contienen <<<)
+    // e) Filtrar líneas MRZ (Machine-Readable Zone: contienen <)
     //    que aparecen en el reverso de algunos modelos y confunden
     //    el regex de CURP con cadenas similares de 18 chars.
     .filter((line) => !line.includes("<"))
@@ -671,7 +679,21 @@ export function parseIneOcrText(
       fc.fechaNacimiento = fechaResult.confidence;
     }
   }
-
+  // Fallback: derivar fecha desde CURP si el OCR no encontró una fecha.
+  // CURP posiciones 4-5=YY, 6-7=MM, 8-9=DD.
+  // Lógica de siglo para padrón electoral (edad mínima 18 años en 2026):
+  //   YY 00-08 → 2000-2008 (18-26 años),  YY 09-99 → 1909-1999 (27+ años).
+  if (!res.fechaNacimiento && res.curp.length === 18) {
+    const yy = parseInt(res.curp.substring(4, 6), 10);
+    const mm = res.curp.substring(6, 8);
+    const dd = res.curp.substring(8, 10);
+    const year = yy <= 8 ? 2000 + yy : 1900 + yy;
+    // Sólo usar si los valores son plausibles
+    if (isValidDate(dd, mm, String(year))) {
+      res.fechaNacimiento = `${dd}/${mm}/${year}`;
+      fc.fechaNacimiento  = 0.8; // Derivado de CURP — confiable pero no literal
+    }
+  }
   // ── Campo: Sexo ──────────────────────────────────────────────────────────
   {
     const sexoMatch = combined.match(SEXO_RE);

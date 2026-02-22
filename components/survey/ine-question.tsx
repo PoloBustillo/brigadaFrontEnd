@@ -9,8 +9,10 @@
  * - Auto-populate extracted data with editable confirmation
  */
 
+import { useAuth } from "@/contexts/auth-context";
 import { useThemeColors } from "@/contexts/theme-context";
 import { parseIneOcrText, type IneOcrResult } from "@/lib/ocr/ine-ocr-parser";
+import { validateCurp, type CurpValidationResult } from "@/lib/ocr/curp-validator";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as ImageManipulator from "expo-image-manipulator";
@@ -194,9 +196,12 @@ export function INEQuestion({
 }: INEQuestionProps) {
   const themeColors = useThemeColors();
   const colors = colorsProp ?? themeColors;
+  const { token } = useAuth();
   const [loading, setLoading] = useState<"front" | "back" | "ocr" | null>(null);
   const [ocrEditing, setOcrEditing] = useState(false);
   const [editableOcr, setEditableOcr] = useState<INEOcrResult | null>(null);
+  const [curpValidation, setCurpValidation] = useState<CurpValidationResult | null>(null);
+  const [validatingCurp, setValidatingCurp] = useState(false);
 
   // Pre-OCR preview state: captured photo waiting for user confirmation
   const [pendingCapture, setPendingCapture] = useState<{
@@ -472,8 +477,44 @@ export function INEQuestion({
   const reRunOcr = useCallback(() => {
     if (!data.front) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setCurpValidation(null); // reset previous validation when re-reading
     runOcr(data.front, data.back);
   }, [data.front, data.back, runOcr]);
+
+  /** Validate the current CURP value against RENAPO via backend proxy */
+  const handleVerifyCurp = useCallback(async () => {
+    const curp = editableOcr?.curp;
+    if (!curp || curp.length !== 18 || !token) return;
+    setValidatingCurp(true);
+    try {
+      const result = await validateCurp(curp, token);
+      setCurpValidation(result);
+      // Si RENAPO devuelve datos y algunos campos están vacíos, pre-rellenar
+      if (result.renapoReachable && editableOcr) {
+        const patch: Partial<INEOcrResult> = {};
+        const patchConf: Partial<typeof editableOcr.fieldConfidence> = {};
+        if (result.nombre    && !editableOcr.nombre)          { patch.nombre          = result.nombre;    patchConf.nombre          = 0.95; }
+        if (result.apellido1 && !editableOcr.apellidoPaterno) { patch.apellidoPaterno = result.apellido1; patchConf.apellidoPaterno = 0.95; }
+        if (result.apellido2 && !editableOcr.apellidoMaterno) { patch.apellidoMaterno = result.apellido2; patchConf.apellidoMaterno = 0.95; }
+        if (result.sexo      && !editableOcr.sexo)            { patch.sexo            = result.sexo;      patchConf.sexo            = 1.0;  }
+        if (Object.keys(patch).length > 0) {
+          setEditableOcr((prev) => prev ? {
+            ...prev, ...patch,
+            fieldConfidence: { ...prev.fieldConfidence, ...patchConf },
+          } : prev);
+        }
+      }
+      Haptics.notificationAsync(
+        result.renapoStatus === "VIGE"
+          ? Haptics.NotificationFeedbackType.Success
+          : Haptics.NotificationFeedbackType.Warning,
+      );
+    } catch {
+      Alert.alert("Error", "No se pudo validar el CURP. Intenta más tarde.");
+    } finally {
+      setValidatingCurp(false);
+    }
+  }, [editableOcr, token]);
 
   // Campos de texto editables (excluye los de confianza que no son strings)
   const updateOcrField = (field: IneTextField, val: string) => {
@@ -845,7 +886,7 @@ export function INEQuestion({
                     },
                   ]}
                   value={fieldValue}
-                  onChangeText={(v) => updateOcrField(key, v)}
+                  onChangeText={(v) => { updateOcrField(key, v); if (key === "curp") setCurpValidation(null); }}
                   placeholder="Sin datos"
                   placeholderTextColor={colors.textTertiary}
                   autoCapitalize={autoCapitalize ?? "none"}
@@ -854,6 +895,81 @@ export function INEQuestion({
                   keyboardType={keyboardType ?? "default"}
                   maxLength={maxLength}
                 />
+                {/* Boton de verificacion RENAPO — solo para el campo CURP */}
+                {key === "curp" && fieldValue.length === 18 && (
+                  <View style={styles.curpVerifyRow}>
+                    <TouchableOpacity
+                      style={[
+                        styles.curpVerifyBtn,
+                        {
+                          backgroundColor: colors.primary + "15",
+                          borderColor: colors.primary + "50",
+                          opacity: validatingCurp ? 0.6 : 1,
+                        },
+                      ]}
+                      onPress={handleVerifyCurp}
+                      disabled={validatingCurp}
+                      activeOpacity={0.7}
+                    >
+                      {validatingCurp ? (
+                        <ActivityIndicator size="small" color={colors.primary} />
+                      ) : (
+                        <Ionicons name="shield-checkmark-outline" size={14} color={colors.primary} />
+                      )}
+                      <Text style={[styles.curpVerifyBtnText, { color: colors.primary }]}>
+                        {validatingCurp ? "Verificando..." : "Verificar en RENAPO"}
+                      </Text>
+                    </TouchableOpacity>
+                    {curpValidation && (
+                      <View
+                        style={[
+                          styles.curpValidationResult,
+                          {
+                            backgroundColor:
+                              curpValidation.renapoStatus === "VIGE"
+                                ? colors.success + "18"
+                                : curpValidation.renapoStatus === "NO_ENCONTRADO" || curpValidation.renapoStatus === "BAJA"
+                                  ? colors.error + "12"
+                                  : colors.warning + "18",
+                            borderColor:
+                              curpValidation.renapoStatus === "VIGE"
+                                ? colors.success + "60"
+                                : curpValidation.renapoStatus === "NO_ENCONTRADO" || curpValidation.renapoStatus === "BAJA"
+                                  ? colors.error + "40"
+                                  : colors.warning + "40",
+                          },
+                        ]}
+                      >
+                        <Ionicons
+                          name={
+                            curpValidation.renapoStatus === "VIGE" ? "checkmark-circle"
+                            : curpValidation.renapoStatus === "NO_ENCONTRADO" || curpValidation.renapoStatus === "BAJA" ? "close-circle"
+                            : "alert-circle"
+                          }
+                          size={14}
+                          color={
+                            curpValidation.renapoStatus === "VIGE" ? colors.success
+                            : curpValidation.renapoStatus === "NO_ENCONTRADO" || curpValidation.renapoStatus === "BAJA" ? colors.error
+                            : (colors.warning ?? "#f59e0b")
+                          }
+                        />
+                        <Text
+                          style={[
+                            styles.curpValidationText,
+                            {
+                              color:
+                                curpValidation.renapoStatus === "VIGE" ? colors.success
+                                : curpValidation.renapoStatus === "NO_ENCONTRADO" || curpValidation.renapoStatus === "BAJA" ? colors.error
+                                : (colors.warning ?? "#f59e0b"),
+                            },
+                          ]}
+                        >
+                          {curpValidation.displayMessage}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                )}
               </View>
             );
           })}
@@ -1183,6 +1299,37 @@ const styles = StyleSheet.create({
   reLeerBtnText: {
     fontSize: 11,
     fontWeight: "600",
+  },
+  curpVerifyRow: {
+    gap: 8,
+    marginTop: 4,
+  },
+  curpVerifyBtn: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    alignSelf: "flex-start" as const,
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  curpVerifyBtnText: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  curpValidationResult: {
+    flexDirection: "row" as const,
+    alignItems: "flex-start" as const,
+    gap: 6,
+    padding: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  curpValidationText: {
+    fontSize: 12,
+    flex: 1,
+    fontWeight: "500",
   },
   // Pre-OCR preview confirmation
   previewConfirmCard: {
