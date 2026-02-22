@@ -7,13 +7,8 @@ import type { User } from "@/types/user";
 import * as Application from "expo-application";
 import * as Crypto from "expo-crypto";
 import { Platform } from "react-native";
-import { api, clearTokens, setAccessToken, setRefreshToken } from "./client";
-import type {
-  LoginResponse,
-  UserCreateRequest,
-  UserResponse,
-  UserUpdateRequest,
-} from "./types";
+import { apiClient, clearTokens, setAccessToken, setRefreshToken } from "./client";
+import type { LoginResponse, UserResponse, UserUpdateRequest } from "./types";
 import { getApiErrorMessage, mapUser } from "./utils";
 
 const APP_VERSION = Application.nativeApplicationVersion ?? "1.0.0";
@@ -50,7 +45,7 @@ export async function login(
   password: string,
 ): Promise<{ user: User; token: string }> {
   try {
-    const response = await api.post<LoginResponse>("/mobile/login", {
+    const response = await apiClient.post<LoginResponse>("/mobile/login", {
       email,
       password,
       device_id: await getDeviceId(),
@@ -102,7 +97,7 @@ export async function logout(): Promise<void> {
  */
 export async function getCurrentUser(): Promise<User> {
   try {
-    const response = await api.get<UserResponse>("/users/me");
+    const response = await apiClient.get<UserResponse>("/users/me");
     const userProfile = response.data;
 
     return mapUser(userProfile);
@@ -119,7 +114,7 @@ export async function updateProfile(
   data: Partial<UserUpdateRequest>,
 ): Promise<User> {
   try {
-    const response = await api.patch<UserResponse>("/users/me", data);
+    const response = await apiClient.patch<UserResponse>("/users/me", data);
     const userProfile = response.data;
 
     return mapUser(userProfile);
@@ -147,7 +142,7 @@ export async function uploadAvatar(imageUri: string): Promise<User> {
     const formData = new FormData();
     formData.append("file", { uri: imageUri, name: filename, type } as any);
 
-    const response = await api.post<UserResponse>(
+    const response = await apiClient.post<UserResponse>(
       "/users/me/avatar",
       formData,
       {
@@ -158,69 +153,6 @@ export async function uploadAvatar(imageUri: string): Promise<User> {
     return mapUser(response.data);
   } catch (error: any) {
     throw new Error(getApiErrorMessage(error, "No se pudo subir la foto de perfil"));
-  }
-}
-
-/**
- * Create new user (Admin only)
- */
-export async function createUser(
-  data: UserCreateRequest,
-): Promise<UserResponse> {
-  try {
-    const response = await api.post<UserResponse>("/users", data);
-    return response.data;
-  } catch (error: any) {
-    console.error("Create user error:", error);
-    throw new Error(getApiErrorMessage(error, "Error al crear usuario"));
-  }
-}
-
-/**
- * Get all users (Admin only)
- */
-export async function getAllUsers(params?: {
-  skip?: number;
-  limit?: number;
-  role?: string;
-  is_active?: boolean;
-}): Promise<UserResponse[]> {
-  try {
-    const response = await api.get<UserResponse[]>("/users", {
-      params,
-    });
-    return response.data;
-  } catch (error: any) {
-    console.error("Get all users error:", error);
-    throw new Error(getApiErrorMessage(error, "Error al obtener usuarios"));
-  }
-}
-
-/**
- * Update user (Admin only)
- */
-export async function updateUser(
-  userId: number,
-  data: Partial<UserUpdateRequest>,
-): Promise<UserResponse> {
-  try {
-    const response = await api.patch<UserResponse>(`/users/${userId}`, data);
-    return response.data;
-  } catch (error: any) {
-    console.error("Update user error:", error);
-    throw new Error(getApiErrorMessage(error, "Error al actualizar usuario"));
-  }
-}
-
-/**
- * Delete user (Admin only)
- */
-export async function deleteUser(userId: number): Promise<void> {
-  try {
-    await api.delete(`/users/${userId}`);
-  } catch (error: any) {
-    console.error("Delete user error:", error);
-    throw new Error(getApiErrorMessage(error, "Error al eliminar usuario"));
   }
 }
 
@@ -264,7 +196,7 @@ export async function validateActivationCode(
   code: string,
 ): Promise<ValidateCodeResult> {
   try {
-    const response = await api.post<ValidateCodeResult>(
+    const response = await apiClient.post<ValidateCodeResult>(
       "/public/activate/validate-code",
       { code },
     );
@@ -312,7 +244,7 @@ export async function completeActivation(data: {
   agree_to_terms: boolean;
 }): Promise<CompleteActivationResult> {
   try {
-    const response = await api.post<CompleteActivationResult>(
+    const response = await apiClient.post<CompleteActivationResult>(
       "/public/activate/complete",
       data,
     );
@@ -336,7 +268,7 @@ export async function changePassword(
   newPassword: string,
 ): Promise<void> {
   try {
-    await api.post("/users/me/change-password", {
+    await apiClient.post("/users/me/change-password", {
       current_password: currentPassword,
       new_password: newPassword,
     });

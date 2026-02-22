@@ -21,10 +21,6 @@ export interface NotificationListResponse {
   unread_count: number;
 }
 
-export interface UnreadCountResponse {
-  count: number;
-}
-
 // ─── API calls ──────────────────────────────────────────────────────────────
 
 /**
@@ -43,16 +39,6 @@ export async function getNotifications(
     { params },
   );
   return data;
-}
-
-/**
- * GET /mobile/notifications/unread-count
- */
-export async function getUnreadCount(): Promise<number> {
-  const { data } = await apiClient.get<UnreadCountResponse>(
-    "/mobile/notifications/unread-count",
-  );
-  return data.count;
 }
 
 /**

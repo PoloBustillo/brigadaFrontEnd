@@ -5,6 +5,7 @@
  */
 
 import { apiClient } from "./client";
+import type { SurveyMini, UserMini } from "./types";
 
 // ---------------------------------------------------------------------------
 // Stats
@@ -68,26 +69,14 @@ export async function getAdminUsers(): Promise<AdminUser[]> {
 // ---------------------------------------------------------------------------
 // Assignments
 
-interface AdminAssignmentUser {
-  id: number;
-  full_name: string;
-  email: string;
-  role: string;
-}
-
-interface AdminAssignmentSurvey {
-  id: number;
-  title: string;
-}
-
 export interface AdminAssignment {
   id: number;
   user_id: number;
-  user: AdminAssignmentUser;
+  user: UserMini;
   survey_id: number;
-  survey: AdminAssignmentSurvey;
+  survey: SurveyMini;
   assigned_by: number | null;
-  assigned_by_user: AdminAssignmentUser | null;
+  assigned_by_user: UserMini | null;
   status: "active" | "inactive";
   location: string | null;
   notes: string | null;

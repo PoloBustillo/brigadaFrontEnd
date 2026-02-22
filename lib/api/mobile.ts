@@ -95,22 +95,6 @@ export async function getAssignedSurveys(
   );
 }
 
-/**
- * GET /mobile/surveys/:surveyId/latest
- * Returns the latest published version of a specific survey.
- */
-export async function getLatestSurveyVersion(
-  surveyId: number,
-): Promise<SurveyVersionResponse> {
-  return timedCall(
-    `GET /mobile/surveys/${surveyId}/latest`,
-    () =>
-      apiClient
-        .get<SurveyVersionResponse>(`/mobile/surveys/${surveyId}/latest`)
-        .then((r) => r.data),
-  );
-}
-
 // ─── Submit ───────────────────────────────────────────────────────────────────
 
 export interface QuestionAnswerCreate {

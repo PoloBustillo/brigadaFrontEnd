@@ -141,7 +141,7 @@ export async function setRefreshToken(token: string | null): Promise<void> {
 /**
  * Decode JWT token (without verification - for client-side only)
  */
-export function decodeToken(token: string): any {
+function decodeToken(token: string): any {
   try {
     const base64Url = token.split(".")[1];
     const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
@@ -335,16 +335,3 @@ apiClient.interceptors.response.use(
   },
 );
 
-/**
- * Helper to make authenticated requests
- */
-export const api = {
-  get: <T>(url: string, config = {}) => apiClient.get<T>(url, config),
-  post: <T>(url: string, data?: any, config = {}) =>
-    apiClient.post<T>(url, data, config),
-  put: <T>(url: string, data?: any, config = {}) =>
-    apiClient.put<T>(url, data, config),
-  patch: <T>(url: string, data?: any, config = {}) =>
-    apiClient.patch<T>(url, data, config),
-  delete: <T>(url: string, config = {}) => apiClient.delete<T>(url, config),
-};

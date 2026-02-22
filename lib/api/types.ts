@@ -6,11 +6,6 @@
 import type { UserRole } from "@/types/user";
 
 // Auth API Types
-export interface LoginRequest {
-  email: string;
-  password: string;
-}
-
 export interface LoginResponse {
   access_token: string;
   refresh_token: string;
@@ -27,12 +22,6 @@ export interface LoginResponse {
   };
 }
 
-export interface TokenData {
-  sub: string; // user_id
-  role: UserRole;
-  exp: number; // expiration timestamp
-}
-
 // User API Types
 export interface UserResponse {
   id: number;
@@ -46,14 +35,6 @@ export interface UserResponse {
   updated_at?: string;
 }
 
-export interface UserCreateRequest {
-  email: string;
-  password: string;
-  full_name: string;
-  phone?: string;
-  role: UserRole;
-}
-
 export interface UserUpdateRequest {
   email?: string;
   full_name?: string;
@@ -62,20 +43,15 @@ export interface UserUpdateRequest {
   is_active?: boolean;
 }
 
-// API Error Types
-export interface APIError {
-  detail: string;
-  status_code: number;
+// Shared mini-types (returned by backend in nested assignment responses)
+export interface UserMini {
+  id: number;
+  full_name: string;
+  email: string;
+  role: string;
 }
 
-export interface ValidationError {
-  loc: string[];
-  msg: string;
-  type: string;
-}
-
-// Generic API Response
-export interface APIResponse<T> {
-  data?: T;
-  error?: APIError;
+export interface SurveyMini {
+  id: number;
+  title: string;
 }

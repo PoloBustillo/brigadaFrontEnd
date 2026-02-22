@@ -4,22 +4,14 @@
  */
 
 import { apiClient } from "./client";
+import type { SurveyMini, UserMini } from "./types";
 import { timedCall } from "./utils";
+
+// Re-export for consumers that import from this file
+export type { SurveyMini, UserMini } from "./types";
 
 // ---------------------------------------------------------------------------
 // Types
-
-export interface UserMini {
-  id: number;
-  full_name: string;
-  email: string;
-  role: string;
-}
-
-export interface SurveyMini {
-  id: number;
-  title: string;
-}
 
 /** Matches AssignmentDetailResponse */
 export interface AssignmentDetail {

@@ -49,13 +49,6 @@ export function setCached<T>(key: string, data: T): void {
 }
 
 /**
- * Removes a specific cache key (e.g., after logout).
- */
-export function clearCached(key: string): void {
-  delete store[key];
-}
-
-/**
  * Clears all cached data (e.g., on logout).
  */
 export function clearAllCached(): void {
