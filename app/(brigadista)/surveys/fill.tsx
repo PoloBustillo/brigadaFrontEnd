@@ -12,7 +12,9 @@
 
 import { BooleanQuestion } from "@/components/survey/boolean-question";
 import { DateQuestion } from "@/components/survey/date-question";
+import { FileQuestion } from "@/components/survey/file-question";
 import { INEQuestion } from "@/components/survey/ine-question";
+import { LocationQuestion } from "@/components/survey/location-question";
 import { MultiSelectQuestion } from "@/components/survey/multi-select-question";
 import { NumberQuestion } from "@/components/survey/number-question";
 import { PhotoQuestion } from "@/components/survey/photo-question";
@@ -792,8 +794,12 @@ function QuestionInput({
     return <DateQuestion value={value} colors={colors} onChange={onChange} />;
   }
 
-  if (type === "photo" || type === "image" || type === "file") {
+  if (type === "photo" || type === "image") {
     return <PhotoQuestion value={value} colors={colors} onChange={onChange} />;
+  }
+
+  if (type === "file" || type === "document") {
+    return <FileQuestion value={value} onChange={onChange} colors={colors} question={question as any} />;
   }
 
   if (type === "ine" || type === "ine_ocr" || type === "credential") {
@@ -806,20 +812,8 @@ function QuestionInput({
     );
   }
 
-  if (type === "location") {
-    // TODO: implement LocationQuestion with expo-location
-    return (
-      <TextQuestionComp
-        value={value}
-        colors={colors}
-        onChange={onChange}
-        multiline={false}
-        keyboardType="default"
-        maxLength={200}
-        optional={!question.required}
-        autoFocus={false}
-      />
-    );
+  if (type === "location" || type === "gps" || type === "coordinates") {
+    return <LocationQuestion value={value} onChange={onChange} colors={colors} />;
   }
 
   // text / textarea / email / phone / fallback

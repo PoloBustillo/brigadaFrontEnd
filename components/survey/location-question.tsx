@@ -22,6 +22,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { WebView } from "react-native-webview";
 
 export interface LocationValue {
   latitude: number;
@@ -45,6 +46,40 @@ function openInMaps(lat: number, lon: number) {
   Linking.openURL(url).catch(() =>
     Alert.alert("Error", "No se pudo abrir la app de mapas."),
   );
+}
+
+/** Generates a self-contained HTML page with a Leaflet.js map centered on the location */
+function buildMapHtml(lat: number, lon: number): string {
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { width:100vw; height:100vh; overflow:hidden; }
+    #map { width:100%; height:100%; }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <script>
+    var map = L.map('map', { zoomControl: true, attributionControl: false })
+      .setView([${lat}, ${lon}], 16);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19
+    }).addTo(map);
+    var icon = L.divIcon({
+      html: '<div style="width:24px;height:24px;border-radius:50%;background:#e91e8c;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.4);"></div>',
+      iconSize: [24, 24],
+      iconAnchor: [12, 12],
+      className: ''
+    });
+    L.marker([${lat}, ${lon}], { icon: icon }).addTo(map);
+  </script>
+</body>
+</html>`;
 }
 
 export function LocationQuestion({
@@ -186,6 +221,19 @@ export function LocationQuestion({
             </Text>
           </View>
         )}
+
+        {/* Embedded map preview */}
+        <View style={[styles.mapContainer, { borderColor: colors.border }]}>
+          <WebView
+            source={{ html: buildMapHtml(value.latitude, value.longitude) }}
+            style={styles.mapWebView}
+            scrollEnabled={false}
+            javaScriptEnabled
+            originWhitelist={["*"]}
+            mixedContentMode="always"
+            androidLayerType="hardware"
+          />
+        </View>
 
         {/* Actions */}
         <View style={styles.actions}>
@@ -373,6 +421,16 @@ const styles = StyleSheet.create({
   accuracyText: {
     fontSize: 12,
     fontWeight: "500",
+  },
+  mapContainer: {
+    borderRadius: 10,
+    borderWidth: 1,
+    overflow: "hidden",
+    height: 200,
+  },
+  mapWebView: {
+    flex: 1,
+    backgroundColor: "transparent",
   },
   actions: {
     flexDirection: "row",

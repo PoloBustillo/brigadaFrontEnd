@@ -10,7 +10,7 @@
 
 import { useThemeColors } from "@/contexts/theme-context";
 import * as Haptics from "expo-haptics";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   StyleSheet,
   Text,
@@ -43,6 +43,20 @@ export function NumberQuestion({
   const [draft, setDraft] = useState("");
 
   const current = value ?? min ?? 0;
+
+  // Seed the initial display value so that showing "0" is a valid answer.
+  // Without this, the stepper shows 0 but value stays null until user interacts.
+  // Only applies to stepper mode — scale/rating requires an explicit tap selection.
+  useEffect(() => {
+    if (value === null || value === undefined) {
+      const isScaleMode =
+        min !== undefined && max !== undefined && max - min <= 10 && max > min;
+      if (!isScaleMode) {
+        onChange(min ?? 0);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const clamp = (n: number) => {
     let v = n;

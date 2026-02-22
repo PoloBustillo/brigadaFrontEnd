@@ -92,11 +92,10 @@ export function PhotoQuestion({
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         onChange(scannedImages[0]);
       } else {
-        // Field mode: standard camera
+        // Field mode: standard camera — no crop editor to avoid dark overlay
         const result = await ImagePicker.launchCameraAsync({
           mediaTypes: ["images"],
           quality: 0.7,
-          allowsEditing: true,
           exif: false,
         });
         if (!result.canceled && result.assets[0]) {
@@ -127,7 +126,6 @@ export function PhotoQuestion({
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ["images"],
         quality: 0.7,
-        allowsEditing: true,
         exif: false,
       });
 
