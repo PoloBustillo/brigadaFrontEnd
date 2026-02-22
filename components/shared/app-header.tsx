@@ -12,6 +12,7 @@ import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface AppHeaderProps {
   title: string;
@@ -31,6 +32,7 @@ export function AppHeader({
   const colors = useThemeColors();
   const { user, logout } = useAuth();
   const router = useRouter();
+  const { top: topInset } = useSafeAreaInsets();
   const [isOnline, setIsOnline] = useState(true);
 
   // Monitor network connectivity
@@ -85,7 +87,7 @@ export function AppHeader({
   };
 
   return (
-    <View style={styles.header}>
+    <View style={[styles.header, { paddingTop: Math.max(topInset, 20) + 8 }]}>
       <View style={styles.headerLeft}>
         <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
           {subtitle || user?.email}
@@ -149,7 +151,7 @@ export function AppHeader({
 const styles = StyleSheet.create({
   header: {
     paddingHorizontal: 20,
-    paddingTop: 60,
+    // paddingTop is set dynamically via useSafeAreaInsets in the component
     paddingBottom: 24,
     flexDirection: "row",
     justifyContent: "space-between",
