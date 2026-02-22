@@ -16,6 +16,7 @@ import React, { useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Image,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -129,24 +130,44 @@ export function FileQuestion({
   // ── Attached state ─────────────────────────────────────────────────────────
   if (value) {
     const iconName = iconForMime(value.mimeType) as any;
+    const isImage = value.mimeType?.startsWith("image/");
     return (
-      <View style={styles.attachedCard}>
-        <View
-          style={[styles.iconBadge, { backgroundColor: colors.primary + "20" }]}
-        >
-          <Ionicons name={iconName} size={28} color={colors.primary} />
-        </View>
+      <View
+        style={[
+          styles.attachedCard,
+          isImage && styles.attachedCardImage,
+        ]}
+      >
+        {isImage ? (
+          /* ── Image preview thumbnail ── */
+          <View style={styles.imageThumbnailWrap}>
+            <Image
+              source={{ uri: value.uri }}
+              style={styles.imageThumbnail}
+              resizeMode="cover"
+            />
+          </View>
+        ) : (
+          <View
+            style={[
+              styles.iconBadge,
+              { backgroundColor: colors.primary + "20" },
+            ]}
+          >
+            <Ionicons name={iconName} size={28} color={colors.primary} />
+          </View>
+        )}
         <View style={styles.fileInfo}>
           <Text
             style={[styles.fileName, { color: colors.text }]}
-            numberOfLines={2}
+            numberOfLines={isImage ? 1 : 2}
           >
             {value.name}
           </Text>
           {value.size !== undefined && (
             <Text style={[styles.fileMeta, { color: colors.textSecondary }]}>
               {formatBytes(value.size)}
-              {value.mimeType ? `  ·  ${value.mimeType}` : ""}
+              {value.mimeType && !isImage ? `  ·  ${value.mimeType}` : ""}
             </Text>
           )}
         </View>
@@ -230,6 +251,19 @@ const styles = StyleSheet.create({
     borderColor: "#e0e0e0",
     padding: 12,
     gap: 12,
+  },
+  attachedCardImage: {
+    alignItems: "flex-start",
+  },
+  imageThumbnailWrap: {
+    borderRadius: 8,
+    overflow: "hidden",
+    flexShrink: 0,
+  },
+  imageThumbnail: {
+    width: 64,
+    height: 64,
+    borderRadius: 8,
   },
   iconBadge: {
     width: 52,

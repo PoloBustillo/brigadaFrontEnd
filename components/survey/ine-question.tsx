@@ -299,6 +299,8 @@ export function INEQuestion({
   const hasFront = !!data.front;
   const hasBack = !!data.back;
   const isComplete = hasFront && hasBack;
+  // Progress step: 0=Frente, 1=Reverso, 2=OCR, 3=Listo
+  const currentStep = !hasFront ? 0 : !hasBack ? 1 : !data.ocrData ? 2 : 3;
 
   // Run OCR when both sides are captured
   const runOcr = useCallback(
@@ -578,6 +580,83 @@ export function INEQuestion({
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      {/* Step progress indicator */}
+      <View
+        style={[
+          styles.stepperRow,
+          { backgroundColor: colors.surface, borderColor: colors.border },
+        ]}
+      >
+        {([
+          { label: "Frente", icon: "card-outline" },
+          { label: "Reverso", icon: "card" },
+          { label: "OCR", icon: "scan-outline" },
+          { label: "Listo", icon: "checkmark-circle-outline" },
+        ] as { label: string; icon: React.ComponentProps<typeof Ionicons>["name"] }[]).map(
+          (step, i) => {
+            const isDone = i < currentStep;
+            const isActive = i === currentStep;
+            return (
+              <React.Fragment key={step.label}>
+                {i > 0 && (
+                  <View
+                    style={[
+                      styles.stepConnector,
+                      {
+                        backgroundColor:
+                          i <= currentStep ? colors.primary : colors.border,
+                      },
+                    ]}
+                  />
+                )}
+                <View style={styles.stepItem}>
+                  <View
+                    style={[
+                      styles.stepCircle,
+                      {
+                        backgroundColor: isDone
+                          ? colors.primary
+                          : isActive
+                            ? colors.primary + "22"
+                            : colors.border + "55",
+                        borderColor:
+                          isDone || isActive ? colors.primary : colors.border,
+                      },
+                    ]}
+                  >
+                    <Ionicons
+                      name={isDone ? "checkmark" : step.icon}
+                      size={14}
+                      color={
+                        isDone
+                          ? "#fff"
+                          : isActive
+                            ? colors.primary
+                            : (colors.textTertiary ?? "#bbb")
+                      }
+                    />
+                  </View>
+                  <Text
+                    style={[
+                      styles.stepLabel,
+                      {
+                        color:
+                          isDone || isActive
+                            ? colors.primary
+                            : (colors.textTertiary ?? "#bbb"),
+                        fontWeight: isActive ? "700" : "400",
+                      },
+                    ]}
+                  >
+                    {step.label}
+                  </Text>
+                </View>
+              </React.Fragment>
+            );
+          },
+        )}
+      </View>
+
       {/* Instructions */}
       <View
         style={[styles.instructionCard, { backgroundColor: colors.overlay }]}
@@ -897,6 +976,37 @@ export function INEQuestion({
 const styles = StyleSheet.create({
   container: {
     gap: 16,
+  },
+  // Stepper
+  stepperRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  stepItem: {
+    alignItems: "center",
+    gap: 5,
+  },
+  stepCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  stepConnector: {
+    flex: 1,
+    height: 2,
+    borderRadius: 1,
+    marginHorizontal: 4,
+    marginBottom: 18,
+  },
+  stepLabel: {
+    fontSize: 11,
   },
   instructionCard: {
     flexDirection: "row",
