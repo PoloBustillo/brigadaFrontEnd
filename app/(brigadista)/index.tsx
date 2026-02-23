@@ -19,6 +19,7 @@ import {
   type AssignedSurveyResponse,
 } from "@/lib/api/mobile";
 import { cacheRepository } from "@/lib/db/repositories/cache.repository";
+import { responseRepository } from "@/lib/db/repositories/response.repository";
 import { offlineSyncService } from "@/lib/services/offline-sync";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
@@ -215,6 +216,10 @@ export default function BrigadistaHome() {
   const [isLoading, setIsLoading] = useState(true);
   const [fetchError, setFetchError] = useState(false);
   const [pendingSyncCount, setPendingSyncCount] = useState(0);
+  const [completedCount, setCompletedCount] = useState(0);
+  const [localSurveyProgress, setLocalSurveyProgress] = useState<
+    Record<string, number>
+  >({});
 
   const CACHE_KEY = "assignments_active";
   const CACHE_TTL = 30 * 60 * 1000; // 30 min
@@ -257,29 +262,77 @@ export default function BrigadistaHome() {
     }
   };
 
-  // Load pending sync count
-  const loadPendingSyncCount = async () => {
+  // Load pending sync count + local stats
+  const loadLocalStats = async () => {
     try {
       const count = await offlineSyncService.getPendingSyncCount();
       setPendingSyncCount(count);
     } catch {}
+
+    // Load completed count from local DB
+    if (user?.id) {
+      try {
+        const stats = await responseRepository.getResponseStats(
+          String(user.id),
+        );
+        setCompletedCount(stats.completed + stats.validated);
+      } catch {}
+    }
+  };
+
+  // Load per-survey progress from local drafts
+  const loadSurveyProgress = async () => {
+    if (!assignments.length) return;
+    const progress: Record<string, number> = {};
+    for (const a of assignments) {
+      try {
+        const responses = await responseRepository.getResponsesBySurvey(
+          String(a.survey_id),
+          String(a.latest_version.id),
+        );
+        // If any response is completed/synced, mark 100%
+        const completed = responses.find(
+          (r) => r.status === "completed" || r.sync_status === "synced",
+        );
+        if (completed) {
+          progress[String(a.assignment_id)] =
+            a.latest_version.questions.length || 1;
+        } else if (responses.length > 0) {
+          // Draft — count answered questions
+          const latest = responses[0];
+          try {
+            const answers = JSON.parse(latest.answers_json || "[]");
+            progress[String(a.assignment_id)] = Array.isArray(answers)
+              ? answers.length
+              : 0;
+          } catch {
+            progress[String(a.assignment_id)] = 0;
+          }
+        }
+      } catch {}
+    }
+    setLocalSurveyProgress(progress);
   };
 
   useEffect(() => {
     fetchAssignments();
-    loadPendingSyncCount();
+    loadLocalStats();
   }, []);
 
-  // Refresh sync count when syncing changes
+  // Refresh local stats when syncing changes or assignments load
   useEffect(() => {
-    if (!isSyncing) loadPendingSyncCount();
+    if (!isSyncing) loadLocalStats();
   }, [isSyncing]);
+
+  useEffect(() => {
+    loadSurveyProgress();
+  }, [assignments]);
 
   const onRefresh = async () => {
     setRefreshing(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     await fetchAssignments(false);
-    await loadPendingSyncCount();
+    await loadLocalStats();
     setRefreshing(false);
   };
 
@@ -294,7 +347,7 @@ export default function BrigadistaHome() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     try {
       await syncAll();
-      await loadPendingSyncCount();
+      await loadLocalStats();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -326,43 +379,37 @@ export default function BrigadistaHome() {
     );
   };
 
-  // Stats derived from real assignments + real sync data
-  const activeCount = assignments.filter(
-    (a) => a.assignment_status === "active",
-  ).length;
+  // Stats derived from real assignments + local DB data
+  const totalPendingSync = pendingSyncCount + pendingCount;
   const stats = [
     {
-      icon: "checkmark-circle" as const,
+      icon: "clipboard" as const,
       value: String(assignments.length),
       label: "Asignadas",
-      color: colors.success,
-    },
-    {
-      icon: "time" as const,
-      value: String(activeCount),
-      label: "Activas",
-      color: colors.warning,
-    },
-    {
-      icon: "document-text" as const,
-      value: String(assignments.length - activeCount),
-      label: "Completadas",
       color: colors.primary,
     },
     {
+      icon: "checkmark-circle" as const,
+      value: String(completedCount),
+      label: "Completadas",
+      color: colors.success,
+    },
+    {
       icon: "cloud-upload" as const,
-      value: String(pendingSyncCount + pendingCount),
+      value: String(totalPendingSync),
       label: "Sin Sync",
-      color: pendingSyncCount + pendingCount > 0 ? colors.error : colors.info,
+      color: totalPendingSync > 0 ? colors.error : colors.info,
     },
   ];
 
   // Real sync status
-  const totalPending = pendingSyncCount + pendingCount;
   const syncStatus = {
-    lastSync: totalPending === 0 ? "Todo al día" : `${totalPending} pendientes`,
-    pendingResponses: totalPending,
-    isSynced: totalPending === 0 && !isSyncing,
+    lastSync:
+      totalPendingSync === 0
+        ? "Todo al día"
+        : `${totalPendingSync} pendientes`,
+    pendingResponses: totalPendingSync,
+    isSynced: totalPendingSync === 0 && !isSyncing,
   };
 
   // Map API assignments to card props
@@ -370,11 +417,13 @@ export default function BrigadistaHome() {
     id: a.assignment_id,
     title: a.survey_title,
     category: a.assigned_location ?? "Sin ubicación",
-    completed: 0,
+    completed: localSurveyProgress[String(a.assignment_id)] ?? 0,
     total: a.latest_version.questions.length || 1,
     dueDate: "–",
     priority: "medium" as const,
-    synced: false,
+    synced:
+      (localSurveyProgress[String(a.assignment_id)] ?? 0) >=
+      (a.latest_version.questions.length || 1),
     onPress: () => {
       if (!a.latest_version?.id) {
         router.push("/(brigadista)/my-surveys" as any);

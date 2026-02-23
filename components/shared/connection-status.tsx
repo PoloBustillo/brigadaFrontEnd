@@ -1,10 +1,11 @@
 /**
  * ConnectionStatus Component - Brigada Digital
- * Shows online/offline status and token expiration
+ * Shows online/offline status with real NetInfo connectivity
  * Rules 21-24: Offline-first functionality
  */
 
 import { Ionicons } from "@expo/vector-icons";
+import NetInfo from "@react-native-community/netinfo";
 import { useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import Animated, {
@@ -32,10 +33,17 @@ export function ConnectionStatus({
   const pulseOpacity = useSharedValue(1);
 
   useEffect(() => {
-    // TODO: Implement real connection check
-    // Check network status
-    // Check token expiration
+    // Subscribe to real connectivity changes
+    const unsubscribe = NetInfo.addEventListener((state) => {
+      setIsOnline(
+        state.isConnected === true && state.isInternetReachable !== false,
+      );
+    });
 
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
     // Pulse animation for online indicator
     if (isOnline) {
       pulseOpacity.value = withRepeat(

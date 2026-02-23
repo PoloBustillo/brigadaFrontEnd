@@ -37,7 +37,7 @@ Sentry.init({
 ExpoSplashScreen.preventAutoHideAsync();
 
 export const unstable_settings = {
-  anchor: "(tabs)",
+  anchor: "(auth)",
 };
 
 // ─── ErrorBoundary ─────────────────────────────────────────────────────────
@@ -213,7 +213,7 @@ function RootNavigator() {
       case "BRIGADISTA":
         return "(brigadista)";
       default:
-        return "(tabs)";
+        return "(auth)";
     }
   };
 
@@ -232,10 +232,6 @@ function RootNavigator() {
         <Stack.Screen name="(admin)" options={{ headerShown: false }} />
         <Stack.Screen name="(encargado)" options={{ headerShown: false }} />
         <Stack.Screen name="(brigadista)" options={{ headerShown: false }} />
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="profile" options={{ headerShown: false }} />
-        {/* Misc */}
-        <Stack.Screen name="components-demo" options={{ headerShown: false }} />
       </Stack>
       <ToastContainer />
     </ThemeProvider>

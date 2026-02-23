@@ -18,6 +18,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  Alert,
   AppState,
   InteractionManager,
   KeyboardAvoidingView,
@@ -580,26 +581,27 @@ export default function ActivationScreen() {
               </Text>
             </View>
 
-            {/* Resend Button */}
+            {/* Help Button */}
             <TouchableOpacity
               style={styles.resendButton}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                // TODO: Implement resend logic
-                toastManager.info(
-                  "Si no recibiste el código, contacta al administrador",
+                Alert.alert(
+                  "¿Necesitas ayuda?",
+                  "El código de activación fue proporcionado por tu administrador. Si no lo tienes o no funciona, contacta directamente a quien te registró en el sistema.",
+                  [{ text: "Entendido" }],
                 );
               }}
               accessible={true}
               accessibilityRole="button"
-              accessibilityLabel="Reenviar código de activación"
-              accessibilityHint="Presiona si no recibiste el código"
+              accessibilityLabel="Ayuda con el código de activación"
+              accessibilityHint="Muestra información sobre cómo obtener tu código"
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
               <Text
                 style={[styles.resendButtonText, { color: colors.primary }]}
               >
-                ¿No recibiste el código?
+                ¿Necesitas ayuda?
               </Text>
             </TouchableOpacity>
           </Animated.View>
