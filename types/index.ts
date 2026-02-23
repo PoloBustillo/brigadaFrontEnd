@@ -33,14 +33,14 @@ export type {
 } from "./survey-schema.types";
 
 export {
-  compareVersions,
   ConditionalOperator,
+  LogicalOperator,
+  QuestionType as QuestionTypeJSON,
+  compareVersions,
   isIneOcrConfig,
   isRatingConfig,
   isSelectConfig,
   isValidSemanticVersion,
-  LogicalOperator,
-  QuestionType as QuestionTypeJSON,
 } from "./survey-schema.types";
 
 // Sync types

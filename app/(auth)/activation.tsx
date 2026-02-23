@@ -40,8 +40,8 @@ import Animated, {
 
 import { toastManager } from "@/components/ui/toast-enhanced";
 import { typography } from "@/constants/typography";
-import { translateError } from "@/utils/translate-error";
 import { validateActivationCode } from "@/lib/api";
+import { translateError } from "@/utils/translate-error";
 
 // Decorative elements similar to welcome screen
 const DECORATIVE_ELEMENTS = [

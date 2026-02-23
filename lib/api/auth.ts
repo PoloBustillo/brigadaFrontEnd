@@ -91,9 +91,16 @@ export async function login(
 }
 
 /**
- * Logout - clear tokens
+ * Logout — invalidate refresh tokens on the server, then clear local tokens.
+ * If the server call fails (offline, expired token), we still clear locally.
  */
 export async function logout(): Promise<void> {
+  try {
+    await apiClient.post("/auth/logout");
+  } catch {
+    // Server unreachable or token already expired — proceed with local cleanup
+    console.warn("⚠️ Server-side logout failed (offline or expired)");
+  }
   await clearTokens();
 }
 

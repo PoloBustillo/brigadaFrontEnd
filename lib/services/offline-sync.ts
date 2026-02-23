@@ -311,13 +311,11 @@ class OfflineSyncService {
     if (responseItems.length > 0) {
       // Parse all payloads and group them into a true batch
       const payloads: SurveyResponseCreate[] = [];
-      const itemMap: Map<string, typeof responseItems[0]> = new Map();
+      const itemMap: Map<string, (typeof responseItems)[0]> = new Map();
 
       for (const item of responseItems) {
         try {
-          const payload = JSON.parse(
-            item.payload_json,
-          ) as SurveyResponseCreate;
+          const payload = JSON.parse(item.payload_json) as SurveyResponseCreate;
           payloads.push(payload);
           itemMap.set(payload.client_id, item);
         } catch (parseErr) {
@@ -535,11 +533,7 @@ class OfflineSyncService {
       }
 
       try {
-        const result = await this.processFileAnswer(
-          responseId,
-          answer,
-          qType,
-        );
+        const result = await this.processFileAnswer(responseId, answer, qType);
         processed.push(result);
       } catch (error) {
         console.error(
@@ -658,7 +652,9 @@ class OfflineSyncService {
     // ── FILE: { uri, name, mimeType, size } ─────────────────────
     if (qType === "file" || qType === "document") {
       const fileValue =
-        typeof value === "string" ? { uri: value, name: "file", mimeType: "application/octet-stream" } : value;
+        typeof value === "string"
+          ? { uri: value, name: "file", mimeType: "application/octet-stream" }
+          : value;
 
       if (!fileValue.uri) return answer;
 

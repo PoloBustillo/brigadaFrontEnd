@@ -268,7 +268,11 @@ export default function WelcomeScreen() {
   };
 
   // Crear gradiente dinámico desde el color primario
-  const gradientColors = [colors.primary, colors.primaryDark, colors.primary] as const;
+  const gradientColors = [
+    colors.primary,
+    colors.primaryDark,
+    colors.primary,
+  ] as const;
 
   const decorativeColor = `${colors.background}99`; // background con 60% opacity
 

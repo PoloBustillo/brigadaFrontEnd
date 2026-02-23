@@ -405,9 +405,7 @@ export default function BrigadistaHome() {
   // Real sync status
   const syncStatus = {
     lastSync:
-      totalPendingSync === 0
-        ? "Todo al día"
-        : `${totalPendingSync} pendientes`,
+      totalPendingSync === 0 ? "Todo al día" : `${totalPendingSync} pendientes`,
     pendingResponses: totalPendingSync,
     isSynced: totalPendingSync === 0 && !isSyncing,
   };
@@ -667,7 +665,10 @@ export default function BrigadistaHome() {
               <TouchableOpacity
                 style={[
                   styles.emptyState,
-                  { backgroundColor: colors.surface, borderColor: colors.error + "40" },
+                  {
+                    backgroundColor: colors.surface,
+                    borderColor: colors.error + "40",
+                  },
                 ]}
                 onPress={() => {
                   setIsLoading(true);
@@ -680,16 +681,14 @@ export default function BrigadistaHome() {
                   size={40}
                   color={colors.error}
                 />
-                <Text
-                  style={[
-                    styles.emptyStateTitle,
-                    { color: colors.error },
-                  ]}
-                >
+                <Text style={[styles.emptyStateTitle, { color: colors.error }]}>
                   Sin conexión
                 </Text>
                 <Text
-                  style={[styles.emptyStateText, { color: colors.textSecondary }]}
+                  style={[
+                    styles.emptyStateText,
+                    { color: colors.textSecondary },
+                  ]}
                 >
                   No se pudo cargar. Toca para reintentar.
                 </Text>
@@ -698,7 +697,10 @@ export default function BrigadistaHome() {
               <View
                 style={[
                   styles.emptyState,
-                  { backgroundColor: colors.surface, borderColor: colors.border },
+                  {
+                    backgroundColor: colors.surface,
+                    borderColor: colors.border,
+                  },
                 ]}
               >
                 <Ionicons
@@ -715,9 +717,13 @@ export default function BrigadistaHome() {
                   Sin encuestas asignadas
                 </Text>
                 <Text
-                  style={[styles.emptyStateText, { color: colors.textTertiary }]}
+                  style={[
+                    styles.emptyStateText,
+                    { color: colors.textTertiary },
+                  ]}
                 >
-                  Tu encargado te asignará encuestas pronto. Usa el gesto de arrastrar hacia abajo para actualizar.
+                  Tu encargado te asignará encuestas pronto. Usa el gesto de
+                  arrastrar hacia abajo para actualizar.
                 </Text>
               </View>
             )

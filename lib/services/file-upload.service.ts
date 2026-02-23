@@ -101,7 +101,10 @@ class FileUploadService {
       const publicId = cloudinaryResponse.public_id;
       const version = cloudinaryResponse.version;
 
-      // Step 5: Mark as uploaded in SQLite
+      // Step 5: Confirm upload to backend (links Cloudinary URL to document + answer)
+      await this.confirmUpload(signedParams.document_id, remoteUrl, publicId);
+
+      // Step 6: Mark as uploaded in SQLite
       await fileRepository.markAsUploaded(fileId, publicId, remoteUrl, version);
 
       // Step 6: Clean up temporary files if we created any (base64 → temp)
@@ -214,6 +217,32 @@ class FileUploadService {
       { timeout: APP_CONFIG.api.timeout },
     );
     return data;
+  }
+
+  /**
+   * Confirm to the backend that Cloudinary upload succeeded.
+   * This persists the remote URL and back-fills media_url on the answer.
+   */
+  private async confirmUpload(
+    documentId: string,
+    remoteUrl: string,
+    cloudinaryPublicId: string,
+  ): Promise<void> {
+    try {
+      await apiClient.post(
+        "/mobile/documents/confirm",
+        {
+          document_id: documentId,
+          remote_url: remoteUrl,
+          cloudinary_public_id: cloudinaryPublicId,
+        },
+        { timeout: APP_CONFIG.api.timeout },
+      );
+    } catch (err) {
+      // Non-fatal: file is on Cloudinary, local record is updated.
+      // Worst case: admin can reconcile via Cloudinary metadata tags.
+      console.warn("⚠️ Document confirm call failed:", err);
+    }
   }
 
   /**

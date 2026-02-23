@@ -79,7 +79,7 @@ export function useRequireRole(allowedRoles: UserRole[]) {
 
     if (!allowedRoles.includes(user.role)) {
       console.log(`User role ${user.role} not in allowed roles:`, allowedRoles);
-      router.replace("/unauthorized");
+      router.replace("/(auth)/welcome");
     }
   }, [user, loading, allowedRoles]);
 }
@@ -104,7 +104,7 @@ export function useRequirePermission(requiredPermission: Permission) {
         `User role ${user.role} doesn't have permission:`,
         requiredPermission,
       );
-      router.replace("/unauthorized");
+      router.replace("/(auth)/welcome");
     }
   }, [user, loading, requiredPermission]);
 }
@@ -129,7 +129,7 @@ export function useRequireAnyPermission(permissions: Permission[]) {
         `User role ${user.role} doesn't have any of permissions:`,
         permissions,
       );
-      router.replace("/unauthorized");
+      router.replace("/(auth)/welcome");
     }
   }, [user, loading, permissions]);
 }

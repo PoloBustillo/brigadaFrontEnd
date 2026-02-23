@@ -258,10 +258,7 @@ export default function BrigadistaResponses() {
           >
             {/* Modal Header */}
             <View
-              style={[
-                styles.modalHeader,
-                { borderBottomColor: colors.border },
-              ]}
+              style={[styles.modalHeader, { borderBottomColor: colors.border }]}
             >
               <View style={{ flex: 1 }}>
                 <Text style={[styles.modalTitle, { color: colors.text }]}>
@@ -347,11 +344,7 @@ export default function BrigadistaResponses() {
                   { backgroundColor: colors.primary + "20" },
                 ]}
               >
-                <Ionicons
-                  name="chatbox"
-                  size={14}
-                  color={colors.primary}
-                />
+                <Ionicons name="chatbox" size={14} color={colors.primary} />
                 <Text
                   style={{
                     fontSize: 12,
