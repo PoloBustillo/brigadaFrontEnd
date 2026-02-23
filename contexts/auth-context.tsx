@@ -158,6 +158,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setToken(token);
 
       console.log("✅ Login successful:", user.email, "Role:", user.role);
+
+      // Background-fetch full profile (avatar_url, etc.) from /users/me
+      authAPI.getCurrentUser().then(async (full) => {
+        if (full.state === "DISABLED") return;
+        await AsyncStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(full));
+        setUser(full);
+        console.log("📸 Avatar loaded:", full.avatar_url ? "yes" : "none");
+      }).catch(() => { /* offline — will load next session */ });
+
       return user;
     } catch (error: any) {
       console.error("❌ Login error:", error);

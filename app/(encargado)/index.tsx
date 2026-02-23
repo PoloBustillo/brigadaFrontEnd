@@ -27,6 +27,7 @@ import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Image,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -451,7 +452,7 @@ export default function EncargadoHome() {
           <TouchableOpacity
             style={[
               styles.profileButton,
-              { backgroundColor: colors.surface, borderColor: colors.border },
+              { backgroundColor: colors.surface, borderColor: colors.border, overflow: "hidden" },
             ]}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -459,7 +460,11 @@ export default function EncargadoHome() {
             }}
             activeOpacity={0.7}
           >
-            <Ionicons name="person-outline" size={20} color={colors.primary} />
+            {user?.avatar_url ? (
+              <Image source={{ uri: user.avatar_url }} style={{ width: 44, height: 44, borderRadius: 22 }} />
+            ) : (
+              <Ionicons name="person-outline" size={20} color={colors.primary} />
+            )}
           </TouchableOpacity>
           {/* Logout */}
           <TouchableOpacity

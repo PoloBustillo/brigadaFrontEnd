@@ -1,18 +1,12 @@
 /**
  * 🎨 Color Scheme Selector
- * Component para seleccionar esquemas de colores de la app
+ * Grid de esquemas de colores — 3 columnas, todo visible sin deslizar
  */
 
 import { useTheme, useThemeColors } from "@/contexts/theme-context";
 import { Ionicons } from "@expo/vector-icons";
 import React from "react";
-import {
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 export function ColorSchemeSelector() {
   const { colorScheme, availableSchemes, setColorScheme } = useTheme();
@@ -20,25 +14,7 @@ export function ColorSchemeSelector() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Ionicons name="color-palette" size={24} color={colors.text} />
-        <Text style={[styles.title, { color: colors.text }]}>
-          Esquema de Colores
-        </Text>
-      </View>
-
-      <Text style={[styles.hint, { color: colors.textTertiary }]}>
-        👉 Desliza para ver más esquemas
-      </Text>
-
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={true}
-        decelerationRate="fast"
-        snapToInterval={172}
-        snapToAlignment="start"
-        contentContainerStyle={styles.schemesContainer}
-      >
+      <View style={styles.grid}>
         {availableSchemes.map((scheme) => {
           const isSelected = scheme.id === colorScheme;
 
@@ -46,7 +22,7 @@ export function ColorSchemeSelector() {
             <TouchableOpacity
               key={scheme.id}
               style={[
-                styles.schemeCard,
+                styles.card,
                 {
                   borderColor: isSelected ? colors.primary : colors.border,
                   backgroundColor: isSelected ? colors.overlay : colors.surface,
@@ -54,69 +30,52 @@ export function ColorSchemeSelector() {
                 },
               ]}
               onPress={() => setColorScheme(scheme.id)}
+              activeOpacity={0.7}
             >
-              {/* Color preview — 2×2 grid: light bg, light primary, dark bg, dark primary */}
-              <View style={styles.colorPreview}>
-                <View style={styles.colorPreviewRow}>
-                  <View
-                    style={[
-                      styles.colorBlock,
-                      { backgroundColor: scheme.light.background },
-                    ]}
-                  />
-                  <View
-                    style={[
-                      styles.colorBlock,
-                      { backgroundColor: scheme.light.primary },
-                    ]}
-                  />
-                </View>
-                <View style={styles.colorPreviewRow}>
-                  <View
-                    style={[
-                      styles.colorBlock,
-                      { backgroundColor: scheme.dark.background },
-                    ]}
-                  />
-                  <View
-                    style={[
-                      styles.colorBlock,
-                      { backgroundColor: scheme.dark.primary },
-                    ]}
-                  />
-                </View>
+              {/* Color swatch — horizontal bar with light & dark primary */}
+              <View style={styles.swatch}>
+                <View
+                  style={[
+                    styles.swatchHalf,
+                    {
+                      backgroundColor: scheme.light.primary,
+                      borderTopLeftRadius: 6,
+                      borderBottomLeftRadius: 6,
+                    },
+                  ]}
+                />
+                <View
+                  style={[
+                    styles.swatchHalf,
+                    {
+                      backgroundColor: scheme.dark.primary,
+                      borderTopRightRadius: 6,
+                      borderBottomRightRadius: 6,
+                    },
+                  ]}
+                />
               </View>
 
-              {/* Scheme name */}
+              {/* Name */}
               <Text
                 style={[
-                  styles.schemeName,
+                  styles.name,
                   {
-                    color: isSelected ? colors.text : colors.textSecondary,
-                    fontWeight: isSelected ? "600" : "400",
+                    color: isSelected ? colors.primary : colors.text,
+                    fontWeight: isSelected ? "700" : "500",
                   },
                 ]}
+                numberOfLines={1}
               >
                 {scheme.name}
               </Text>
 
-              {/* Description */}
-              <Text
-                style={[
-                  styles.schemeDescription,
-                  { color: colors.textTertiary },
-                ]}
-                numberOfLines={2}
-              >
-                {scheme.description}
-              </Text>
-
-              {/* Selected indicator */}
+              {/* Check */}
               {isSelected && (
-                <View style={styles.selectedBadge}>
+                <View style={styles.check}>
                   <Ionicons
                     name="checkmark-circle"
-                    size={20}
+                    size={18}
                     color={colors.primary}
                   />
                 </View>
@@ -124,67 +83,46 @@ export function ColorSchemeSelector() {
             </TouchableOpacity>
           );
         })}
-      </ScrollView>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    marginVertical: 16,
+    marginTop: 4,
   },
-  header: {
+  grid: {
     flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+  },
+  card: {
+    width: "30.5%",
     alignItems: "center",
-    gap: 8,
-    paddingHorizontal: 16,
-    marginBottom: 12,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: "600",
-  },
-  hint: {
-    fontSize: 13,
-    paddingHorizontal: 16,
-    marginBottom: 8,
-    fontStyle: "italic",
-  },
-  schemesContainer: {
-    paddingHorizontal: 16,
-    gap: 12,
-  },
-  schemeCard: {
-    width: 160,
-    padding: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 6,
     borderRadius: 12,
-    marginRight: 12,
   },
-  colorPreview: {
-    flexDirection: "column",
-    height: 40,
-    borderRadius: 8,
-    overflow: "hidden",
-    marginBottom: 8,
-  },
-  colorPreviewRow: {
+  swatch: {
     flexDirection: "row",
+    width: 44,
+    height: 26,
+    borderRadius: 6,
+    overflow: "hidden",
+    marginBottom: 6,
+  },
+  swatchHalf: {
     flex: 1,
   },
-  colorBlock: {
-    flex: 1,
+  name: {
+    fontSize: 11,
+    textAlign: "center",
+    lineHeight: 14,
   },
-  schemeName: {
-    fontSize: 16,
-    marginBottom: 4,
-  },
-  schemeDescription: {
-    fontSize: 12,
-    lineHeight: 16,
-  },
-  selectedBadge: {
+  check: {
     position: "absolute",
-    top: 8,
-    right: 8,
+    top: 4,
+    right: 4,
   },
 });
