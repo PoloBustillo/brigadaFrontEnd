@@ -353,7 +353,7 @@ export default function FillSurveyScreen() {
 
     // Build answers array
     const answeredAt = new Date().toISOString();
-    const answersPayload = visibleQuestions
+    const rawAnswers = visibleQuestions
       .filter((q) => answers[q.id] !== undefined && answers[q.id] !== null)
       .map((q) => ({
         question_id: q.id,
@@ -361,7 +361,7 @@ export default function FillSurveyScreen() {
         answered_at: answeredAt,
       }));
 
-    if (answersPayload.length === 0) {
+    if (rawAnswers.length === 0) {
       Alert.alert(
         "Sin respuestas",
         "Por favor responde al menos una pregunta.",
@@ -373,6 +373,19 @@ export default function FillSurveyScreen() {
     try {
       const responseId = draftIdRef.current ?? "no-draft";
 
+      // Build question type map for file processing
+      const questionTypes = new Map<number, string>();
+      for (const q of visibleQuestions) {
+        questionTypes.set(q.id, q.type);
+      }
+
+      // Process file answers: register files for upload & clean values
+      const answersPayload = await offlineSyncService.processFileAnswers(
+        responseId,
+        rawAnswers,
+        questionTypes,
+      );
+
       const result = await offlineSyncService.submitResponse({
         responseId,
         versionId,
@@ -381,7 +394,11 @@ export default function FillSurveyScreen() {
       });
 
       if (result.synced) {
-        // Online — sent to server
+        // Online — sent to server, now trigger file uploads
+        addPendingItem({
+          id: `files-${responseId}`,
+          type: "file",
+        });
         setSyncedOnSubmit(true);
         setShowSuccess(true);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -390,6 +407,10 @@ export default function FillSurveyScreen() {
         addPendingItem({
           id: responseId,
           type: "response",
+        });
+        addPendingItem({
+          id: `files-${responseId}`,
+          type: "file",
         });
         setSyncedOnSubmit(false);
         setShowSuccess(true);

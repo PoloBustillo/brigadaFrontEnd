@@ -131,15 +131,17 @@ export interface BatchResponseResult {
 
 /**
  * POST /mobile/responses/batch
- * Submit one completed response (wrapped in a batch of 1).
+ * Submit one or more completed responses.
+ * Accepts a single response (legacy) or an array for true batch.
  */
 export async function submitBatchResponses(
-  response: SurveyResponseCreate,
+  responses: SurveyResponseCreate | SurveyResponseCreate[],
 ): Promise<BatchResponseResult> {
-  return timedCall("POST /mobile/responses/batch", () =>
+  const batch = Array.isArray(responses) ? responses : [responses];
+  return timedCall(`POST /mobile/responses/batch (${batch.length})`, () =>
     apiClient
       .post<BatchResponseResult>("/mobile/responses/batch", {
-        responses: [response],
+        responses: batch,
       })
       .then((r) => r.data),
   );

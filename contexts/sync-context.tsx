@@ -325,6 +325,37 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
     };
   }, [isOnline, pendingItems.length, syncAll]);
 
+  // ── Periodic sync timer: retry pending items every 2 min while online ──
+  const periodicSyncRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  useEffect(() => {
+    // Clear any existing interval
+    if (periodicSyncRef.current) {
+      clearInterval(periodicSyncRef.current);
+      periodicSyncRef.current = null;
+    }
+
+    if (isOnline && pendingItems.length > 0) {
+      periodicSyncRef.current = setInterval(
+        () => {
+          const hasPending = pendingItems.some(
+            (i) => i.status === "pending" || i.status === "partial_error",
+          );
+          if (hasPending && !isSyncing) {
+            console.log("⏰ Periodic sync — retrying pending items...");
+            syncAll();
+          }
+        },
+        2 * 60 * 1000, // 2 minutes
+      );
+    }
+
+    return () => {
+      if (periodicSyncRef.current) {
+        clearInterval(periodicSyncRef.current);
+      }
+    };
+  }, [isOnline, pendingItems.length, isSyncing, syncAll]);
+
   const addPendingItem = useCallback(
     (item: Omit<SyncItem, "timestamp" | "retryCount" | "status">) => {
       const newItem: SyncItem = {

@@ -104,12 +104,21 @@ class FileUploadService {
       // Step 5: Mark as uploaded in SQLite
       await fileRepository.markAsUploaded(fileId, publicId, remoteUrl, version);
 
-      // Step 6: Clean up temporary files if we created any
+      // Step 6: Clean up temporary files if we created any (base64 → temp)
       if (
         filePath !== file.local_path &&
         filePath.includes(FileSystem.cacheDirectory ?? "__none__")
       ) {
         FileSystem.deleteAsync(filePath, { idempotent: true }).catch(() => {});
+      }
+
+      // Step 7: Delete original local file to free device space
+      // (Cloudinary is now the source of truth)
+      if (file.local_path && !file.local_path.startsWith("data:")) {
+        FileSystem.deleteAsync(file.local_path, { idempotent: true }).catch(
+          () => {},
+        );
+        console.log(`🧹 Cleaned up local file: ${file.local_path}`);
       }
 
       console.log(`✅ File ${fileId} uploaded → ${remoteUrl}`);
@@ -263,6 +272,24 @@ class FileUploadService {
       file: "form",
     };
     return mapping[fileType] ?? "photo";
+  }
+
+  /**
+   * Clean up old uploaded files from the device.
+   * Deletes local copies of files that were successfully uploaded
+   * to Cloudinary more than `daysOld` days ago.
+   */
+  async cleanupOldFiles(daysOld = 7): Promise<number> {
+    try {
+      const deleted = await fileRepository.cleanupUploadedFiles(daysOld);
+      if (deleted > 0) {
+        console.log(`🧹 Cleaned ${deleted} old uploaded files from device`);
+      }
+      return deleted;
+    } catch (error) {
+      console.warn("⚠️ File cleanup failed:", error);
+      return 0;
+    }
   }
 }
 
