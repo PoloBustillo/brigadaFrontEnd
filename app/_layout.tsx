@@ -232,6 +232,7 @@ function RootNavigator() {
         <Stack.Screen name="(admin)" options={{ headerShown: false }} />
         <Stack.Screen name="(encargado)" options={{ headerShown: false }} />
         <Stack.Screen name="(brigadista)" options={{ headerShown: false }} />
+        <Stack.Screen name="theme-settings" options={{ headerShown: false }} />
       </Stack>
       <ToastContainer />
     </ThemeProvider>
