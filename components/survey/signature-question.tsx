@@ -38,7 +38,7 @@ export function SignatureQuestion({
 }: SignatureQuestionProps) {
   const themeColors = useThemeColors();
   const colors = colorsProp ?? themeColors;
-  const fullscreenSignatureRef = useRef<SignatureCanvas>(null);
+  const fullscreenSignatureRef = useRef<React.ComponentRef<typeof SignatureCanvas>>(null);
   const [isEmpty, setIsEmpty] = useState(!value);
   const [fullscreenOpen, setFullscreenOpen] = useState(false);
   const insets = useSafeAreaInsets();
@@ -350,7 +350,7 @@ export function SignatureQuestion({
               autoClear={false}
               descriptionText=""
               imageType="image/png"
-              dataURL
+              dataURL="image/png"
               style={{ flex: 1 }}
             />
           </View>

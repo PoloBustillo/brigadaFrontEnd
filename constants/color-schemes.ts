@@ -38,6 +38,9 @@ export interface ThemeColors {
   error: string;
   info: string;
 
+  // Icon color (secondary/muted icons)
+  icon: string;
+
   // Overlay
   overlay: string;
   backdrop: string;
@@ -70,6 +73,8 @@ const pinkScheme: ColorScheme = {
     error: "#EF4444",
     info: "#3B82F6",
 
+    icon: "#FF6BB8",
+
     overlay: "rgba(255, 27, 141, 0.15)",
     backdrop: "rgba(255, 27, 141, 0.1)",
   },
@@ -95,6 +100,8 @@ const pinkScheme: ColorScheme = {
     warning: "#FBBF24",
     error: "#FCA5A5",
     info: "#93C5FD",
+
+    icon: "#FF85BE",
 
     overlay: "rgba(255, 27, 141, 0.3)",
     backdrop: "rgba(0, 0, 0, 0.85)",
@@ -128,6 +135,8 @@ const blueScheme: ColorScheme = {
     error: "#EF4444",
     info: "#3B82F6",
 
+    icon: "#0284C7",
+
     overlay: "rgba(2, 132, 199, 0.15)",
     backdrop: "rgba(2, 132, 199, 0.1)",
   },
@@ -152,6 +161,8 @@ const blueScheme: ColorScheme = {
     warning: "#FBBF24",
     error: "#FCA5A5",
     info: "#93C5FD",
+
+    icon: "#BAE6FD",
 
     overlay: "rgba(12, 74, 110, 0.45)",
     backdrop: "rgba(12, 74, 110, 0.9)",
@@ -185,6 +196,8 @@ const purpleScheme: ColorScheme = {
     error: "#EF4444",
     info: "#3B82F6",
 
+    icon: "#8B5CF6",
+
     overlay: "rgba(124, 58, 237, 0.15)",
     backdrop: "rgba(124, 58, 237, 0.1)",
   },
@@ -209,6 +222,8 @@ const purpleScheme: ColorScheme = {
     warning: "#FBBF24",
     error: "#FCA5A5",
     info: "#93C5FD",
+
+    icon: "#DDD6FE",
 
     overlay: "rgba(107, 33, 168, 0.45)",
     backdrop: "rgba(107, 33, 168, 0.9)",
@@ -242,6 +257,8 @@ const greenScheme: ColorScheme = {
     error: "#EF4444",
     info: "#3B82F6",
 
+    icon: "#16A34A",
+
     overlay: "rgba(22, 163, 74, 0.15)",
     backdrop: "rgba(22, 163, 74, 0.1)",
   },
@@ -266,6 +283,8 @@ const greenScheme: ColorScheme = {
     warning: "#FBBF24",
     error: "#FCA5A5",
     info: "#93C5FD",
+
+    icon: "#BBF7D0",
 
     overlay: "rgba(20, 83, 45, 0.45)",
     backdrop: "rgba(20, 83, 45, 0.9)",
@@ -299,6 +318,8 @@ const orangeScheme: ColorScheme = {
     error: "#EF4444",
     info: "#3B82F6",
 
+    icon: "#EA580C",
+
     overlay: "rgba(234, 88, 12, 0.15)",
     backdrop: "rgba(234, 88, 12, 0.1)",
   },
@@ -323,6 +344,8 @@ const orangeScheme: ColorScheme = {
     warning: "#FBBF24",
     error: "#FCA5A5",
     info: "#93C5FD",
+
+    icon: "#FED7AA",
 
     overlay: "rgba(124, 45, 18, 0.45)",
     backdrop: "rgba(124, 45, 18, 0.9)",
@@ -356,6 +379,8 @@ const redScheme: ColorScheme = {
     error: "#EF4444",
     info: "#3B82F6",
 
+    icon: "#DC2626",
+
     overlay: "rgba(220, 38, 38, 0.15)",
     backdrop: "rgba(220, 38, 38, 0.1)",
   },
@@ -380,6 +405,8 @@ const redScheme: ColorScheme = {
     warning: "#FBBF24",
     error: "#FCA5A5",
     info: "#93C5FD",
+
+    icon: "#FECACA",
 
     overlay: "rgba(127, 29, 29, 0.45)",
     backdrop: "rgba(127, 29, 29, 0.9)",
@@ -413,6 +440,8 @@ const darkElegantScheme: ColorScheme = {
     error: "#EF4444",
     info: "#3B82F6",
 
+    icon: "#6B7280",
+
     overlay: "rgba(17, 24, 39, 0.15)",
     backdrop: "rgba(17, 24, 39, 0.1)",
   },
@@ -437,6 +466,8 @@ const darkElegantScheme: ColorScheme = {
     warning: "#FBBF24",
     error: "#FCA5A5",
     info: "#93C5FD",
+
+    icon: "#D1D5DB",
 
     overlay: "rgba(17, 24, 39, 0.6)",
     backdrop: "rgba(17, 24, 39, 0.95)",
@@ -470,6 +501,8 @@ const indigoScheme: ColorScheme = {
     error: "#EF4444",
     info: "#3B82F6",
 
+    icon: "#6366F1",
+
     overlay: "rgba(79, 70, 229, 0.15)",
     backdrop: "rgba(79, 70, 229, 0.1)",
   },
@@ -494,6 +527,8 @@ const indigoScheme: ColorScheme = {
     warning: "#FBBF24",
     error: "#FCA5A5",
     info: "#93C5FD",
+
+    icon: "#C7D2FE",
 
     overlay: "rgba(49, 46, 129, 0.45)",
     backdrop: "rgba(49, 46, 129, 0.9)",
@@ -527,6 +562,8 @@ const tealScheme: ColorScheme = {
     error: "#EF4444",
     info: "#3B82F6",
 
+    icon: "#14B8A6",
+
     overlay: "rgba(20, 184, 166, 0.15)",
     backdrop: "rgba(20, 184, 166, 0.1)",
   },
@@ -551,6 +588,8 @@ const tealScheme: ColorScheme = {
     warning: "#FBBF24",
     error: "#FCA5A5",
     info: "#93C5FD",
+
+    icon: "#99F6E4",
 
     overlay: "rgba(17, 94, 89, 0.45)",
     backdrop: "rgba(17, 94, 89, 0.9)",

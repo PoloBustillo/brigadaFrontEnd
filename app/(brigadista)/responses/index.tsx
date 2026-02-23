@@ -49,12 +49,12 @@ export default function BrigadistaResponses() {
         const answersCount = Array.isArray(r.answers) ? r.answers.length : 0;
         return {
           id: r.id,
-          surveyTitle: `Encuesta #${r.survey_id}`,
-          completedAt: r.submitted_at ?? r.created_at,
+          surveyTitle: `Encuesta #${r.version_id}`,
+          completedAt: r.synced_at ?? r.completed_at,
           questionsAnswered: answersCount,
           totalQuestions: answersCount,
           location: "Sin ubicación",
-          syncStatus: r.submitted_at ? "synced" : "pending",
+          syncStatus: r.synced_at ? "synced" : "pending",
         };
       });
       setResponses(mapped);

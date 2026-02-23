@@ -1,6 +1,7 @@
 # 🪪 Algoritmo OCR para Credencial INE
 
 > **Archivos relevantes:**
+>
 > - `lib/ocr/ine-ocr-parser.ts` — Parser principal, cascada de nombres, orquestación
 > - `lib/ocr/ine-address.ts` — Extracción experta de domicilio (6 estrategias)
 > - `lib/ocr/ine-spatial.ts` — Clasificación espacial por zonas de la INE
@@ -88,12 +89,12 @@ parseIneOcrText(frontText, backText, modelo, frontBlocks, backBlocks)
 
 ### Prioridad: spatial > labels > block > curp_initials
 
-| # | Estrategia | Módulo | Confianza | Descripción |
-|---|-----------|--------|-----------|-------------|
-| 1 | **Spatial** | `ine-spatial.ts` | 0.95 | Clasifica bloques por coordenadas en zonas de la INE (foto=izq, nombres=derecha-sup). Busca etiquetas PATERNO/MATERNO/NOMBRE con tolerancia OCR en la zona correcta. |
-| 2 | **Labels** | `ine-ocr-parser.ts` | 0.90 | Busca etiquetas textuales ("APELLIDO PATERNO", "NOMBRE(S)") y la línea siguiente como valor. Acepta match parcial de etiquetas. |
-| 3 | **Block** | `ine-ocr-parser.ts` | 0.70 | Busca bloques de texto que parecen nombres cerca de la CURP, usando heurística de posición (2-3 líneas de solo letras mayúsculas antes del CURP). |
-| 4 | **CURP initials** | `ine-ocr-parser.ts` | 0.30 | Extrae las 4 primeras letras de la CURP como iniciales de paterno, materno y nombre. Solo useful como placeholder. |
+| #   | Estrategia        | Módulo              | Confianza | Descripción                                                                                                                                                          |
+| --- | ----------------- | ------------------- | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | **Spatial**       | `ine-spatial.ts`    | 0.95      | Clasifica bloques por coordenadas en zonas de la INE (foto=izq, nombres=derecha-sup). Busca etiquetas PATERNO/MATERNO/NOMBRE con tolerancia OCR en la zona correcta. |
+| 2   | **Labels**        | `ine-ocr-parser.ts` | 0.90      | Busca etiquetas textuales ("APELLIDO PATERNO", "NOMBRE(S)") y la línea siguiente como valor. Acepta match parcial de etiquetas.                                      |
+| 3   | **Block**         | `ine-ocr-parser.ts` | 0.70      | Busca bloques de texto que parecen nombres cerca de la CURP, usando heurística de posición (2-3 líneas de solo letras mayúsculas antes del CURP).                    |
+| 4   | **CURP initials** | `ine-ocr-parser.ts` | 0.30      | Extrae las 4 primeras letras de la CURP como iniciales de paterno, materno y nombre. Solo useful como placeholder.                                                   |
 
 ### Post-procesamiento de nombres
 
@@ -129,18 +130,19 @@ ESTADO
 
 ### Las 6 estrategias
 
-| # | Estrategia | Cómo funciona | Fortaleza |
-|---|-----------|---------------|-----------|
-| **A** | Ancla "DOMICILIO" | Busca etiqueta "DOMICILIO" (con tolerancia OCR: `D0MICILIO`, `DOM1CILIO`, `DOMIC`). Lee 10 líneas hacia adelante. | Más directa cuando la etiqueta es legible. |
-| **B** | Código Postal | Busca "C.P. XXXXX" o 5 dígitos aislados. Reconstruye hacia atrás (calle) y adelante (estado). | Muy robusto — el C.P. es fácil de detectar. |
-| **C** | Estado mexicano | Detecta uno de los 32 estados de México (más abreviaciones: CDMX, EDOMEX, JAL, etc.). Reconstruye hacia atrás. | Funciona incluso sin "DOMICILIO" ni "C.P." |
-| **D** | Colonia/Fraccionamiento | Busca "COL.", "COLONIA", "FRACC.", etc. La calle está arriba, el C.P. y estado abajo. | Pattern muy reconocible. |
-| **E** | Tipo de vialidad | Busca líneas que inician con CALLE, AV., AVENIDA, BLVD, etc. Lee hacia adelante. | Funciona cuando no hay ninguna otra etiqueta. |
-| **F** | Filtrado negativo | **Último recurso.** Toma TODAS las líneas del reverso, quita lo que NO es dirección (CURP, clave, MRZ, fechas…). Lo que queda es probablemente dirección. | El más robusto ante OCR degradado — no necesita reconocer etiquetas. |
+| #     | Estrategia              | Cómo funciona                                                                                                                                             | Fortaleza                                                            |
+| ----- | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| **A** | Ancla "DOMICILIO"       | Busca etiqueta "DOMICILIO" (con tolerancia OCR: `D0MICILIO`, `DOM1CILIO`, `DOMIC`). Lee 10 líneas hacia adelante.                                         | Más directa cuando la etiqueta es legible.                           |
+| **B** | Código Postal           | Busca "C.P. XXXXX" o 5 dígitos aislados. Reconstruye hacia atrás (calle) y adelante (estado).                                                             | Muy robusto — el C.P. es fácil de detectar.                          |
+| **C** | Estado mexicano         | Detecta uno de los 32 estados de México (más abreviaciones: CDMX, EDOMEX, JAL, etc.). Reconstruye hacia atrás.                                            | Funciona incluso sin "DOMICILIO" ni "C.P."                           |
+| **D** | Colonia/Fraccionamiento | Busca "COL.", "COLONIA", "FRACC.", etc. La calle está arriba, el C.P. y estado abajo.                                                                     | Pattern muy reconocible.                                             |
+| **E** | Tipo de vialidad        | Busca líneas que inician con CALLE, AV., AVENIDA, BLVD, etc. Lee hacia adelante.                                                                          | Funciona cuando no hay ninguna otra etiqueta.                        |
+| **F** | Filtrado negativo       | **Último recurso.** Toma TODAS las líneas del reverso, quita lo que NO es dirección (CURP, clave, MRZ, fechas…). Lo que queda es probablemente dirección. | El más robusto ante OCR degradado — no necesita reconocer etiquetas. |
 
 ### Filtrado negativo: patrones que NO son dirección
 
 El filtrado negativo identifica y excluye:
+
 - CURP (patrón `[A-Z]{4}\d{6}[HM][A-Z]{5}`)
 - Clave de Elector (18 letras consecutivas)
 - MRZ (`<<<` o más de 3 `<` consecutivos)
@@ -155,18 +157,18 @@ El filtrado negativo identifica y excluye:
 
 Cada candidato se puntúa según patrones detectados:
 
-| Patrón | Peso |
-|--------|------|
+| Patrón                       | Peso  |
+| ---------------------------- | ----- |
 | C.P. etiquetado (C.P. XXXXX) | +0.25 |
-| Estado mexicano detectado | +0.20 |
-| Número exterior | +0.15 |
-| Colonia detectada | +0.15 |
-| Municipio/Delegación | +0.10 |
-| 2+ líneas de contenido | +0.05 |
-| 3+ líneas de contenido | +0.05 |
-| Base (hay texto) | +0.10 |
-| *Penalidad: CURP mezclado* | -0.20 |
-| *Penalidad: Clave mezclada* | -0.20 |
+| Estado mexicano detectado    | +0.20 |
+| Número exterior              | +0.15 |
+| Colonia detectada            | +0.15 |
+| Municipio/Delegación         | +0.10 |
+| 2+ líneas de contenido       | +0.05 |
+| 3+ líneas de contenido       | +0.05 |
+| Base (hay texto)             | +0.10 |
+| _Penalidad: CURP mezclado_   | -0.20 |
+| _Penalidad: Clave mezclada_  | -0.20 |
 
 **Máximo teórico:** 1.10 → clamped a 1.0
 
@@ -235,68 +237,68 @@ CURP y Clave de Elector tienen esquema `LETRA/DÍGITO` fijo por posición:
 
 ### CURP (18 chars)
 
-| Posiciones | Tipo esperado | Correcciones |
-|-----------|---------------|--------------|
-| 0-3 | Letra | `0→O`, `1→I`, `8→B`, `5→S`, `2→Z`, `6→G` |
-| 4-9 | Dígito (fecha YYMMDD) | `O→0`, `I→1`, `L→1`, `B→8`, `S→5`, `Z→2` |
-| 10 | Letra (H/M) | correcciones de letra |
-| 11-13 | Letra (estado) | correcciones de letra |
-| 14-17 | Alfanumérico | sin corrección |
+| Posiciones | Tipo esperado         | Correcciones                             |
+| ---------- | --------------------- | ---------------------------------------- |
+| 0-3        | Letra                 | `0→O`, `1→I`, `8→B`, `5→S`, `2→Z`, `6→G` |
+| 4-9        | Dígito (fecha YYMMDD) | `O→0`, `I→1`, `L→1`, `B→8`, `S→5`, `Z→2` |
+| 10         | Letra (H/M)           | correcciones de letra                    |
+| 11-13      | Letra (estado)        | correcciones de letra                    |
+| 14-17      | Alfanumérico          | sin corrección                           |
 
 ### Clave de Elector (18 chars)
 
-| Posiciones | Tipo esperado | Correcciones |
-|-----------|---------------|--------------|
-| 0-5 | Letra | `0→O`, `1→I`, etc. |
-| 6-13 | Dígito | `O→0`, `I→1`, etc. |
-| 14 | Letra (H/M) | correcciones de letra |
-| 15-17 | Dígito | correcciones de dígito |
+| Posiciones | Tipo esperado | Correcciones           |
+| ---------- | ------------- | ---------------------- |
+| 0-5        | Letra         | `0→O`, `1→I`, etc.     |
+| 6-13       | Dígito        | `O→0`, `I→1`, etc.     |
+| 14         | Letra (H/M)   | correcciones de letra  |
+| 15-17      | Dígito        | correcciones de dígito |
 
 ---
 
 ## 7. Confianza por campo
 
-| Estrategia | Confianza | Cuándo aplica |
-|-----------|-----------|---------------|
-| Strict regex + validación post-corrección | **1.0** | CURP/Clave que pasan regex estricto |
-| Extracción espacial de nombres | **0.95** | Nombres vía zonas espaciales de la INE |
-| Heurística con etiqueta explícita | **0.90** | Nombre vía "APELLIDO PATERNO" label |
-| Derivado de otro campo | **0.85** | Sexo inferido de CURP[10] |
-| Heurística sin etiqueta (bloque pre-CURP) | **0.70** | Nombre vía posición relativa al CURP |
-| Domicilio (multi-estrategia) | **0.15–1.0** | Scoring dinámico según patrones detectados |
-| Fallback (iniciales desde CURP) | **0.30** | Nombres solo como iniciales |
-| No encontrado | **0.0** | Campo vacío |
+| Estrategia                                | Confianza    | Cuándo aplica                              |
+| ----------------------------------------- | ------------ | ------------------------------------------ |
+| Strict regex + validación post-corrección | **1.0**      | CURP/Clave que pasan regex estricto        |
+| Extracción espacial de nombres            | **0.95**     | Nombres vía zonas espaciales de la INE     |
+| Heurística con etiqueta explícita         | **0.90**     | Nombre vía "APELLIDO PATERNO" label        |
+| Derivado de otro campo                    | **0.85**     | Sexo inferido de CURP[10]                  |
+| Heurística sin etiqueta (bloque pre-CURP) | **0.70**     | Nombre vía posición relativa al CURP       |
+| Domicilio (multi-estrategia)              | **0.15–1.0** | Scoring dinámico según patrones detectados |
+| Fallback (iniciales desde CURP)           | **0.30**     | Nombres solo como iniciales                |
+| No encontrado                             | **0.0**      | Campo vacío                                |
 
 ---
 
 ## 8. Limitaciones conocidas y mitigaciones
 
-| Limitación | Impacto | Mitigación implementada |
-|-----------|---------|------------------------|
-| ML Kit puede desordenar bloques | Nombres/dirección desordenados | Sorting por `frame.y` + spatial zones |
-| OCR confunde letras/dígitos | Nombres erróneos (GARCI4) | Diccionario + Levenshtein-1 + OCR fixes |
-| Nombres pueden quedar en slot equivocado | paterno↔nombre intercambiados | CURP cross-validation con auto-swap |
-| "DOMICILIO" puede ser ilegible | No se encuentra la dirección | 6 estrategias independientes + filtrado negativo |
-| Credenciales reflejadas/borrosas | Texto muy ruidoso | Múltiples anclas: C.P., estado, colonia, filtrado negativo |
-| 4 modelos de INE con layouts diferentes | Zonas espaciales varían | Proporciones relativas ±5%, cascada text como fallback |
-| MRZ confunde regex de CURP | Falsos positivos | Filtro de líneas con `<<<` |
+| Limitación                               | Impacto                        | Mitigación implementada                                    |
+| ---------------------------------------- | ------------------------------ | ---------------------------------------------------------- |
+| ML Kit puede desordenar bloques          | Nombres/dirección desordenados | Sorting por `frame.y` + spatial zones                      |
+| OCR confunde letras/dígitos              | Nombres erróneos (GARCI4)      | Diccionario + Levenshtein-1 + OCR fixes                    |
+| Nombres pueden quedar en slot equivocado | paterno↔nombre intercambiados  | CURP cross-validation con auto-swap                        |
+| "DOMICILIO" puede ser ilegible           | No se encuentra la dirección   | 6 estrategias independientes + filtrado negativo           |
+| Credenciales reflejadas/borrosas         | Texto muy ruidoso              | Múltiples anclas: C.P., estado, colonia, filtrado negativo |
+| 4 modelos de INE con layouts diferentes  | Zonas espaciales varían        | Proporciones relativas ±5%, cascada text como fallback     |
+| MRZ confunde regex de CURP               | Falsos positivos               | Filtro de líneas con `<<<`                                 |
 
 ---
 
 ## 9. Roadmap de mejoras
 
-| # | Mejora | Estado |
-|---|--------|--------|
-| 1 | Ordenar bloques por `frame.y` top→bottom | ✅ Implementado |
-| 2 | Filtrar líneas MRZ del reverso | ✅ Implementado |
-| 3 | Exponer `modeloDetected` en resultado | ✅ Implementado |
-| 4 | Imagen 1600px para OCR | ✅ Implementado |
-| 5 | **Extracción espacial por zonas** | ✅ Implementado (v3) |
-| 6 | **Diccionario de nombres mexicanos** | ✅ Implementado (v3) |
-| 7 | **Cross-validación CURP↔nombres** | ✅ Implementado (v3) |
-| 8 | **Domicilio multi-estrategia (6 estrategias)** | ✅ Implementado (v3) |
-| 9 | **Datos geográficos (32 estados + abreviaciones)** | ✅ Implementado (v3) |
-| 10 | **Filtrado negativo como último recurso** | ✅ Implementado (v3) |
-| 11 | Tests unitarios con strings OCR reales | ⬜ Pendiente |
-| 12 | Preprocesamiento avanzado (contraste/grayscale) | ⬜ Pendiente |
-| 13 | Endpoint OCR en backend (Google Vision) | ⬜ Pendiente |
+| #   | Mejora                                             | Estado               |
+| --- | -------------------------------------------------- | -------------------- |
+| 1   | Ordenar bloques por `frame.y` top→bottom           | ✅ Implementado      |
+| 2   | Filtrar líneas MRZ del reverso                     | ✅ Implementado      |
+| 3   | Exponer `modeloDetected` en resultado              | ✅ Implementado      |
+| 4   | Imagen 1600px para OCR                             | ✅ Implementado      |
+| 5   | **Extracción espacial por zonas**                  | ✅ Implementado (v3) |
+| 6   | **Diccionario de nombres mexicanos**               | ✅ Implementado (v3) |
+| 7   | **Cross-validación CURP↔nombres**                  | ✅ Implementado (v3) |
+| 8   | **Domicilio multi-estrategia (6 estrategias)**     | ✅ Implementado (v3) |
+| 9   | **Datos geográficos (32 estados + abreviaciones)** | ✅ Implementado (v3) |
+| 10  | **Filtrado negativo como último recurso**          | ✅ Implementado (v3) |
+| 11  | Tests unitarios con strings OCR reales             | ⬜ Pendiente         |
+| 12  | Preprocesamiento avanzado (contraste/grayscale)    | ⬜ Pendiente         |
+| 13  | Endpoint OCR en backend (Google Vision)            | ⬜ Pendiente         |

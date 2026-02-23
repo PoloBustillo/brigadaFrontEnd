@@ -6,7 +6,7 @@
  */
 
 import { and, desc, eq } from "drizzle-orm";
-import { getDatabase } from "../db";
+import { db as dbManager } from "../db/database";
 import type { SurveySchemaDefinition } from "../db/schema";
 import { questionAnswers, surveyResponses, surveySchemas } from "../db/schema";
 import { calculateProgress, generateId } from "../utils";
@@ -100,7 +100,7 @@ export class SurveyRepository {
   static async createResponse(
     input: CreateSurveyResponseInput,
   ): Promise<string> {
-    const db = getDatabase();
+    const db = dbManager.getDrizzle();
     const responseId = generateId();
     const now = new Date();
 
@@ -136,7 +136,7 @@ export class SurveyRepository {
   static async saveQuestionAnswer(
     input: SaveQuestionAnswerInput,
   ): Promise<void> {
-    const db = getDatabase();
+    const db = dbManager.getDrizzle();
     const answerId = generateId();
 
     // Verificar si ya existe una respuesta para esta pregunta (por si acaso)
@@ -190,7 +190,7 @@ export class SurveyRepository {
    * Calcula automáticamente basado en preguntas respondidas
    */
   private static async updateProgress(responseId: string): Promise<void> {
-    const db = getDatabase();
+    const db = dbManager.getDrizzle();
 
     // Obtener la encuesta y su schema
     const response = await db
@@ -245,7 +245,7 @@ export class SurveyRepository {
    * Calcula automáticamente la duración
    */
   static async completeResponse(responseId: string): Promise<void> {
-    const db = getDatabase();
+    const db = dbManager.getDrizzle();
 
     // Obtener la encuesta para calcular duración
     const response = await db
@@ -286,7 +286,7 @@ export class SurveyRepository {
     responseId: string,
     input: UpdateSurveyMetadataInput,
   ): Promise<void> {
-    const db = getDatabase();
+    const db = dbManager.getDrizzle();
 
     await db
       .update(surveyResponses)
@@ -307,7 +307,7 @@ export class SurveyRepository {
    * Valida o invalida una encuesta (usado por encargados)
    */
   static async validateResponse(input: ValidateSurveyInput): Promise<void> {
-    const db = getDatabase();
+    const db = dbManager.getDrizzle();
 
     await db
       .update(surveyResponses)
@@ -327,7 +327,7 @@ export class SurveyRepository {
    * Obtiene una encuesta por ID con todas sus respuestas
    */
   static async getResponseById(responseId: string) {
-    const db = getDatabase();
+    const db = dbManager.getDrizzle();
 
     const response = await db
       .select()
@@ -359,7 +359,7 @@ export class SurveyRepository {
    * Lista encuestas del usuario actual
    */
   static async listResponses(userId: string, status?: SurveyResponseStatus) {
-    const db = getDatabase();
+    const db = dbManager.getDrizzle();
 
     const conditions = status
       ? and(
@@ -397,7 +397,7 @@ export class SurveyRepository {
    * Cuenta encuestas pendientes de sincronizar
    */
   static async countPendingSync(): Promise<number> {
-    const db = getDatabase();
+    const db = dbManager.getDrizzle();
 
     const result = await db
       .select()
@@ -412,7 +412,7 @@ export class SurveyRepository {
    * Obtiene respuestas de una pregunta específica
    */
   static async getQuestionAnswer(responseId: string, questionId: string) {
-    const db = getDatabase();
+    const db = dbManager.getDrizzle();
 
     const answer = await db
       .select()

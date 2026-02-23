@@ -342,8 +342,8 @@ class OfflineSyncService {
 
           // Mark each successful response
           for (const item of responseItems) {
-            const matchingDetail = result.details?.find(
-              (d: any) => d.client_id === item.entity_id,
+            const matchingDetail = result.results?.find(
+              (d) => d.client_id === item.entity_id,
             );
 
             if (matchingDetail && matchingDetail.status === "error") {

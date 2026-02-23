@@ -116,7 +116,7 @@ const STATE_ABBREVIATIONS: Record<string, string> = {
   CDMX: "CIUDAD DE MEXICO",
   "CD. DE MEXICO": "CIUDAD DE MEXICO",
   "CD. MEXICO": "CIUDAD DE MEXICO",
-  "DF": "CIUDAD DE MEXICO",
+  DF: "CIUDAD DE MEXICO",
   "D.F.": "CIUDAD DE MEXICO",
   COAH: "COAHUILA",
   COL: "COLIMA", // Nota: puede confundirse con "COL." de "COLONIA"
@@ -325,9 +325,7 @@ function cleanAddressLine(line: string): string {
 
 /** Ensambla líneas en dirección legible */
 function assembleAddress(lines: string[]): string {
-  const cleaned = lines
-    .map(cleanAddressLine)
-    .filter((l) => l.length >= 2);
+  const cleaned = lines.map(cleanAddressLine).filter((l) => l.length >= 2);
   return cleaned.join(", ");
 }
 
@@ -335,7 +333,7 @@ function assembleAddress(lines: string[]): string {
 function scoreAddress(text: string, lineCount: number): number {
   if (!text || text.length < 3) return 0;
 
-  let score = 0.10; // base: hay algo de texto
+  let score = 0.1; // base: hay algo de texto
 
   // Código postal etiquetado (C.P. XXXXX)
   if (CP_LABELED_RE.test(text)) score += 0.25;
@@ -349,18 +347,18 @@ function scoreAddress(text: string, lineCount: number): number {
   if (COLONIA_RE.test(text)) score += 0.15;
 
   // Estado mexicano
-  if (detectState(text)) score += 0.20;
+  if (detectState(text)) score += 0.2;
 
   // Municipio/Delegación
-  if (MUNICIPIO_RE.test(text)) score += 0.10;
+  if (MUNICIPIO_RE.test(text)) score += 0.1;
 
   // Múltiples líneas (más contenido = más confiable)
   if (lineCount >= 2) score += 0.05;
   if (lineCount >= 3) score += 0.05;
 
   // Penalidad: si contiene CURP o clave mezclados
-  if (CURP_RE.test(text)) score -= 0.20;
-  if (CLAVE_RE.test(text)) score -= 0.20;
+  if (CURP_RE.test(text)) score -= 0.2;
+  if (CLAVE_RE.test(text)) score -= 0.2;
 
   return Math.max(0, Math.min(score, 1.0));
 }
@@ -396,7 +394,9 @@ function strategyDomicilioAnchor(lines: string[]): AddressCandidate | null {
 
   // ¿La línea ancla tiene valor inline?
   const anchorLine = lines[domIdx];
-  const inlineValue = anchorLine.replace(/^D[O0]M[I1]C[I1]L[I1][O0]\s*/i, "").trim();
+  const inlineValue = anchorLine
+    .replace(/^D[O0]M[I1]C[I1]L[I1][O0]\s*/i, "")
+    .trim();
   if (inlineValue.length >= 3 && !DOMICILIO_RE.test(inlineValue)) {
     collected.push(inlineValue);
   }
@@ -651,7 +651,11 @@ function strategyNegativeFilter(lines: string[]): AddressCandidate | null {
   let bestScore = 0;
 
   for (let start = 0; start < survivors.length; start++) {
-    for (let end = start + 1; end <= Math.min(start + 8, survivors.length); end++) {
+    for (
+      let end = start + 1;
+      end <= Math.min(start + 8, survivors.length);
+      end++
+    ) {
       const subset = survivors.slice(start, end);
       const combined = subset.join(", ");
       const s = scoreAddress(combined, subset.length);
@@ -687,10 +691,7 @@ function strategyNegativeFilter(lines: string[]): AddressCandidate | null {
 function strategyStreetType(lines: string[]): AddressCandidate | null {
   let streetIdx = -1;
   for (let i = 0; i < lines.length; i++) {
-    if (
-      STREET_TYPE_RE.test(lines[i]) &&
-      !isDefinitelyNotAddress(lines[i])
-    ) {
+    if (STREET_TYPE_RE.test(lines[i]) && !isDefinitelyNotAddress(lines[i])) {
       streetIdx = i;
       break;
     }
@@ -735,16 +736,17 @@ export function extractDomicilioExpert(backLines: string[]): {
   confidence: number;
   method: string;
 } {
-  if (backLines.length === 0) return { value: "", confidence: 0, method: "none" };
+  if (backLines.length === 0)
+    return { value: "", confidence: 0, method: "none" };
 
   // Ejecutar todas las estrategias
   const candidates: (AddressCandidate | null)[] = [
-    strategyDomicilioAnchor(backLines),   // A: "DOMICILIO" label
-    strategyPostalCode(backLines),         // B: C.P. XXXXX
-    strategyStateName(backLines),          // C: Nombre de estado
-    strategyColonia(backLines),            // D: COL./COLONIA
-    strategyStreetType(backLines),         // F: CALLE/AV/BLVD
-    strategyNegativeFilter(backLines),     // E: Último recurso
+    strategyDomicilioAnchor(backLines), // A: "DOMICILIO" label
+    strategyPostalCode(backLines), // B: C.P. XXXXX
+    strategyStateName(backLines), // C: Nombre de estado
+    strategyColonia(backLines), // D: COL./COLONIA
+    strategyStreetType(backLines), // F: CALLE/AV/BLVD
+    strategyNegativeFilter(backLines), // E: Último recurso
   ];
 
   // Filtrar nulos y ordenar por confianza descendente
@@ -802,7 +804,10 @@ export function extractDomicilioExpert(backLines: string[]): {
  * o del reverso) y aplica las mismas heurísticas de filtrado y scoring.
  */
 export function extractAddressFromSpatialExpert(
-  addressBlocks: { text: string; lines: { text: string; confidence?: number }[] }[],
+  addressBlocks: {
+    text: string;
+    lines: { text: string; confidence?: number }[];
+  }[],
 ): { value: string; confidence: number; method: string } {
   if (addressBlocks.length === 0) {
     return { value: "", confidence: 0, method: "none" };
@@ -841,7 +846,7 @@ export function extractAddressFromSpatialExpert(
   const result = extractDomicilioExpert(spatialLines);
 
   // Bonus por tener dato espacial (sabemos que estamos buscando en la zona correcta)
-  const boostedConfidence = Math.min(result.confidence + 0.10, 1.0);
+  const boostedConfidence = Math.min(result.confidence + 0.1, 1.0);
 
   return {
     value: result.value,
@@ -855,9 +860,9 @@ export function extractAddressFromSpatialExpert(
 // ═══════════════════════════════════════════════════════════════════════════════
 
 export {
+  MEXICAN_STATES_LIST,
+  addressLineLikelihood,
   detectState,
   isDefinitelyNotAddress,
-  addressLineLikelihood,
   scoreAddress,
-  MEXICAN_STATES_LIST,
 };

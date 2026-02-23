@@ -176,6 +176,24 @@ export interface FileQuestion extends QuestionBase {
 }
 
 /**
+ * Pregunta de sí/no
+ */
+export interface YesNoQuestion extends QuestionBase {
+  type: QuestionType.YES_NO;
+}
+
+/**
+ * Pregunta de escala (numérica con etiquetas)
+ */
+export interface ScaleQuestion extends QuestionBase {
+  type: QuestionType.SCALE;
+  min?: number;
+  max?: number;
+  minLabel?: string;
+  maxLabel?: string;
+}
+
+/**
  * Pregunta de captura INE (OCR)
  */
 export interface IneOcrQuestion extends QuestionBase {
@@ -196,6 +214,8 @@ export type Question =
   | DateTimeQuestion
   | RatingQuestion
   | SliderQuestion
+  | YesNoQuestion
+  | ScaleQuestion
   | LocationQuestion
   | PhotoQuestion
   | SignatureQuestion

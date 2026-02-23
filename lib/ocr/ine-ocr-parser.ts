@@ -100,22 +100,22 @@
 // ── Imports ───────────────────────────────────────────────────────────────────
 
 import {
-  scoreAsNombre,
-  scoreAsApellido,
-  correctNameFromDictionary,
-  matchCurpInitials,
-  fixNameOcr,
-} from "./mexican-names";
+  extractAddressFromSpatialExpert,
+  extractDomicilioExpert,
+} from "./ine-address";
 import {
   type OcrBlock,
-  classifyFrontBlocks,
   classifyBackBlocks,
+  classifyFrontBlocks,
   extractNamesFromSpatial,
 } from "./ine-spatial";
 import {
-  extractDomicilioExpert,
-  extractAddressFromSpatialExpert,
-} from "./ine-address";
+  correctNameFromDictionary,
+  fixNameOcr,
+  matchCurpInitials,
+  scoreAsApellido,
+  scoreAsNombre,
+} from "./mexican-names";
 
 // Re-export OcrBlock for use by consumers
 export type { OcrBlock };
@@ -1043,9 +1043,7 @@ export function parseIneOcrText(
   //
   // Clasificamos los bloques del frente UNA sola vez; usaremos
   // frontClassified.addressBlocks más abajo para el domicilio.
-  const frontClassified = frontBlocks
-    ? classifyFrontBlocks(frontBlocks)
-    : null;
+  const frontClassified = frontBlocks ? classifyFrontBlocks(frontBlocks) : null;
   const namesBySpatial = frontClassified
     ? extractNamesFromSpatial(frontClassified.nameBlocks)
     : null;
@@ -1074,8 +1072,12 @@ export function parseIneOcrText(
 
   // Aplicar corrección OCR y diccionario a nombres
   res.nombre = correctNameFromDictionary(fixNameOcr(nameResult.nombre));
-  res.apellidoPaterno = correctNameFromDictionary(fixNameOcr(nameResult.apellidoPaterno));
-  res.apellidoMaterno = correctNameFromDictionary(fixNameOcr(nameResult.apellidoMaterno));
+  res.apellidoPaterno = correctNameFromDictionary(
+    fixNameOcr(nameResult.apellidoPaterno),
+  );
+  res.apellidoMaterno = correctNameFromDictionary(
+    fixNameOcr(nameResult.apellidoMaterno),
+  );
 
   // ── Cross-validación CURP ↔ Nombres ──────────────────────────────────────
   // Verificar que los campos nombre/apellidos coinciden con posiciones del CURP.
@@ -1166,7 +1168,8 @@ export function parseIneOcrText(
 
     // Elegir la mejor fuente (mayor confianza)
     // Damos un boost de +0.05 al frente (es la ubicación canónica)
-    const candidates: { value: string; confidence: number; source: string }[] = [];
+    const candidates: { value: string; confidence: number; source: string }[] =
+      [];
     if (frontSpatialAddr?.value) {
       candidates.push({
         value: frontSpatialAddr.value,

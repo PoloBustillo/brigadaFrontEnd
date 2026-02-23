@@ -44,4 +44,4 @@ export {
 } from "./survey-schema.types";
 
 // Sync types
-export * from "../features/sync/types/sync.types";
+// NOTE: sync.types module not yet created — export removed to fix TS2307

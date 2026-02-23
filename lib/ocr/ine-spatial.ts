@@ -225,7 +225,7 @@ const FRONT_ZONES_FALLBACK = {
   addressYMax: 0.58,
   dataYMin: 0.55,
   dataYMax: 0.85,
-  headerYMax: 0.10,
+  headerYMax: 0.1,
 } as const;
 
 /**
@@ -236,9 +236,9 @@ const FRONT_ZONES_FALLBACK = {
  */
 const BACK_ZONES = {
   addressYMin: 0.0,
-  addressYMax: 0.50,
-  dataYMin: 0.40,
-  dataYMax: 0.80,
+  addressYMax: 0.5,
+  dataYMin: 0.4,
+  dataYMax: 0.8,
 } as const;
 
 /**
@@ -385,7 +385,9 @@ function detectAnchors(
 
       // CLAVE DE ELECTOR o CURP — inicio de datos
       if (
-        (RE_CLAVE_ELECTOR.test(t) || RE_CURP_LABEL.test(t) || RE_SECCION.test(t)) &&
+        (RE_CLAVE_ELECTOR.test(t) ||
+          RE_CURP_LABEL.test(t) ||
+          RE_SECCION.test(t)) &&
         anchors.claveOrCurp === undefined
       ) {
         anchors.claveOrCurp = centerY;
@@ -450,15 +452,27 @@ function computeDynamicZones(anchors: AnchorPositions): DynamicZones {
   // descartamos (probablemente falsos positivos del OCR).
   let { paterno, domicilio, claveOrCurp } = anchors;
 
-  if (paterno !== undefined && domicilio !== undefined && paterno >= domicilio) {
+  if (
+    paterno !== undefined &&
+    domicilio !== undefined &&
+    paterno >= domicilio
+  ) {
     // "PATERNO" apareció debajo de "DOMICILIO" — imposible, descartar
     paterno = undefined;
   }
-  if (domicilio !== undefined && claveOrCurp !== undefined && domicilio >= claveOrCurp) {
+  if (
+    domicilio !== undefined &&
+    claveOrCurp !== undefined &&
+    domicilio >= claveOrCurp
+  ) {
     // "DOMICILIO" apareció debajo de "CLAVE/CURP" — imposible, descartar
     claveOrCurp = undefined;
   }
-  if (paterno !== undefined && claveOrCurp !== undefined && paterno >= claveOrCurp) {
+  if (
+    paterno !== undefined &&
+    claveOrCurp !== undefined &&
+    paterno >= claveOrCurp
+  ) {
     // "PATERNO" apareció debajo de "CLAVE/CURP" — imposible, descartar ambos
     paterno = undefined;
     claveOrCurp = undefined;
@@ -467,23 +481,30 @@ function computeDynamicZones(anchors: AnchorPositions): DynamicZones {
   // ── Calcular fronteras ─────────────────────────────────────────────────
   // Cada frontera es: ancla encontrada − margen, ó fallback si no hay ancla
 
-  const headerEnd = paterno !== undefined
-    ? Math.max(paterno - ANCHOR_MARGIN, 0.02)
-    : fb.headerYMax;
+  const headerEnd =
+    paterno !== undefined
+      ? Math.max(paterno - ANCHOR_MARGIN, 0.02)
+      : fb.headerYMax;
 
-  const nameStart = paterno !== undefined
-    ? Math.max(paterno - ANCHOR_MARGIN, headerEnd)
-    : fb.nameYMin;
+  const nameStart =
+    paterno !== undefined
+      ? Math.max(paterno - ANCHOR_MARGIN, headerEnd)
+      : fb.nameYMin;
 
-  const addressStart = domicilio !== undefined
-    ? Math.max(domicilio - ANCHOR_MARGIN, nameStart + 0.05)
-    : fb.addressYMin;
+  const addressStart =
+    domicilio !== undefined
+      ? Math.max(domicilio - ANCHOR_MARGIN, nameStart + 0.05)
+      : fb.addressYMin;
 
-  const dataStart = claveOrCurp !== undefined
-    ? Math.max(claveOrCurp - ANCHOR_MARGIN, addressStart + 0.05)
-    : fb.dataYMin;
+  const dataStart =
+    claveOrCurp !== undefined
+      ? Math.max(claveOrCurp - ANCHOR_MARGIN, addressStart + 0.05)
+      : fb.dataYMin;
 
-  const usedAnchors = paterno !== undefined || domicilio !== undefined || claveOrCurp !== undefined;
+  const usedAnchors =
+    paterno !== undefined ||
+    domicilio !== undefined ||
+    claveOrCurp !== undefined;
 
   return {
     headerY: [0, headerEnd],
@@ -584,7 +605,11 @@ export function classifyFrontBlocks(blocks: OcrBlock[]): {
   for (const block of blocks) {
     if (!block.frame) {
       // Sin coordenadas — clasificar por contenido textual
-      if (/D[O0]M[I1]C[I1]L[I1][O0]|COL\.?\s|C\.?\s*P\.?\s*\d{5}/i.test(block.text)) {
+      if (
+        /D[O0]M[I1]C[I1]L[I1][O0]|COL\.?\s|C\.?\s*P\.?\s*\d{5}/i.test(
+          block.text,
+        )
+      ) {
         addressBlocks.push(block);
       } else {
         dataBlocks.push(block);
@@ -594,8 +619,7 @@ export function classifyFrontBlocks(blocks: OcrBlock[]): {
 
     // Normalizar coordenadas a proporciones 0–1
     const relX = block.frame.x / dims.width;
-    const relCenterY =
-      (block.frame.y + block.frame.height / 2) / dims.height;
+    const relCenterY = (block.frame.y + block.frame.height / 2) / dims.height;
 
     // Header institucional
     if (relCenterY < zones.headerY[1]) {
@@ -677,8 +701,7 @@ export function classifyBackBlocks(blocks: OcrBlock[]): {
       continue;
     }
 
-    const relCenterY =
-      (block.frame.y + block.frame.height / 2) / dims.height;
+    const relCenterY = (block.frame.y + block.frame.height / 2) / dims.height;
 
     if (relCenterY <= BACK_ZONES.addressYMax) {
       addressBlocks.push(block);
@@ -727,9 +750,7 @@ export function classifyBackBlocks(blocks: OcrBlock[]): {
  * @param nameBlocks  Bloques OCR ya filtrados a la zona de nombres
  * @returns           Nombre desestructurado o null si no se encontró nada
  */
-export function extractNamesFromSpatial(
-  nameBlocks: OcrBlock[],
-): {
+export function extractNamesFromSpatial(nameBlocks: OcrBlock[]): {
   nombre: string;
   apellidoPaterno: string;
   apellidoMaterno: string;
@@ -809,9 +830,10 @@ export function extractNamesFromSpatial(
  * Puede recibir bloques del frente o del reverso.
  * Los bloques se concatenan en orden Y para formar la dirección completa.
  */
-export function extractAddressFromSpatial(
-  addressBlocks: OcrBlock[],
-): { value: string; confidence: number } {
+export function extractAddressFromSpatial(addressBlocks: OcrBlock[]): {
+  value: string;
+  confidence: number;
+} {
   if (addressBlocks.length === 0) return { value: "", confidence: 0 };
 
   const lines: string[] = [];
@@ -833,23 +855,31 @@ export function extractAddressFromSpatial(
   if (lines.length === 0) return { value: "", confidence: 0 };
 
   // Limpiar etiqueta "DOMICILIO" si aparece al inicio de una línea
-  const cleaned = lines.map((l) =>
-    l
-      .replace(/^D[O0]M[I1]C[I1]L[I1][O0]\s+/i, "")
-      .replace(/[|]/g, "")
-      .replace(/\s+/g, " ")
-      .trim(),
-  ).filter((l) => l.length >= 2);
+  const cleaned = lines
+    .map((l) =>
+      l
+        .replace(/^D[O0]M[I1]C[I1]L[I1][O0]\s+/i, "")
+        .replace(/[|]/g, "")
+        .replace(/\s+/g, " ")
+        .trim(),
+    )
+    .filter((l) => l.length >= 2);
 
   const address = cleaned.join(", ");
 
   // Calcular confianza basada en patrones de dirección
   const hasNumero = /\d{1,5}/.test(address);
-  const hasCP = /C\.?\s*P\.?\s*\d{5}/i.test(address) || /\b\d{5}\b/.test(address);
+  const hasCP =
+    /C\.?\s*P\.?\s*\d{5}/i.test(address) || /\b\d{5}\b/.test(address);
   const hasColonia = /COL\.?|COLONIA|FRACC\.?/i.test(address);
   const hasMunicipio = /MUNICIPIO|DELEGACI[OÓ]N|ALCALD[IÍ]A/i.test(address);
-  const matchCount = [hasNumero, hasCP, hasColonia, hasMunicipio, cleaned.length >= 2]
-    .filter(Boolean).length;
+  const matchCount = [
+    hasNumero,
+    hasCP,
+    hasColonia,
+    hasMunicipio,
+    cleaned.length >= 2,
+  ].filter(Boolean).length;
   const confidence = Math.min(0.5 + matchCount * 0.12, 0.98);
 
   return { value: address, confidence };
@@ -873,10 +903,8 @@ export function extractAddressFromSpatial(
  * @returns     true si parece una etiqueta de campo
  */
 function isLabelLine(text: string): boolean {
-  return (
-    /^(?:A(?:PELLID|PELL[I1]D)[O0]|PATERN[O0]|MATERN[O0]|N[O0]MBRE|SEXO|FECHA|CURP|CLAVE|DOMICILIO|SECCI[OÓ]N|VIGENCIA|Estado|Municipio)/i.test(
-      text,
-    )
+  return /^(?:A(?:PELLID|PELL[I1]D)[O0]|PATERN[O0]|MATERN[O0]|N[O0]MBRE|SEXO|FECHA|CURP|CLAVE|DOMICILIO|SECCI[OÓ]N|VIGENCIA|Estado|Municipio)/i.test(
+    text,
   );
 }
 

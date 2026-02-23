@@ -209,10 +209,12 @@ async function extractIneOcr(
       frontBlocks = sorted.map((b) => ({
         text: b.text,
         frame: b.frame,
-        lines: (b.lines ?? []).map((l: { text: string; confidence?: number }) => ({
-          text: l.text,
-          confidence: l.confidence,
-        })),
+        lines: (b.lines ?? []).map(
+          (l: { text: string; confidence?: number }) => ({
+            text: l.text,
+            confidence: l.confidence,
+          }),
+        ),
       }));
     } catch (err) {
       if (isNotLinkedError(err)) return empty;
@@ -231,10 +233,12 @@ async function extractIneOcr(
       backBlocks = sorted.map((b) => ({
         text: b.text,
         frame: b.frame,
-        lines: (b.lines ?? []).map((l: { text: string; confidence?: number }) => ({
-          text: l.text,
-          confidence: l.confidence,
-        })),
+        lines: (b.lines ?? []).map(
+          (l: { text: string; confidence?: number }) => ({
+            text: l.text,
+            confidence: l.confidence,
+          }),
+        ),
       }));
     } catch (err) {
       if (isNotLinkedError(err)) return empty;
@@ -243,7 +247,13 @@ async function extractIneOcr(
   }
 
   // Delegar toda la lógica de extracción al parser puro
-  return parseIneOcrText(frontText, backText, modeloHint, frontBlocks, backBlocks);
+  return parseIneOcrText(
+    frontText,
+    backText,
+    modeloHint,
+    frontBlocks,
+    backBlocks,
+  );
 }
 
 export function INEQuestion({
