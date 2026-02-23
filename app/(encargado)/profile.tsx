@@ -80,6 +80,14 @@ export default function EncargadoProfileScreen() {
       onPress: handleThemeSettings,
       color: colors.primary,
     },
+    {
+      id: "help",
+      icon: "help-circle",
+      title: "Ayuda",
+      subtitle: "Preguntas frecuentes",
+      onPress: () => router.push("/help" as any),
+      color: colors.success,
+    },
   ];
 
   return (

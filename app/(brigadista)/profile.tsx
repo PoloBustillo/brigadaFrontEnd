@@ -93,7 +93,7 @@ export default function BrigadistaProfileScreen() {
       icon: "help-circle",
       title: "Ayuda",
       subtitle: "Preguntas frecuentes",
-      onPress: () => console.log("Help"),
+      onPress: () => router.push("/help" as any),
       color: colors.success,
     },
   ];
