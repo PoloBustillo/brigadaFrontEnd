@@ -22,6 +22,7 @@ import {
   type OcrBlock,
 } from "@/lib/ocr/ine-ocr-parser";
 import { Ionicons } from "@expo/vector-icons";
+import Constants from "expo-constants";
 import * as Haptics from "expo-haptics";
 import * as ImageManipulator from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
@@ -58,13 +59,25 @@ type DocumentScannerModule = {
     letUserAdjustCrop?: boolean;
   }): Promise<{ scannedImages: string[]; status: "cancel" | "success" }>;
 };
+/**
+ * Detect Expo Go: TurboModuleRegistry.getEnforcing() throws a fatal
+ * Invariant Violation that CANNOT be caught by JS try/catch.
+ * We must guard all native-module require() calls behind this check.
+ */
+const IS_EXPO_GO = Constants.executionEnvironment === "storeClient";
+
+let _scannerCache: DocumentScannerModule | null | undefined;
 function getDocumentScanner(): DocumentScannerModule | null {
+  if (_scannerCache !== undefined) return _scannerCache;
+  if (IS_EXPO_GO) { _scannerCache = null; return null; }
   try {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
-    return require("react-native-document-scanner-plugin").default;
+    const mod = require("react-native-document-scanner-plugin");
+    _scannerCache = mod?.default ?? mod ?? null;
   } catch {
-    return null;
+    _scannerCache = null;
   }
+  return _scannerCache;
 }
 
 // Lazy-load the native ML Kit module so the component doesn't crash in
@@ -82,13 +95,18 @@ type TextRecognitionResult = {
 type TextRecognitionModule = {
   recognize(uri: string): Promise<TextRecognitionResult>;
 };
+let _textRecCache: TextRecognitionModule | null | undefined;
 function getTextRecognition(): TextRecognitionModule | null {
+  if (_textRecCache !== undefined) return _textRecCache;
+  if (IS_EXPO_GO) { _textRecCache = null; return null; }
   try {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
-    return require("@react-native-ml-kit/text-recognition").default;
+    const mod = require("@react-native-ml-kit/text-recognition");
+    _textRecCache = mod?.default ?? mod ?? null;
   } catch {
-    return null;
+    _textRecCache = null;
   }
+  return _textRecCache;
 }
 
 /** Returns true when the native ML Kit module is present but not linked (Expo Go). */
@@ -327,26 +345,54 @@ export function INEQuestion({
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
         // ★ Document Scanner: edge detection + perspective correction
+        // Falls back to expo-image-picker camera in Expo Go where
+        // the native DocumentScanner module is not available.
         const scanner = getDocumentScanner();
-        if (!scanner) {
-          Alert.alert(
-            "Escáner no disponible",
-            "Esta función requiere un build de desarrollo o producción.",
-          );
-          return;
-        }
-        const { scannedImages, status: scanStatus } =
-          await scanner.scanDocument({
-            maxNumDocuments: 1,
-            croppedImageQuality: 90,
-            letUserAdjustCrop: true,
+        if (scanner) {
+          try {
+            const { scannedImages, status: scanStatus } =
+              await scanner.scanDocument({
+                maxNumDocuments: 1,
+                croppedImageQuality: 90,
+                letUserAdjustCrop: true,
+              });
+
+            if (scanStatus === "cancel" || !scannedImages?.length) return;
+
+            const processed = await processDocumentImage(scannedImages[0]);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            setPendingCapture({ side, uri: processed });
+          } catch (scanErr) {
+            // If scanner crashes at runtime, fall through to picker fallback
+            console.warn("[INE] Document scanner failed, using camera fallback:", scanErr);
+            const fallback = await ImagePicker.launchCameraAsync({
+              mediaTypes: ["images"],
+              quality: 0.9,
+              allowsEditing: true,
+              aspect: [85.6, 53.98] as [number, number],
+              exif: false,
+            });
+            if (!fallback.canceled && fallback.assets[0]) {
+              const processed = await processDocumentImage(fallback.assets[0].uri);
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              setPendingCapture({ side, uri: processed });
+            }
+          }
+        } else {
+          // No native scanner (Expo Go) — use standard camera
+          const fallback = await ImagePicker.launchCameraAsync({
+            mediaTypes: ["images"],
+            quality: 0.9,
+            allowsEditing: true,
+            aspect: [85.6, 53.98] as [number, number],
+            exif: false,
           });
-
-        if (scanStatus === "cancel" || !scannedImages?.length) return;
-
-        const processed = await processDocumentImage(scannedImages[0]);
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        setPendingCapture({ side, uri: processed });
+          if (!fallback.canceled && fallback.assets[0]) {
+            const processed = await processDocumentImage(fallback.assets[0].uri);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            setPendingCapture({ side, uri: processed });
+          }
+        }
       } else {
         const { status } =
           await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -479,8 +525,8 @@ export function INEQuestion({
               style={[
                 styles.smallBtn,
                 {
-                  borderColor: colors.error + "40",
-                  backgroundColor: colors.surface,
+                  borderColor: colors.error + "60",
+                  backgroundColor: colors.error + "10",
                 },
               ]}
               onPress={() => clearSide(side)}
@@ -508,12 +554,15 @@ export function INEQuestion({
           activeOpacity={0.8}
         >
           <Ionicons name={icon} size={28} color="#fff" />
-          <Text style={styles.captureBtnText}>Capturar {label}</Text>
+          <Text style={[styles.captureBtnText, { color: "#fff" }]}>Capturar {label}</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[
             styles.galleryLink,
-            { borderColor: colors.border, backgroundColor: colors.surface },
+            {
+              borderColor: colors.border,
+              backgroundColor: colors.surface,
+            },
           ]}
           onPress={() => captureImage(side, "gallery")}
           activeOpacity={0.7}
@@ -731,7 +780,7 @@ export function INEQuestion({
                         ? colors.primary
                         : isActive
                           ? colors.primary + "22"
-                          : colors.border + "55",
+                          : colors.surface,
                       borderColor:
                         isDone || isActive ? colors.primary : colors.border,
                     },
@@ -772,7 +821,7 @@ export function INEQuestion({
       {/* Compact instruction tip */}
       {!data.ocrData && !ocrEditing && (
         <View
-          style={[styles.tipCard, { backgroundColor: colors.primary + "0D" }]}
+          style={[styles.tipCard, { backgroundColor: colors.primary + "15" }]}
         >
           <View style={styles.tipRow}>
             <Ionicons name="scan-outline" size={18} color={colors.primary} />
@@ -842,7 +891,7 @@ export function INEQuestion({
                 styles.previewRejectBtn,
                 {
                   borderColor: colors.error,
-                  backgroundColor: colors.error + "10",
+                  backgroundColor: colors.error + "18",
                 },
               ]}
               onPress={rejectCapture}
@@ -887,7 +936,10 @@ export function INEQuestion({
         <View
           style={[
             styles.ocrLoadingCard,
-            { backgroundColor: colors.surface, borderColor: colors.primary },
+            {
+              backgroundColor: colors.primary + "10",
+              borderColor: colors.primary + "60",
+            },
           ]}
         >
           <ActivityIndicator size="small" color={colors.primary} />
@@ -963,8 +1015,8 @@ export function INEQuestion({
                           ? colors.error + "60"
                           : colors.border,
                         backgroundColor: isLowConfidence
-                          ? colors.error + "08"
-                          : colors.background,
+                          ? colors.error + "15"
+                          : colors.surface,
                       },
                     ]}
                     value={fieldValue}
@@ -987,8 +1039,8 @@ export function INEQuestion({
                         style={[
                           styles.curpVerifyBtn,
                           {
-                            backgroundColor: colors.primary + "15",
-                            borderColor: colors.primary + "50",
+                            backgroundColor: colors.primary + "22",
+                            borderColor: colors.primary + "60",
                             opacity: validatingCurp ? 0.6 : 1,
                           },
                         ]}
@@ -1026,20 +1078,20 @@ export function INEQuestion({
                             {
                               backgroundColor:
                                 curpValidation.renapoStatus === "VIGE"
-                                  ? colors.success + "18"
+                                  ? colors.success + "22"
                                   : curpValidation.renapoStatus ===
                                         "NO_ENCONTRADO" ||
                                       curpValidation.renapoStatus === "BAJA"
-                                    ? colors.error + "12"
-                                    : colors.warning + "18",
+                                    ? colors.error + "1A"
+                                    : colors.warning + "22",
                               borderColor:
                                 curpValidation.renapoStatus === "VIGE"
-                                  ? colors.success + "60"
+                                  ? colors.success + "70"
                                   : curpValidation.renapoStatus ===
                                         "NO_ENCONTRADO" ||
                                       curpValidation.renapoStatus === "BAJA"
-                                    ? colors.error + "40"
-                                    : colors.warning + "40",
+                                    ? colors.error + "50"
+                                    : colors.warning + "50",
                             },
                           ]}
                         >
@@ -1096,7 +1148,9 @@ export function INEQuestion({
             activeOpacity={0.85}
           >
             <Ionicons name="checkmark-circle" size={20} color="#fff" />
-            <Text style={styles.confirmOcrBtnText}>Confirmar datos</Text>
+            <Text style={[styles.confirmOcrBtnText, { color: "#fff" }]}>
+              Confirmar datos
+            </Text>
           </TouchableOpacity>
         </View>
       )}
@@ -1107,7 +1161,7 @@ export function INEQuestion({
           style={[
             styles.ocrSummary,
             {
-              backgroundColor: colors.success + "10",
+              backgroundColor: colors.success + "18",
               borderColor: colors.success,
             },
           ]}
@@ -1140,7 +1194,10 @@ export function INEQuestion({
                 <View
                   style={[
                     styles.reLeerBtn,
-                    { borderColor: colors.primary + "50" },
+                    {
+                      borderColor: colors.primary + "60",
+                      backgroundColor: colors.primary + "10",
+                    },
                   ]}
                 >
                   <Ionicons
@@ -1185,7 +1242,7 @@ export function INEQuestion({
         <View
           style={[
             styles.completeBadge,
-            { backgroundColor: colors.success + "18" },
+            { backgroundColor: colors.success + "20" },
           ]}
         >
           <Ionicons name="checkmark-done" size={18} color={colors.success} />
@@ -1294,7 +1351,6 @@ const styles = StyleSheet.create({
     borderRadius: 14,
   },
   captureBtnText: {
-    color: "#fff",
     fontSize: 16,
     fontWeight: "700",
   },
@@ -1514,7 +1570,6 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   confirmOcrBtnText: {
-    color: "#fff",
     fontSize: 15,
     fontWeight: "700",
   },
