@@ -76,26 +76,34 @@ export async function getMyTeam(): Promise<TeamMember[]> {
   );
 }
 
-/** GET /assignments/my-team-responses — responses from team members */
+export interface PaginatedTeamResponse {
+  items: TeamResponse[];
+  total: number;
+  skip: number;
+  limit: number;
+  has_more: boolean;
+}
+
+/** GET /assignments/my-team-responses — responses from team members (paginated) */
 export async function getTeamResponses(
   skip = 0,
-  limit = 100,
-): Promise<TeamResponse[]> {
+  limit = 20,
+): Promise<PaginatedTeamResponse> {
   return timedCall(
     "GET /assignments/my-team-responses",
     () =>
       apiClient
-        .get<
-          TeamResponse[]
-        >("/assignments/my-team-responses", { params: { skip, limit } })
+        .get<PaginatedTeamResponse>("/assignments/my-team-responses", {
+          params: { skip, limit },
+        })
         .then((r) => r.data),
-    (items) => `${items.length} items`,
+    (res) => `${res.items.length}/${res.total} items`,
   );
 }
 
 /**
- * Fetches ALL team responses by paginating until the server returns fewer items
- * than the requested page size (signals last page).
+ * Fetches ALL team responses — used by the encargado dashboard stats.
+ * Still paginates internally until the server is exhausted.
  */
 export async function getAllTeamResponses(
   pageSize = 500,
@@ -105,9 +113,9 @@ export async function getAllTeamResponses(
   const t0 = Date.now();
   while (true) {
     const page = await getTeamResponses(skip, pageSize);
-    all.push(...page);
-    if (page.length < pageSize) break; // last page
-    skip += page.length;
+    all.push(...page.items);
+    if (!page.has_more) break;
+    skip += page.items.length;
   }
   console.log(
     `[API] getAllTeamResponses → ${all.length} total en ${Date.now() - t0}ms`,

@@ -106,7 +106,7 @@ export function NumberQuestion({
                 <Text
                   style={[
                     styles.scaleNumber,
-                    { color: isSelected ? "#fff" : colors.text },
+                    { color: isSelected ? colors.onPrimary : colors.text },
                   ]}
                 >
                   {n}

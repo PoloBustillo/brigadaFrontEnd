@@ -102,7 +102,7 @@ export function PhotoQuestion({
               styles.addTile,
               {
                 borderColor: colors.primary,
-                backgroundColor: colors.primary + "10",
+                backgroundColor: colors.primaryContainer,
               },
             ]}
           >

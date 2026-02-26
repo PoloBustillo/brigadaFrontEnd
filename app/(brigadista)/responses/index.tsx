@@ -1,7 +1,6 @@
 /**
- * Brigadista Responses - My Responses
- * Shows: Own responses to assigned surveys
- * Access: Brigadistas only (Rule 11)
+ * Brigadista Responses – My Responses
+ * Paginated infinite-scroll list with detail modal
  */
 
 import { AppHeader } from "@/components/shared";
@@ -14,10 +13,10 @@ import {
 } from "@/lib/api/mobile";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  FlatList,
   Modal,
   RefreshControl,
   ScrollView,
@@ -27,222 +26,269 @@ import {
   View,
 } from "react-native";
 
-interface MyResponse {
-  id: number;
-  surveyTitle: string;
-  completedAt: string;
-  questionsAnswered: number;
-  totalQuestions: number;
-  location: string;
-  syncStatus: "synced" | "pending";
-  raw: SurveyResponseDetail;
-}
+const PAGE_SIZE = 20;
 
 export default function BrigadistaResponses() {
   const colors = useThemeColors();
   const { contentPadding } = useTabBarHeight();
-  const router = useRouter();
-  const [responses, setResponses] = useState<MyResponse[]>([]);
+  const [responses, setResponses] = useState<SurveyResponseDetail[]>([]);
+  const [total, setTotal] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [fetchError, setFetchError] = useState(false);
-  const [selectedResponse, setSelectedResponse] = useState<MyResponse | null>(
-    null,
-  );
+  const [selectedResponse, setSelectedResponse] =
+    useState<SurveyResponseDetail | null>(null);
+  const hasMore = useRef(true);
 
-  const fetchResponses = async () => {
-    setFetchError(false);
+  const fetchPage = useCallback(async (skip: number, append: boolean) => {
     try {
-      const data = await getMyResponses(0, 100);
-      const mapped: MyResponse[] = data.map((r) => {
-        const answersCount = Array.isArray(r.answers) ? r.answers.length : 0;
-        return {
-          id: r.id,
-          surveyTitle: `Encuesta #${r.version_id}`,
-          completedAt: r.synced_at ?? r.completed_at,
-          questionsAnswered: answersCount,
-          totalQuestions: answersCount,
-          location: "Sin ubicación",
-          syncStatus: r.synced_at ? "synced" : "pending",
-          raw: r,
-        };
-      });
-      setResponses(mapped);
+      const res = await getMyResponses(skip, PAGE_SIZE);
+      if (append) {
+        setResponses((prev) => [...prev, ...res.items]);
+      } else {
+        setResponses(res.items);
+      }
+      setTotal(res.total);
+      hasMore.current = res.has_more;
+      setFetchError(false);
     } catch {
-      setFetchError(true);
-    } finally {
-      setIsLoading(false);
-      setRefreshing(false);
+      if (!append) setFetchError(true);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    fetchResponses();
+    fetchPage(0, false).finally(() => setIsLoading(false));
   }, []);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    fetchResponses();
+    await fetchPage(0, false);
+    setRefreshing(false);
   };
 
-  const handleResponsePress = (response: MyResponse) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setSelectedResponse(response);
+  const loadMore = async () => {
+    if (loadingMore || !hasMore.current) return;
+    setLoadingMore(true);
+    await fetchPage(responses.length, true);
+    setLoadingMore(false);
   };
 
-  const formatAnswerValue = (answer: QuestionAnswerDetail): string => {
-    const val = answer.answer_value;
-    if (val === null || val === undefined) return "—";
-    if (typeof val === "boolean") return val ? "Sí" : "No";
-    if (typeof val === "object") {
-      if (Array.isArray(val)) return val.join(", ");
-      return JSON.stringify(val, null, 2);
-    }
-    return String(val);
+  // ── Helpers ──────────────────────────────────────────────────
+
+  const formatDate = (iso: string) => {
+    const d = new Date(iso);
+    return d.toLocaleDateString("es-MX", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
   };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    const today = new Date();
-    const diffTime = Math.abs(today.getTime() - date.getTime());
-    const diffHours = Math.floor(diffTime / (1000 * 60 * 60));
-
-    if (diffHours < 24) {
-      return `Hace ${diffHours}h`;
-    } else {
-      const diffDays = Math.floor(diffHours / 24);
-      return `Hace ${diffDays}d`;
-    }
+  const formatRelative = (iso: string) => {
+    const diff = Date.now() - new Date(iso).getTime();
+    const h = Math.floor(diff / 3_600_000);
+    if (h < 1) return "Hace <1 h";
+    if (h < 24) return `Hace ${h} h`;
+    return `Hace ${Math.floor(h / 24)} d`;
   };
+
+  const formatLocation = (loc: Record<string, any> | null) => {
+    if (!loc) return null;
+    if (loc.address) return String(loc.address);
+    if (loc.latitude && loc.longitude)
+      return `${Number(loc.latitude).toFixed(4)}, ${Number(loc.longitude).toFixed(4)}`;
+    return null;
+  };
+
+  const formatAnswer = (a: QuestionAnswerDetail): string => {
+    const v = a.answer_value;
+    if (v == null) return "—";
+    if (typeof v === "boolean") return v ? "Sí" : "No";
+    if (Array.isArray(v)) return v.join(", ");
+    if (typeof v === "object") return JSON.stringify(v, null, 2);
+    return String(v);
+  };
+
+  // ── Card ─────────────────────────────────────────────────────
+
+  const renderCard = ({ item: r }: { item: SurveyResponseDetail }) => {
+    const loc = formatLocation(r.location as Record<string, any> | null);
+    const answersCount = r.answers?.length ?? 0;
+
+    return (
+      <TouchableOpacity
+        style={[
+          styles.card,
+          { backgroundColor: colors.surface, borderColor: colors.border },
+        ]}
+        activeOpacity={0.7}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          setSelectedResponse(r);
+        }}
+      >
+        {/* Top row: title + badge */}
+        <View style={styles.cardTop}>
+          <View style={{ flex: 1 }}>
+            <Text
+              style={[styles.cardTitle, { color: colors.text }]}
+              numberOfLines={2}
+            >
+              Encuesta v{r.version_id}
+            </Text>
+            <Text style={[styles.cardDate, { color: colors.textSecondary }]}>
+              {formatRelative(r.synced_at ?? r.completed_at)}
+            </Text>
+          </View>
+          <View
+            style={[
+              styles.badge,
+              {
+                backgroundColor: r.synced_at
+                  ? colors.success + "18"
+                  : colors.warning + "18",
+              },
+            ]}
+          >
+            <Ionicons
+              name={r.synced_at ? "cloud-done" : "cloud-upload"}
+              size={14}
+              color={r.synced_at ? colors.success : colors.warning}
+            />
+            <Text
+              style={{
+                fontSize: 11,
+                fontWeight: "600",
+                color: r.synced_at ? colors.success : colors.warning,
+              }}
+            >
+              {r.synced_at ? "Sync" : "Pendiente"}
+            </Text>
+          </View>
+        </View>
+
+        {/* Meta chips */}
+        <View style={styles.chipRow}>
+          <View
+            style={[styles.chip, { backgroundColor: colors.primary + "12" }]}
+          >
+            <Ionicons name="chatbox-outline" size={13} color={colors.primary} />
+            <Text style={[styles.chipText, { color: colors.primary }]}>
+              {answersCount} respuesta{answersCount !== 1 ? "s" : ""}
+            </Text>
+          </View>
+          {loc && (
+            <View
+              style={[styles.chip, { backgroundColor: colors.info + "12" }]}
+            >
+              <Ionicons name="location-outline" size={13} color={colors.info} />
+              <Text
+                style={[styles.chipText, { color: colors.info }]}
+                numberOfLines={1}
+              >
+                {loc}
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {/* Footer */}
+        <View
+          style={[styles.cardFooter, { borderTopColor: colors.borderLight }]}
+        >
+          <Text style={[styles.footerDate, { color: colors.textTertiary }]}>
+            {formatDate(r.completed_at)}
+          </Text>
+          <Ionicons
+            name="chevron-forward"
+            size={18}
+            color={colors.textTertiary}
+          />
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  // ── Main ─────────────────────────────────────────────────────
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <AppHeader title="Respuestas" />
+      <AppHeader
+        title="Mis Respuestas"
+        subtitle={total > 0 ? `${total} total` : undefined}
+      />
 
-      {fetchError && (
-        <TouchableOpacity style={styles.errorBanner} onPress={fetchResponses}>
-          <Text style={styles.errorBannerText}>
+      {fetchError && responses.length === 0 && !isLoading && (
+        <TouchableOpacity
+          style={[styles.errorBanner, { backgroundColor: colors.error + "15" }]}
+          onPress={() => {
+            setIsLoading(true);
+            fetchPage(0, false).finally(() => setIsLoading(false));
+          }}
+        >
+          <Ionicons
+            name="cloud-offline-outline"
+            size={18}
+            color={colors.error}
+          />
+          <Text style={[styles.errorText, { color: colors.error }]}>
             No se pudo cargar. Toca para reintentar.
           </Text>
         </TouchableOpacity>
       )}
 
       {isLoading ? (
-        <View style={styles.loadingContainer}>
+        <View style={styles.centered}>
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : (
-        <ScrollView
+        <FlatList
+          data={responses}
+          keyExtractor={(r) => String(r.id)}
+          renderItem={renderCard}
           contentContainerStyle={[
-            styles.content,
-            { paddingBottom: contentPadding },
+            styles.listContent,
+            { paddingBottom: contentPadding + 20 },
+            responses.length === 0 && styles.centered,
           ]}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.primary}
+            />
           }
-        >
-          {/* Responses List */}
-          <View style={styles.listContainer}>
-            {responses.length === 0 ? (
-              <View style={styles.emptyState}>
-                <Ionicons
-                  name="chatbox-outline"
-                  size={64}
-                  color={colors.textSecondary}
-                />
-                <Text style={[styles.emptyText, { color: colors.text }]}>
-                  No hay respuestas
-                </Text>
-                <Text
-                  style={[styles.emptySubtext, { color: colors.textSecondary }]}
-                >
-                  Tus respuestas aparecerán aquí cuando completes encuestas
-                </Text>
+          onEndReached={loadMore}
+          onEndReachedThreshold={0.4}
+          ListEmptyComponent={
+            <View style={styles.empty}>
+              <Ionicons
+                name="chatbox-outline"
+                size={56}
+                color={colors.textTertiary}
+              />
+              <Text style={[styles.emptyTitle, { color: colors.text }]}>
+                Sin respuestas
+              </Text>
+              <Text
+                style={[styles.emptySubtitle, { color: colors.textSecondary }]}
+              >
+                Completa encuestas para verlas aquí
+              </Text>
+            </View>
+          }
+          ListFooterComponent={
+            loadingMore ? (
+              <View style={styles.footer}>
+                <ActivityIndicator size="small" color={colors.primary} />
               </View>
-            ) : (
-              responses.map((response) => {
-                return (
-                  <TouchableOpacity
-                    key={response.id}
-                    style={[
-                      styles.responseCard,
-                      {
-                        backgroundColor: colors.surface,
-                        borderColor: colors.border,
-                      },
-                    ]}
-                    onPress={() => handleResponsePress(response)}
-                    activeOpacity={0.7}
-                  >
-                    {/* Header */}
-                    <View style={styles.cardHeader}>
-                      <Text
-                        style={[styles.surveyTitle, { color: colors.text }]}
-                        numberOfLines={2}
-                      >
-                        {response.surveyTitle}
-                      </Text>
-                      <Ionicons
-                        name="checkmark-circle"
-                        size={20}
-                        color={colors.success}
-                      />
-                    </View>
-
-                    {/* Footer */}
-                    <View
-                      style={[
-                        styles.cardFooter,
-                        { borderTopColor: colors.border },
-                      ]}
-                    >
-                      <View style={styles.footerInfo}>
-                        <View style={styles.footerItem}>
-                          <Ionicons
-                            name="location-outline"
-                            size={14}
-                            color={colors.textSecondary}
-                          />
-                          <Text
-                            style={[
-                              styles.footerText,
-                              { color: colors.textSecondary },
-                            ]}
-                          >
-                            {response.location}
-                          </Text>
-                        </View>
-                        <View style={styles.footerItem}>
-                          <Ionicons
-                            name="time-outline"
-                            size={14}
-                            color={colors.textSecondary}
-                          />
-                          <Text
-                            style={[
-                              styles.footerText,
-                              { color: colors.textSecondary },
-                            ]}
-                          >
-                            {formatDate(response.completedAt)}
-                          </Text>
-                        </View>
-                      </View>
-                      <Ionicons
-                        name="chevron-forward"
-                        size={20}
-                        color={colors.textSecondary}
-                      />
-                    </View>
-                  </TouchableOpacity>
-                );
-              })
-            )}
-          </View>
-        </ScrollView>
+            ) : null
+          }
+        />
       )}
 
-      {/* Response Detail Modal */}
+      {/* ── Detail Modal ── */}
       <Modal
         visible={selectedResponse !== null}
         animationType="slide"
@@ -256,13 +302,13 @@ export default function BrigadistaResponses() {
               { backgroundColor: colors.background },
             ]}
           >
-            {/* Modal Header */}
+            {/* Header */}
             <View
               style={[styles.modalHeader, { borderBottomColor: colors.border }]}
             >
               <View style={{ flex: 1 }}>
                 <Text style={[styles.modalTitle, { color: colors.text }]}>
-                  {selectedResponse.surveyTitle}
+                  Encuesta v{selectedResponse.version_id}
                 </Text>
                 <Text
                   style={[
@@ -270,7 +316,7 @@ export default function BrigadistaResponses() {
                     { color: colors.textSecondary },
                   ]}
                 >
-                  {new Date(selectedResponse.completedAt).toLocaleDateString(
+                  {new Date(selectedResponse.completed_at).toLocaleDateString(
                     "es-MX",
                     {
                       day: "numeric",
@@ -297,51 +343,43 @@ export default function BrigadistaResponses() {
               </TouchableOpacity>
             </View>
 
-            {/* Status badges */}
+            {/* Badges */}
             <View style={styles.badgeRow}>
               <View
                 style={[
                   styles.badge,
                   {
-                    backgroundColor:
-                      selectedResponse.syncStatus === "synced"
-                        ? colors.success + "20"
-                        : colors.warning + "20",
+                    backgroundColor: selectedResponse.synced_at
+                      ? colors.success + "18"
+                      : colors.warning + "18",
                   },
                 ]}
               >
                 <Ionicons
                   name={
-                    selectedResponse.syncStatus === "synced"
-                      ? "cloud-done"
-                      : "cloud-upload"
+                    selectedResponse.synced_at ? "cloud-done" : "cloud-upload"
                   }
                   size={14}
                   color={
-                    selectedResponse.syncStatus === "synced"
-                      ? colors.success
-                      : colors.warning
+                    selectedResponse.synced_at ? colors.success : colors.warning
                   }
                 />
                 <Text
                   style={{
                     fontSize: 12,
                     fontWeight: "600",
-                    color:
-                      selectedResponse.syncStatus === "synced"
-                        ? colors.success
-                        : colors.warning,
+                    color: selectedResponse.synced_at
+                      ? colors.success
+                      : colors.warning,
                   }}
                 >
-                  {selectedResponse.syncStatus === "synced"
-                    ? "Sincronizada"
-                    : "Pendiente"}
+                  {selectedResponse.synced_at ? "Sincronizada" : "Pendiente"}
                 </Text>
               </View>
               <View
                 style={[
                   styles.badge,
-                  { backgroundColor: colors.primary + "20" },
+                  { backgroundColor: colors.primary + "15" },
                 ]}
               >
                 <Ionicons name="chatbox" size={14} color={colors.primary} />
@@ -352,18 +390,18 @@ export default function BrigadistaResponses() {
                     color: colors.primary,
                   }}
                 >
-                  {selectedResponse.questionsAnswered} respuestas
+                  {selectedResponse.answers?.length ?? 0} respuestas
                 </Text>
               </View>
             </View>
 
-            {/* Answers list */}
+            {/* Answers */}
             <ScrollView
               style={styles.answersScroll}
               contentContainerStyle={{ paddingBottom: 40 }}
             >
-              {selectedResponse.raw.answers.length === 0 ? (
-                <View style={styles.emptyAnswers}>
+              {!selectedResponse.answers?.length ? (
+                <View style={styles.empty}>
                   <Ionicons
                     name="document-text-outline"
                     size={40}
@@ -371,61 +409,75 @@ export default function BrigadistaResponses() {
                   />
                   <Text
                     style={[
-                      styles.emptyAnswersText,
+                      styles.emptySubtitle,
                       { color: colors.textSecondary },
                     ]}
                   >
-                    No hay respuestas detalladas disponibles
+                    Sin respuestas detalladas
                   </Text>
                 </View>
               ) : (
-                selectedResponse.raw.answers.map(
-                  (answer: QuestionAnswerDetail, idx: number) => (
-                    <View
-                      key={answer.id}
-                      style={[
-                        styles.answerCard,
-                        {
-                          backgroundColor: colors.surface,
-                          borderColor: colors.borderLight,
-                        },
-                      ]}
-                    >
-                      <Text
+                (selectedResponse.answers ?? []).map((answer, idx) => (
+                  <View
+                    key={answer.id}
+                    style={[
+                      styles.answerCard,
+                      {
+                        backgroundColor: colors.surface,
+                        borderColor: colors.borderLight,
+                      },
+                    ]}
+                  >
+                    <View style={styles.answerHeader}>
+                      <View
                         style={[
-                          styles.answerLabel,
-                          { color: colors.textSecondary },
+                          styles.answerBadge,
+                          { backgroundColor: colors.primary + "12" },
                         ]}
                       >
-                        Pregunta {idx + 1} (ID: {answer.question_id})
-                      </Text>
+                        <Text
+                          style={[
+                            styles.answerBadgeText,
+                            { color: colors.primary },
+                          ]}
+                        >
+                          P{idx + 1}
+                        </Text>
+                      </View>
                       <Text
-                        style={[styles.answerValue, { color: colors.text }]}
+                        style={[
+                          styles.answerQid,
+                          { color: colors.textTertiary },
+                        ]}
                       >
-                        {formatAnswerValue(answer)}
+                        ID {answer.question_id}
                       </Text>
-                      {answer.media_url && (
-                        <View style={styles.mediaRow}>
-                          <Ionicons
-                            name="image-outline"
-                            size={14}
-                            color={colors.info}
-                          />
-                          <Text
-                            style={{
-                              fontSize: 12,
-                              color: colors.info,
-                              flex: 1,
-                            }}
-                            numberOfLines={1}
-                          >
-                            Archivo adjunto
-                          </Text>
-                        </View>
-                      )}
                     </View>
-                  ),
-                )
+                    <Text style={[styles.answerValue, { color: colors.text }]}>
+                      {formatAnswer(answer)}
+                    </Text>
+                    {answer.media_url && (
+                      <View
+                        style={[
+                          styles.mediaRow,
+                          { borderTopColor: colors.borderLight },
+                        ]}
+                      >
+                        <Ionicons
+                          name="image-outline"
+                          size={14}
+                          color={colors.info}
+                        />
+                        <Text
+                          style={{ fontSize: 12, color: colors.info, flex: 1 }}
+                          numberOfLines={1}
+                        >
+                          Archivo adjunto
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                ))
               )}
             </ScrollView>
           </View>
@@ -436,88 +488,74 @@ export default function BrigadistaResponses() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
+  container: { flex: 1 },
+  centered: { flex: 1, justifyContent: "center", alignItems: "center" },
+  listContent: { padding: 16, gap: 10 },
   errorBanner: {
-    backgroundColor: "#FF3B30",
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-  },
-  errorBannerText: {
-    color: "#fff",
-    textAlign: "center",
-    fontWeight: "600",
-  },
-  content: {
-    padding: 20,
-  },
-  listContainer: {
-    gap: 12,
-  },
-  emptyState: {
+    flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 60,
+    gap: 8,
+    margin: 16,
+    marginBottom: 0,
+    padding: 12,
+    borderRadius: 10,
   },
-  emptyText: {
-    fontSize: 20,
-    fontWeight: "600",
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  emptySubtext: {
-    fontSize: 14,
-    textAlign: "center",
-    paddingHorizontal: 32,
-  },
-  responseCard: {
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  cardHeader: {
+  errorText: { fontSize: 13, fontWeight: "600" },
+
+  /* Card */
+  card: { borderRadius: 14, borderWidth: 1, padding: 14 },
+  cardTop: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 12,
-    gap: 8,
+    gap: 10,
+    marginBottom: 10,
   },
-  surveyTitle: {
-    flex: 1,
-    fontSize: 16,
-    fontWeight: "600",
+  cardTitle: { fontSize: 15, fontWeight: "700" },
+  cardDate: { fontSize: 12, marginTop: 2 },
+  chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 10 },
+  chip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
   },
+  chipText: { fontSize: 11, fontWeight: "600" },
   cardFooter: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingTop: 12,
-    borderTopWidth: 1,
+    paddingTop: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
   },
-  footerInfo: {
-    flexDirection: "row",
-    gap: 12,
-    flex: 1,
-  },
-  footerItem: {
+  footerDate: { fontSize: 11 },
+
+  badge: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    flex: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 20,
   },
-  footerText: {
-    fontSize: 12,
-    flex: 1,
+  badgeRow: {
+    flexDirection: "row",
+    gap: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
   },
-  // Modal styles
-  modalContainer: {
-    flex: 1,
-  },
+
+  /* Empty */
+  empty: { alignItems: "center", paddingVertical: 48, gap: 8 },
+  emptyTitle: { fontSize: 18, fontWeight: "700" },
+  emptySubtitle: { fontSize: 14, textAlign: "center", paddingHorizontal: 32 },
+
+  /* Footer loader */
+  footer: { paddingVertical: 16, alignItems: "center" },
+
+  /* Modal */
+  modalContainer: { flex: 1 },
   modalHeader: {
     flexDirection: "row",
     alignItems: "center",
@@ -526,63 +564,34 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     borderBottomWidth: 1,
   },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-  },
-  modalSubtitle: {
-    fontSize: 13,
-    marginTop: 4,
-  },
-  badgeRow: {
-    flexDirection: "row",
-    gap: 8,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-  },
-  badge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 20,
-  },
-  answersScroll: {
-    flex: 1,
-    paddingHorizontal: 20,
-  },
-  emptyAnswers: {
-    alignItems: "center",
-    paddingVertical: 40,
-    gap: 12,
-  },
-  emptyAnswersText: {
-    fontSize: 14,
-    textAlign: "center",
-  },
+  modalTitle: { fontSize: 18, fontWeight: "700" },
+  modalSubtitle: { fontSize: 13, marginTop: 4 },
+  answersScroll: { flex: 1, paddingHorizontal: 20 },
+
+  /* Answer card */
   answerCard: {
     padding: 14,
-    borderRadius: 10,
+    borderRadius: 12,
     borderWidth: 1,
-    marginBottom: 10,
+    marginBottom: 8,
+    marginTop: 4,
   },
-  answerLabel: {
-    fontSize: 12,
-    fontWeight: "600",
-    marginBottom: 6,
+  answerHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 8,
   },
-  answerValue: {
-    fontSize: 15,
-    lineHeight: 22,
-  },
+  answerBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
+  answerBadgeText: { fontSize: 12, fontWeight: "700" },
+  answerQid: { fontSize: 11 },
+  answerValue: { fontSize: 14, lineHeight: 21 },
   mediaRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    marginTop: 8,
-    paddingTop: 8,
+    marginTop: 10,
+    paddingTop: 10,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "rgba(0,0,0,0.1)",
   },
 });

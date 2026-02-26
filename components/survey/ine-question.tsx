@@ -16,17 +16,29 @@ import {
   type CurpValidationResult,
 } from "@/lib/ocr/curp-validator";
 import {
+  checkImageQuality,
+  qualityIssueMessage,
+  qualityIssueTitle,
+} from "@/lib/ocr/image-quality";
+import {
   parseIneOcrText,
   type IneModelo,
   type IneOcrResult,
+  type IneTextField,
   type OcrBlock,
+  type ParsedAddress,
 } from "@/lib/ocr/ine-ocr-parser";
+import {
+  loadCorrections,
+  saveCorrection,
+  type FieldCorrections,
+} from "@/lib/ocr/ocr-corrections";
 import { Ionicons } from "@expo/vector-icons";
 import Constants from "expo-constants";
 import * as Haptics from "expo-haptics";
 import * as ImageManipulator from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -69,7 +81,10 @@ const IS_EXPO_GO = Constants.executionEnvironment === "storeClient";
 let _scannerCache: DocumentScannerModule | null | undefined;
 function getDocumentScanner(): DocumentScannerModule | null {
   if (_scannerCache !== undefined) return _scannerCache;
-  if (IS_EXPO_GO) { _scannerCache = null; return null; }
+  if (IS_EXPO_GO) {
+    _scannerCache = null;
+    return null;
+  }
   try {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const mod = require("react-native-document-scanner-plugin");
@@ -98,7 +113,10 @@ type TextRecognitionModule = {
 let _textRecCache: TextRecognitionModule | null | undefined;
 function getTextRecognition(): TextRecognitionModule | null {
   if (_textRecCache !== undefined) return _textRecCache;
-  if (IS_EXPO_GO) { _textRecCache = null; return null; }
+  if (IS_EXPO_GO) {
+    _textRecCache = null;
+    return null;
+  }
   try {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const mod = require("@react-native-ml-kit/text-recognition");
@@ -132,10 +150,7 @@ type INEData = {
 export type INEOcrResult = IneOcrResult;
 
 /** Campos editables del resultado OCR (excluye las propiedades de confianza y el modelo) */
-type IneTextField = keyof Omit<
-  INEOcrResult,
-  "confidence" | "fieldConfidence" | "modeloDetected"
->;
+type IneTextFieldLocal = IneTextField;
 
 function parseValue(value: any): INEData {
   if (!value) return { front: null, back: null, ocrData: null };
@@ -178,6 +193,7 @@ async function extractIneOcr(
   frontUri: string | null,
   backUri: string | null,
   modeloHint?: IneModelo,
+  corrections?: FieldCorrections,
 ): Promise<INEOcrResult> {
   const empty: INEOcrResult = {
     nombre: "",
@@ -271,6 +287,7 @@ async function extractIneOcr(
     modeloHint,
     frontBlocks,
     backBlocks,
+    corrections,
   );
 }
 
@@ -288,6 +305,12 @@ export function INEQuestion({
   const [curpValidation, setCurpValidation] =
     useState<CurpValidationResult | null>(null);
   const [validatingCurp, setValidatingCurp] = useState(false);
+
+  // Ref con las correcciones OCR persistidas en AsyncStorage
+  const correctionsRef = useRef<FieldCorrections>({});
+  // Ref con el resultado OCR original (antes de edición manual), para poder
+  // detectar qué valores corrigió el usuario y guardarlos como aprendizaje.
+  const initialOcrRef = useRef<INEOcrResult | null>(null);
 
   // Pre-OCR preview state: captured photo waiting for user confirmation
   const [pendingCapture, setPendingCapture] = useState<{
@@ -309,7 +332,13 @@ export function INEQuestion({
       if (!frontUri) return;
       setLoading("ocr");
       try {
-        const ocrResult = await extractIneOcr(frontUri, backUri);
+        const ocrResult = await extractIneOcr(
+          frontUri,
+          backUri,
+          undefined,
+          correctionsRef.current,
+        );
+        initialOcrRef.current = ocrResult;
         setEditableOcr(ocrResult);
         setOcrEditing(true);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -325,6 +354,66 @@ export function INEQuestion({
     },
     [],
   );
+
+  // Cargar correcciones OCR guardadas al montar el componente
+  useEffect(() => {
+    loadCorrections()
+      .then((c) => {
+        correctionsRef.current = c;
+      })
+      .catch(() => {
+        // Ignorar errores de storage; se usará un mapa vacío
+      });
+  }, []);
+
+  /**
+   * Evalúa la calidad de la imagen capturada; si hay un problema muestra
+   * una alerta específica ofreciendo retomar o continuar de todas formas.
+   * Si la calidad es aceptable (o si el check falla internamente), procede
+   * directamente a `setPendingCapture`.
+   *
+   * Nota: referencia a `captureImage` dentro del callback del Alert es segura
+   * porque la closure solo se invoca después de que el componente ha terminado
+   * de renderizar (cuando el usuario toca «Retomar»).
+   */
+  const handleProcessedCapture = async (
+    side: "front" | "back",
+    source: "camera" | "gallery",
+    uri: string,
+  ) => {
+    const quality = await checkImageQuality(uri);
+
+    if (!quality.ok && quality.issues.length > 0) {
+      const title = qualityIssueTitle(quality.issues);
+      // Mostrar solo el mensaje del problema más grave (el primero en la lista)
+      const message = qualityIssueMessage(quality.issues[0]);
+      Alert.alert(
+        title,
+        `${message}\n\n¿Deseas retomar la foto o continuar de todas formas?`,
+        [
+          {
+            text: "Retomar",
+            style: "cancel",
+            // fire-and-forget: captureImage gestiona su propio estado de carga
+            onPress: () => void captureImage(side, source),
+          },
+          {
+            text: "Continuar de todas formas",
+            onPress: () => {
+              Haptics.notificationAsync(
+                Haptics.NotificationFeedbackType.Success,
+              );
+              setPendingCapture({ side, uri });
+            },
+          },
+        ],
+        { cancelable: false },
+      );
+    } else {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setPendingCapture({ side, uri });
+    }
+  };
 
   const captureImage = async (
     side: "front" | "back",
@@ -360,11 +449,13 @@ export function INEQuestion({
             if (scanStatus === "cancel" || !scannedImages?.length) return;
 
             const processed = await processDocumentImage(scannedImages[0]);
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            setPendingCapture({ side, uri: processed });
+            await handleProcessedCapture(side, source, processed);
           } catch (scanErr) {
             // If scanner crashes at runtime, fall through to picker fallback
-            console.warn("[INE] Document scanner failed, using camera fallback:", scanErr);
+            console.warn(
+              "[INE] Document scanner failed, using camera fallback:",
+              scanErr,
+            );
             const fallback = await ImagePicker.launchCameraAsync({
               mediaTypes: ["images"],
               quality: 0.9,
@@ -373,9 +464,10 @@ export function INEQuestion({
               exif: false,
             });
             if (!fallback.canceled && fallback.assets[0]) {
-              const processed = await processDocumentImage(fallback.assets[0].uri);
-              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-              setPendingCapture({ side, uri: processed });
+              const processed = await processDocumentImage(
+                fallback.assets[0].uri,
+              );
+              await handleProcessedCapture(side, source, processed);
             }
           }
         } else {
@@ -388,9 +480,10 @@ export function INEQuestion({
             exif: false,
           });
           if (!fallback.canceled && fallback.assets[0]) {
-            const processed = await processDocumentImage(fallback.assets[0].uri);
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            setPendingCapture({ side, uri: processed });
+            const processed = await processDocumentImage(
+              fallback.assets[0].uri,
+            );
+            await handleProcessedCapture(side, source, processed);
           }
         }
       } else {
@@ -414,8 +507,7 @@ export function INEQuestion({
 
         if (!result.canceled && result.assets[0]) {
           const processed = await processDocumentImage(result.assets[0].uri);
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          setPendingCapture({ side, uri: processed });
+          await handleProcessedCapture(side, source, processed);
         }
       }
     } catch (err) {
@@ -471,7 +563,10 @@ export function INEQuestion({
         <View
           style={[
             styles.sideCard,
-            { backgroundColor: colors.surface, borderColor: colors.border },
+            {
+              backgroundColor: colors.primaryContainer,
+              borderColor: colors.primary + "40",
+            },
           ]}
         >
           <ActivityIndicator size="large" color={colors.primary} />
@@ -507,7 +602,10 @@ export function INEQuestion({
             <TouchableOpacity
               style={[
                 styles.smallBtn,
-                { borderColor: colors.border, backgroundColor: colors.surface },
+                {
+                  borderColor: colors.onPrimaryContainer + "40",
+                  backgroundColor: colors.primaryContainer,
+                },
               ]}
               onPress={() => captureImage(side, "camera")}
               activeOpacity={0.7}
@@ -515,9 +613,14 @@ export function INEQuestion({
               <Ionicons
                 name="camera-outline"
                 size={16}
-                color={colors.primary}
+                color={colors.onPrimaryContainer}
               />
-              <Text style={[styles.smallBtnText, { color: colors.primary }]}>
+              <Text
+                style={[
+                  styles.smallBtnText,
+                  { color: colors.onPrimaryContainer },
+                ]}
+              >
                 Retomar
               </Text>
             </TouchableOpacity>
@@ -553,15 +656,17 @@ export function INEQuestion({
           onPress={() => captureImage(side, "camera")}
           activeOpacity={0.8}
         >
-          <Ionicons name={icon} size={28} color="#fff" />
-          <Text style={[styles.captureBtnText, { color: "#fff" }]}>Capturar {label}</Text>
+          <Ionicons name={icon} size={28} color={colors.onPrimary} />
+          <Text style={[styles.captureBtnText, { color: colors.onPrimary }]}>
+            Capturar {label}
+          </Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[
             styles.galleryLink,
             {
-              borderColor: colors.border,
-              backgroundColor: colors.surface,
+              borderColor: colors.onPrimaryContainer + "40",
+              backgroundColor: colors.primaryContainer,
             },
           ]}
           onPress={() => captureImage(side, "gallery")}
@@ -652,8 +757,26 @@ export function INEQuestion({
   }, [editableOcr, token]);
 
   // Campos de texto editables (excluye los de confianza que no son strings)
-  const updateOcrField = (field: IneTextField, val: string) => {
+  const updateOcrField = (field: IneTextFieldLocal, val: string) => {
     if (!editableOcr) return;
+    // Guardar corrección si el valor difiere del OCR original
+    const initialVal = (initialOcrRef.current as any)?.[field] as
+      | string
+      | undefined;
+    if (
+      initialVal !== undefined &&
+      initialVal.length > 0 &&
+      val.length > 0 &&
+      val !== initialVal
+    ) {
+      saveCorrection(field, initialVal, val)
+        .then((updated) => {
+          correctionsRef.current = updated;
+        })
+        .catch(() => {
+          // Ignorar errores de storage
+        });
+    }
     // Cuando el usuario edita manualmente un campo, marcar su confianza como 1.0
     // (el usuario ha verificado/corregido el valor — Decisión §5 del parser)
     const updatedFieldConf = {
@@ -667,10 +790,48 @@ export function INEQuestion({
     });
   };
 
+  /** Actualiza un sub-campo del domicilio y reconstruye el campo `domicilio` plano. */
+  const updateAddressField = (subField: keyof ParsedAddress, val: string) => {
+    if (!editableOcr) return;
+    const existing: ParsedAddress = editableOcr.domicilioDesglosado ?? {
+      calle: "",
+      colonia: "",
+      codigoPostal: "",
+      municipio: "",
+      estado: "",
+    };
+    const upper = val.trim().toUpperCase();
+    const updated: ParsedAddress = { ...existing, [subField]: upper };
+    // Reconstruir el domicilio plano con prefijos estándar
+    const parts = [
+      updated.calle,
+      updated.colonia ? `COL. ${updated.colonia}` : "",
+      updated.codigoPostal ? `C.P. ${updated.codigoPostal}` : "",
+      updated.municipio,
+      updated.estado,
+    ].filter(Boolean);
+    const newDomicilio = parts.join(", ");
+    const initialDom = initialOcrRef.current?.domicilio ?? "";
+    if (initialDom && newDomicilio && newDomicilio !== initialDom) {
+      saveCorrection("domicilio", initialDom, newDomicilio)
+        .then((c) => {
+          correctionsRef.current = c;
+        })
+        .catch(() => {});
+    }
+    setEditableOcr({
+      ...editableOcr,
+      domicilio: newDomicilio,
+      domicilioDesglosado: updated,
+      fieldConfidence: { ...editableOcr.fieldConfidence, domicilio: 1.0 },
+    });
+  };
+
   // OCR field config for rendering
   const ocrFields: {
     key: IneTextField;
     label: string;
+    isAddress?: boolean;
     autoCapitalize?: "none" | "sentences" | "words" | "characters";
     keyboardType?: "default" | "numeric" | "numbers-and-punctuation";
     maxLength?: number;
@@ -731,8 +892,7 @@ export function INEQuestion({
     {
       key: "domicilio",
       label: "Domicilio",
-      autoCapitalize: "characters",
-      autoCorrect: false,
+      isAddress: true,
     },
   ];
 
@@ -791,7 +951,7 @@ export function INEQuestion({
                     size={14}
                     color={
                       isDone
-                        ? "#fff"
+                        ? colors.onPrimary
                         : isActive
                           ? colors.primary
                           : (colors.textTertiary ?? "#bbb")
@@ -937,7 +1097,7 @@ export function INEQuestion({
           style={[
             styles.ocrLoadingCard,
             {
-              backgroundColor: colors.primary + "10",
+              backgroundColor: colors.primaryContainer,
               borderColor: colors.primary + "60",
             },
           ]}
@@ -971,11 +1131,186 @@ export function INEQuestion({
             ({
               key,
               label,
+              isAddress,
               autoCapitalize,
               autoCorrect,
               keyboardType,
               maxLength,
             }) => {
+              // ── Sección especial: domicilio desglosado ─────────────────────────────
+              if (isAddress) {
+                const addr: ParsedAddress =
+                  editableOcr.domicilioDesglosado ?? {
+                    calle: "",
+                    colonia: "",
+                    codigoPostal: "",
+                    municipio: "",
+                    estado: "",
+                  };
+                const domConf =
+                  editableOcr.fieldConfidence?.domicilio ??
+                  (editableOcr.domicilio ? 0.5 : 0);
+                const isLowDom =
+                  (!editableOcr.domicilio && !addr.calle) || domConf < 0.7;
+                const addrBorderColor = isLowDom
+                  ? colors.error + "60"
+                  : colors.border;
+                const addrBg = isLowDom
+                  ? colors.error + "15"
+                  : colors.surface;
+                return (
+                  <View key={key} style={styles.ocrFieldRow}>
+                    <View style={styles.ocrFieldLabelRow}>
+                      <Ionicons
+                        name="home-outline"
+                        size={14}
+                        color={
+                          isLowDom ? colors.error : colors.textSecondary
+                        }
+                      />
+                      <Text
+                        style={[
+                          styles.ocrFieldLabel,
+                          {
+                            color: isLowDom
+                              ? colors.error
+                              : colors.textSecondary,
+                          },
+                        ]}
+                      >
+                        {label}
+                      </Text>
+                      {isLowDom && (
+                        <Ionicons
+                          name="alert-circle"
+                          size={14}
+                          color={colors.error}
+                        />
+                      )}
+                    </View>
+
+                    <Text
+                      style={[
+                        styles.ocrAddressSubLabel,
+                        { color: colors.textSecondary },
+                      ]}
+                    >
+                      Calle y número
+                    </Text>
+                    <TextInput
+                      style={[
+                        styles.ocrFieldInput,
+                        { color: colors.text, borderColor: addrBorderColor, backgroundColor: addrBg },
+                      ]}
+                      value={addr.calle}
+                      onChangeText={(v) => updateAddressField("calle", v)}
+                      placeholder="Ej: AV REFORMA 123"
+                      placeholderTextColor={colors.textTertiary}
+                      autoCapitalize="characters"
+                      autoCorrect={false}
+                      spellCheck={false}
+                    />
+
+                    <Text
+                      style={[
+                        styles.ocrAddressSubLabel,
+                        { color: colors.textSecondary },
+                      ]}
+                    >
+                      Colonia
+                    </Text>
+                    <TextInput
+                      style={[
+                        styles.ocrFieldInput,
+                        { color: colors.text, borderColor: addrBorderColor, backgroundColor: addrBg },
+                      ]}
+                      value={addr.colonia}
+                      onChangeText={(v) => updateAddressField("colonia", v)}
+                      placeholder="Nombre de colonia"
+                      placeholderTextColor={colors.textTertiary}
+                      autoCapitalize="characters"
+                      autoCorrect={false}
+                      spellCheck={false}
+                    />
+
+                    <View style={styles.ocrAddressRow}>
+                      <View style={styles.ocrAddressCpWrap}>
+                        <Text
+                          style={[
+                            styles.ocrAddressSubLabel,
+                            { color: colors.textSecondary },
+                          ]}
+                        >
+                          C.P.
+                        </Text>
+                        <TextInput
+                          style={[
+                            styles.ocrFieldInput,
+                            { color: colors.text, borderColor: addrBorderColor, backgroundColor: addrBg },
+                          ]}
+                          value={addr.codigoPostal}
+                          onChangeText={(v) =>
+                            updateAddressField("codigoPostal", v)
+                          }
+                          placeholder="00000"
+                          placeholderTextColor={colors.textTertiary}
+                          keyboardType="numeric"
+                          maxLength={5}
+                        />
+                      </View>
+                      <View style={styles.ocrAddressMuniWrap}>
+                        <Text
+                          style={[
+                            styles.ocrAddressSubLabel,
+                            { color: colors.textSecondary },
+                          ]}
+                        >
+                          Municipio / Alcaldía
+                        </Text>
+                        <TextInput
+                          style={[
+                            styles.ocrFieldInput,
+                            { color: colors.text, borderColor: addrBorderColor, backgroundColor: addrBg },
+                          ]}
+                          value={addr.municipio}
+                          onChangeText={(v) =>
+                            updateAddressField("municipio", v)
+                          }
+                          placeholder="Municipio o alcaldía"
+                          placeholderTextColor={colors.textTertiary}
+                          autoCapitalize="characters"
+                          autoCorrect={false}
+                          spellCheck={false}
+                        />
+                      </View>
+                    </View>
+
+                    <Text
+                      style={[
+                        styles.ocrAddressSubLabel,
+                        { color: colors.textSecondary },
+                      ]}
+                    >
+                      Estado
+                    </Text>
+                    <TextInput
+                      style={[
+                        styles.ocrFieldInput,
+                        { color: colors.text, borderColor: addrBorderColor, backgroundColor: addrBg },
+                      ]}
+                      value={addr.estado}
+                      onChangeText={(v) => updateAddressField("estado", v)}
+                      placeholder="Estado"
+                      placeholderTextColor={colors.textTertiary}
+                      autoCapitalize="characters"
+                      autoCorrect={false}
+                      spellCheck={false}
+                    />
+                  </View>
+                );
+              }
+
+              // ── Campos de texto regulares ───────────────────────────────────────
               // Usar confianza individual del parser en vez de la global
               // (Decisión §5 en lib/ocr/ine-ocr-parser.ts)
               const fieldValue = String(editableOcr[key] ?? "");
@@ -1147,8 +1482,14 @@ export function INEQuestion({
             onPress={confirmOcr}
             activeOpacity={0.85}
           >
-            <Ionicons name="checkmark-circle" size={20} color="#fff" />
-            <Text style={[styles.confirmOcrBtnText, { color: "#fff" }]}>
+            <Ionicons
+              name="checkmark-circle"
+              size={20}
+              color={colors.onPrimary}
+            />
+            <Text
+              style={[styles.confirmOcrBtnText, { color: colors.onPrimary }]}
+            >
               Confirmar datos
             </Text>
           </TouchableOpacity>
@@ -1195,8 +1536,8 @@ export function INEQuestion({
                   style={[
                     styles.reLeerBtn,
                     {
-                      borderColor: colors.primary + "60",
-                      backgroundColor: colors.primary + "10",
+                      borderColor: colors.onPrimaryContainer + "60",
+                      backgroundColor: colors.primaryContainer,
                     },
                   ]}
                 >
@@ -1559,6 +1900,24 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 10,
     borderWidth: 1,
+  },
+  ocrAddressSubLabel: {
+    fontSize: 11,
+    fontWeight: "600" as const,
+    letterSpacing: 0.2,
+    marginTop: 6,
+    marginBottom: 2,
+    textTransform: "uppercase" as const,
+  },
+  ocrAddressRow: {
+    flexDirection: "row" as const,
+    gap: 8,
+  },
+  ocrAddressCpWrap: {
+    flex: 1.3,
+  },
+  ocrAddressMuniWrap: {
+    flex: 2.5,
   },
   confirmOcrBtn: {
     flexDirection: "row",

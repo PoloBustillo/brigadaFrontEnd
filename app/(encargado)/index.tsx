@@ -13,12 +13,12 @@ import { ThemeToggleIcon } from "@/components/ui/theme-toggle";
 import { useAuth } from "@/contexts/auth-context";
 import { useThemeColors } from "@/contexts/theme-context";
 import { useTabBarHeight } from "@/hooks/use-tab-bar-height";
-import { getCached, setCached } from "@/lib/api/memory-cache";
 import {
+  getAllTeamResponses,
   getMyCreatedAssignments,
   getMyTeam,
-  getAllTeamResponses,
 } from "@/lib/api/assignments";
+import { getCached, setCached } from "@/lib/api/memory-cache";
 import { Ionicons } from "@expo/vector-icons";
 import NetInfo from "@react-native-community/netinfo";
 import * as Haptics from "expo-haptics";
@@ -190,12 +190,19 @@ export default function EncargadoHome() {
   const { user, logout } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
-  const initialDashboard = getCached<{ stats: StatCardProps[]; teamMembers: TeamMemberCardProps[] }>("encargado:dashboard");
+  const initialDashboard = getCached<{
+    stats: StatCardProps[];
+    teamMembers: TeamMemberCardProps[];
+  }>("encargado:dashboard");
   const [isLoading, setIsLoading] = useState(!initialDashboard);
   const [fetchError, setFetchError] = useState(false);
   const [hasLoadedOnce, setHasLoadedOnce] = useState(!!initialDashboard);
-  const [stats, setStats] = useState<StatCardProps[]>(initialDashboard?.stats ?? []);
-  const [teamMembers, setTeamMembers] = useState<TeamMemberCardProps[]>(initialDashboard?.teamMembers ?? []);
+  const [stats, setStats] = useState<StatCardProps[]>(
+    initialDashboard?.stats ?? [],
+  );
+  const [teamMembers, setTeamMembers] = useState<TeamMemberCardProps[]>(
+    initialDashboard?.teamMembers ?? [],
+  );
 
   const formatLastActive = (isoDate: string | null) => {
     if (!isoDate) return "Sin actividad reciente";
@@ -223,10 +230,30 @@ export default function EncargadoHome() {
         setFetchError(true);
         if (!silent) {
           setStats([
-            { icon: "people", value: 0, label: "Mi Equipo", color: colors.primary },
-            { icon: "document-text", value: 0, label: "Mis Encuestas", color: colors.success },
-            { icon: "clipboard", value: 0, label: "Respuestas", color: colors.info },
-            { icon: "trending-up", value: "0%", label: "Completado", color: colors.warning },
+            {
+              icon: "people",
+              value: 0,
+              label: "Mi Equipo",
+              color: colors.primary,
+            },
+            {
+              icon: "document-text",
+              value: 0,
+              label: "Mis Encuestas",
+              color: colors.success,
+            },
+            {
+              icon: "clipboard",
+              value: 0,
+              label: "Respuestas",
+              color: colors.info,
+            },
+            {
+              icon: "trending-up",
+              value: "0%",
+              label: "Completado",
+              color: colors.warning,
+            },
           ]);
         }
         return;
@@ -322,7 +349,10 @@ export default function EncargadoHome() {
 
       setTeamMembers(mappedMembers);
       setHasLoadedOnce(true);
-      setCached("encargado:dashboard", { stats: computedStats, teamMembers: mappedMembers });
+      setCached("encargado:dashboard", {
+        stats: computedStats,
+        teamMembers: mappedMembers,
+      });
     } catch {
       setFetchError(true);
       if (!silent) {
@@ -407,7 +437,10 @@ export default function EncargadoHome() {
   return (
     <ScrollView
       style={[styles.container, { backgroundColor: colors.background }]}
-      contentContainerStyle={[styles.content, { paddingBottom: contentPadding }]}
+      contentContainerStyle={[
+        styles.content,
+        { paddingBottom: contentPadding },
+      ]}
       refreshControl={
         <RefreshControl
           refreshing={refreshing}
@@ -452,7 +485,11 @@ export default function EncargadoHome() {
           <TouchableOpacity
             style={[
               styles.profileButton,
-              { backgroundColor: colors.surface, borderColor: colors.border, overflow: "hidden" },
+              {
+                backgroundColor: colors.surface,
+                borderColor: colors.border,
+                overflow: "hidden",
+              },
             ]}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -461,9 +498,16 @@ export default function EncargadoHome() {
             activeOpacity={0.7}
           >
             {user?.avatar_url ? (
-              <Image source={{ uri: user.avatar_url }} style={{ width: 44, height: 44, borderRadius: 22 }} />
+              <Image
+                source={{ uri: user.avatar_url }}
+                style={{ width: 44, height: 44, borderRadius: 22 }}
+              />
             ) : (
-              <Ionicons name="person-outline" size={20} color={colors.primary} />
+              <Ionicons
+                name="person-outline"
+                size={20}
+                color={colors.primary}
+              />
             )}
           </TouchableOpacity>
           {/* Logout */}
@@ -528,19 +572,26 @@ export default function EncargadoHome() {
             {teamMembers.map((member) => (
               <TeamMemberCard key={member.id} {...member} />
             ))}
-            {teamMembers.length === 0 && (
-              fetchError && !hasLoadedOnce ? (
-                <TouchableOpacity onPress={() => fetchDashboardData()} activeOpacity={0.7}>
+            {teamMembers.length === 0 &&
+              (fetchError && !hasLoadedOnce ? (
+                <TouchableOpacity
+                  onPress={() => fetchDashboardData()}
+                  activeOpacity={0.7}
+                >
                   <Text style={[styles.emptyTeamText, { color: colors.error }]}>
                     No se pudo cargar el equipo. Toca para reintentar.
                   </Text>
                 </TouchableOpacity>
               ) : (
-                <Text style={[styles.emptyTeamText, { color: colors.textSecondary }]}>
+                <Text
+                  style={[
+                    styles.emptyTeamText,
+                    { color: colors.textSecondary },
+                  ]}
+                >
                   No hay miembros de equipo asignados todavía.
                 </Text>
-              )
-            )}
+              ))}
           </View>
         </View>
       )}

@@ -577,6 +577,19 @@ export function correctNameFromDictionary(raw: string): string {
     }
   }
 
+  // Para nombres largos (>6 chars), intentar Levenshtein distance ≤ 2
+  // (dos caracteres de diferencia — cubre errores OCR dobles como "HERN4NDEZ")
+  if (fixed.length > 6) {
+    for (const candidate of candidates) {
+      if (
+        Math.abs(candidate.length - fixed.length) <= 1 &&
+        levenshteinN(fixed, candidate) <= 2
+      ) {
+        return candidate;
+      }
+    }
+  }
+
   return raw.trim().toUpperCase();
 }
 
@@ -589,6 +602,35 @@ function levenshtein1(a: string, b: string): boolean {
     if (diffs > 1) return false;
   }
   return diffs === 1;
+}
+
+/**
+ * Calcula la distancia de Levenshtein exacta entre dos strings.
+ * Usa programación dinámica con una sola fila para O(min(m,n)) espacio.
+ * Se usa para nombres largos donde Levenshtein-1 es demasiado estricto.
+ */
+function levenshteinN(a: string, b: string): number {
+  if (a === b) return 0;
+  if (a.length === 0) return b.length;
+  if (b.length === 0) return a.length;
+
+  // Optimización: usar el string más corto como columna
+  if (a.length > b.length) [a, b] = [b, a];
+
+  const row = Array.from({ length: a.length + 1 }, (_, i) => i);
+
+  for (let j = 1; j <= b.length; j++) {
+    let prev = row[0];
+    row[0] = j;
+    for (let i = 1; i <= a.length; i++) {
+      const curr = row[i];
+      row[i] =
+        a[i - 1] === b[j - 1] ? prev : 1 + Math.min(prev, row[i], row[i - 1]);
+      prev = curr;
+    }
+  }
+
+  return row[a.length];
 }
 
 /**

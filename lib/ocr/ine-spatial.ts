@@ -220,8 +220,8 @@ export interface SpatialZones {
 const FRONT_ZONES_FALLBACK = {
   photoRightEdge: 0.25,
   nameYMin: 0.08,
-  nameYMax: 0.32,
-  addressYMin: 0.28,
+  nameYMax: 0.38,
+  addressYMin: 0.36,
   addressYMax: 0.58,
   dataYMin: 0.55,
   dataYMax: 0.85,
@@ -651,7 +651,20 @@ export function classifyFrontBlocks(blocks: OcrBlock[]): {
       relCenterY >= zones.addressY[0] &&
       relCenterY < zones.addressY[1]
     ) {
-      addressBlocks.push(block);
+      // Si el bloque contiene una etiqueta de nombre (PATERNO, MATERNO, NOMBRE),
+      // reclasificar como nombre. Esto ocurre cuando la frontera de zona está
+      // calculada incorrectamente (p.ej. DOMICILIO anchor no fue detectada
+      // y el fallback es demasiado bajo, capturando los últimos campos de nombre).
+      const blockUpper = block.text.toUpperCase();
+      if (
+        RE_PATERNO.test(blockUpper) ||
+        /MATERN[O0]/i.test(blockUpper) ||
+        /^N[O0]MBRE/i.test(blockUpper)
+      ) {
+        nameBlocks.push(block);
+      } else {
+        addressBlocks.push(block);
+      }
       continue;
     }
 
@@ -821,7 +834,46 @@ export function extractNamesFromSpatial(nameBlocks: OcrBlock[]): {
 
   const found =
     result.apellidoPaterno || result.apellidoMaterno || result.nombre;
-  return found ? { ...result, method: "spatial" } : null;
+
+  if (found) return { ...result, method: "spatial" };
+
+  // ── Fallback posicional ─────────────────────────────────────────────────
+  // Si no se encontraron etiquetas pero hay líneas de texto en la zona de
+  // nombres (p.ej. ML Kit no leyó los labels por reflejo del holograma),
+  // asumir el orden posicional estándar de la INE:
+  //   Línea 1 → APELLIDO PATERNO
+  //   Línea 2 → APELLIDO MATERNO
+  //   Línea 3+ → NOMBRE(S)
+  //
+  // Solo se activa si hay ≥2 líneas que parezcan valores de nombre
+  // (letras mayúsculas, sin etiquetas, sin encabezados institucionales).
+  const valueLines = lines.filter((l) => {
+    if (isLabelLine(l)) return false;
+    // Filtrar texto institucional
+    if (
+      /^(INSTITUTO|CREDENCIAL|ELECTORAL|INE|IFE|NACIONAL|PARA\s+VOTAR)/i.test(l)
+    )
+      return false;
+    // Filtrar líneas muy cortas
+    if (l.length < 2) return false;
+    // Filtrar líneas que parecen datos (CURP, fechas, secciones)
+    if (/\d{4,}/.test(l)) return false;
+    // Aceptar solo texto que parezca nombres: letras + espacios + acentos
+    const cleaned = l.replace(/[0-9]/g, "");
+    return /^[A-ZÁÉÍÓÚÑÜ\s]{2,}$/.test(cleaned);
+  });
+
+  if (valueLines.length >= 2) {
+    return {
+      apellidoPaterno: cleanValue(valueLines[0]),
+      apellidoMaterno: cleanValue(valueLines[1]),
+      nombre:
+        valueLines.length >= 3 ? cleanValue(valueLines.slice(2).join(" ")) : "",
+      method: "spatial",
+    };
+  }
+
+  return null;
 }
 
 /**

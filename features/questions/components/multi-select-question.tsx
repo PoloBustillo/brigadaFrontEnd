@@ -83,7 +83,7 @@ export function MultiSelectQuestion({
               ]}
             >
               {isSelected && (
-                <Ionicons name="checkmark" size={14} color="#fff" />
+                <Ionicons name="checkmark" size={14} color={colors.onPrimary} />
               )}
             </View>
             <Text
@@ -132,7 +132,7 @@ export function MultiSelectQuestion({
             ]}
           >
             {selected.includes("__other__") && (
-              <Ionicons name="checkmark" size={14} color="#fff" />
+              <Ionicons name="checkmark" size={14} color={colors.onPrimary} />
             )}
           </View>
           <Text style={[styles.label, { color: colors.textSecondary }]}>

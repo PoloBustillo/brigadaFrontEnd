@@ -102,12 +102,15 @@
 import {
   extractAddressFromSpatialExpert,
   extractDomicilioExpert,
+  parseAddressComponents,
+  type ParsedAddress,
 } from "./ine-address";
+import { parseMrz } from "./ine-mrz";
 import {
-  type OcrBlock,
   classifyBackBlocks,
   classifyFrontBlocks,
   extractNamesFromSpatial,
+  type OcrBlock,
 } from "./ine-spatial";
 import {
   correctNameFromDictionary,
@@ -116,9 +119,10 @@ import {
   scoreAsApellido,
   scoreAsNombre,
 } from "./mexican-names";
+import { applyFieldCorrection, type FieldCorrections } from "./ocr-corrections";
 
-// Re-export OcrBlock for use by consumers
-export type { OcrBlock };
+// Re-export OcrBlock and ParsedAddress for use by consumers
+export type { OcrBlock, ParsedAddress };
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
@@ -134,6 +138,8 @@ export interface IneOcrResult {
   seccion: string;
   vigencia: string; // año YYYY
   domicilio: string;
+  /** Domicilio desglosado en sub-componentes estructurados */
+  domicilioDesglosado?: ParsedAddress;
   /** Modelo de credencial detectado (Decisión §6) */
   modeloDetected: IneModelo;
   /** Confianza global 0–1 calculada como media de campos con valor */
@@ -142,11 +148,23 @@ export interface IneOcrResult {
   fieldConfidence: Record<
     keyof Omit<
       IneOcrResult,
-      "confidence" | "fieldConfidence" | "modeloDetected"
+      | "confidence"
+      | "fieldConfidence"
+      | "modeloDetected"
+      | "domicilioDesglosado"
     >,
     number
   >;
 }
+
+/**
+ * Campos de texto editables del resultado OCR.
+ * Excluye los metadatos (confianza, modelo, desglose de domicilio).
+ */
+export type IneTextField = keyof Omit<
+  IneOcrResult,
+  "confidence" | "fieldConfidence" | "modeloDetected" | "domicilioDesglosado"
+>;
 
 /** Versión del modelo de credencial detectada */
 export type IneModelo =
@@ -283,26 +301,56 @@ const SEXO_RE = /\bSEXO\s*[:\-]?\s*([HM])\b/i;
 export function normalizeOcrText(raw: string): string {
   return (
     raw
+      // a) Composición Unicode NFC: normaliza combinaciones de carácter + diacrítico
+      //    a su forma precompuesta. Esto asegura que Á, É, Í, Ó, Ú, Ñ queden como
+      //    un solo codepoint antes de cualquier otra transformación.
+      //    Ejemplo: A + U+0301 (combining acute) → Á; N + U+0303 → Ñ
+      .normalize("NFC")
       .toUpperCase()
-      // a) ANTES de eliminar la virgulilla (~), reconstruir la Ñ que ML Kit
+      // b) ANTES de eliminar la virgulilla (~), reconstruir la Ñ que ML Kit
       //    puede haber separado en dos caracteres: "MUN~OZ" → "MUÑOZ".
-      //    Patrones comunes según el motor OCR:
-      //      N˜  (N + virgulilla combinatoria U+02DC)
-      //      N~   (N + tilde ASCII)
-      //      ~N   (tilde al revés, menos frecuente)
+      //    (NFC ya maneja la mayoría, esto captura las variantes ASCII.)
       .replace(/N[˜~]/g, "Ñ")
       .replace(/[˜~]N/g, "Ñ")
-      // b) Reemplazar símbolos de marca de agua / bordes (ahora que ~ ya fue manejada)
+      // c.1) Diacríticos no españoles generados por ruido OCR en hologramas.
+      //      El español solo usa tildes agudas (Á É Í Ó Ú) y Ñ; cualquier
+      //      umlaut/grave/circumflejo es error OCR — lo mapeamos a su base.
+      .replace(/[ÄÀÂ]/g, "A")
+      .replace(/[ÖÒÔØ]/g, "O")
+      .replace(/[ÜÙÛ]/g, "U")
+      .replace(/[ÈÊ]/g, "E")
+      .replace(/[ÌÎ]/g, "I")
+      // c) Reemplazar símbolos de marca de agua / bordes (ahora que ~ ya fue manejada)
       .replace(/[◆●■»*|~#@%^&]/g, " ")
-      // c) Colapsar whitespace interno
+      // d) Colapsar whitespace interno
       .split("\n")
       .map((line) => line.replace(/\s+/g, " ").trim())
-      // d) Eliminar ruido (líneas muy cortas que no son valor de campo)
+      // e) Eliminar ruido (líneas muy cortas que no son valor de campo)
       .filter((line) => line.length >= 2)
-      // e) Filtrar líneas MRZ (Machine-Readable Zone: contienen <)
+      // f) Filtrar líneas MRZ (Machine-Readable Zone: contienen <)
       //    que aparecen en el reverso de algunos modelos y confunden
       //    el regex de CURP con cadenas similares de 18 chars.
       .filter((line) => !line.includes("<"))
+      // g) Unir fragmentos de línea cortados por OCR cerca de hologramas.
+      //    Condición: ambas líneas son < 5 chars de pura letra (sin dígitos, sin espacios)
+      //    y ninguna es una etiqueta de campo o abreviatura conocida.
+      //    Ejemplo: ["GARCIA HER", "NANDEZ"] → no aplica (HER tiene 3 chars pero NANDEZ tiene 6)
+      //    Ejemplo: ["RODR", "IGUEZ"] → ["RODRIGUEZ"]  (ambas < 6 chars, solo letras)
+      .reduce((acc: string[], line) => {
+        const prev = acc[acc.length - 1];
+        if (
+          prev !== undefined &&
+          prev.length <= 5 &&
+          line.length <= 5 &&
+          /^[A-ZÁÉÍÓÚÑÜ]+$/.test(prev) &&
+          /^[A-ZÁÉÍÓÚÑÜ]+$/.test(line)
+        ) {
+          acc[acc.length - 1] = prev + line;
+        } else {
+          acc.push(line);
+        }
+        return acc;
+      }, [])
       .join("\n")
   );
 }
@@ -358,6 +406,34 @@ export function fixClaveElectorOcr(raw: string): string {
   return chars.join("");
 }
 
+/**
+ * Verifica el dígito de control (posíción 17) de una CURP.
+ *
+ * Algoritmo RENAPO:
+ *   1. Cada caracter en posiciones 0–16 se mapea a su índice en CURP_VERIFY_CHARS.
+ *   2. Se multiplica por el peso (18 − i).
+ *   3. La suma módulo 10 da el residuo; el dígito esperado = (10 − residuo) % 10.
+ *   4. Debe coincidir con parseInt(curp[17], 10).
+ *
+ * Retorna false si el último carácter no es un dígito (algunos CURPs emitidos
+ * antes de la normalización de 1994 usan letra en posición 17 — se omite la
+ * verificación en ese caso para no rechazarlos.
+ */
+const CURP_VERIFY_CHARS = "0123456789ABCDEFGHIJKLMNÑOPQRSTUVWXYZ";
+export function verifyCurpCheckDigit(curp: string): boolean {
+  if (curp.length !== 18) return false;
+  const lastDigit = parseInt(curp[17], 10);
+  // Si el último caracter es letra, la CURP pre-verificación — no rechazar.
+  if (isNaN(lastDigit)) return true;
+  let sum = 0;
+  for (let i = 0; i < 17; i++) {
+    const idx = CURP_VERIFY_CHARS.indexOf(curp[i]);
+    if (idx < 0) return false; // carácter desconocido
+    sum += idx * (18 - i);
+  }
+  return (10 - (sum % 10)) % 10 === lastDigit;
+}
+
 // ── Extracción de fecha con múltiples formatos (Decisión §9) ──────────────────
 
 /**
@@ -403,7 +479,11 @@ function isValidDate(dd: string, mm: string, yyyy: string): boolean {
   const d = parseInt(dd, 10);
   const m = parseInt(mm, 10);
   const y = parseInt(yyyy, 10);
-  return d >= 1 && d <= 31 && m >= 1 && m <= 12 && y >= 1900 && y <= 2100;
+  if (d < 1 || m < 1 || m > 12 || y < 1900 || y > 2100) return false;
+  // Días por mes — índice 1-based; Feb = 28 base (se ajusta para bisiestos)
+  const daysInMonth = [0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  if ((y % 4 === 0 && y % 100 !== 0) || y % 400 === 0) daysInMonth[2] = 29;
+  return d <= daysInMonth[m];
 }
 
 // ── Detección de modelo de INE (Decisión §6) ──────────────────────────────────
@@ -445,7 +525,14 @@ interface NameResult {
   nombre: string;
   apellidoPaterno: string;
   apellidoMaterno: string;
-  method: "spatial" | "labels" | "block" | "curp_initials" | "none";
+  method:
+    | "mrz"
+    | "spatial"
+    | "labels"
+    | "fuzzy_labels"
+    | "block"
+    | "curp_initials"
+    | "none";
 }
 
 function splitFullName(full: string): {
@@ -483,6 +570,12 @@ function splitFullName(full: string): {
  * Busca líneas "APELLIDO PATERNO", "APELLIDO MATERNO", "NOMBRE(S)" y toma
  * la línea siguiente que no sea otra etiqueta.
  * Es la más confiable cuando ML Kit preserva el orden de bloques.
+ *
+ * LAYOUT REAL DE LA INE:
+ *   La etiqueta stand-alone "NOMBRE" encabeza un bloque de 3 renglones:
+ *     +1 → APELLIDO PATERNO
+ *     +2 → APELLIDO MATERNO
+ *     +3 → NOMBRE(S)
  *
  * Mejoras:
  *  - Tolera variantes OCR de etiquetas: "APELL1DO", "APELLID0", "AP. PATERNO"
@@ -552,13 +645,38 @@ function extractNamesFromLabels(lines: string[]): NameResult | null {
       }
     }
 
-    // ── NOMBRE(S) ─────────────────────────────────────────────────────────
-    if (new RegExp(`^${NOMBRE_RE.source}$`, "i").test(line) && !result.nombre) {
-      const next = getNextValue(i);
-      if (next) {
-        result.nombre = cleanNameValue(next);
+    // ── NOMBRE – cabecera del bloque de nombre completo (INE estándar) ────
+    // En la INE real "NOMBRE" es una etiqueta standalone que encabeza
+    // exactamente 3 renglones en orden fijo:
+    //   +1 → APELLIDO PATERNO
+    //   +2 → APELLIDO MATERNO
+    //   +3 → NOMBRE(S)
+    if (new RegExp(`^${NOMBRE_RE.source}$`, "i").test(line)) {
+      const nameLines: string[] = [];
+      for (
+        let j = i + 1;
+        j < Math.min(i + 7, lines.length) && nameLines.length < 3;
+        j++
+      ) {
+        const candidate = lines[j];
+        if (!candidate || candidate.length < 2) continue;
+        if (isLabel(candidate)) break;
+        if (/^\d+$/.test(candidate)) continue;
+        nameLines.push(candidate);
+      }
+      if (nameLines.length >= 1 && !result.apellidoPaterno) {
+        result.apellidoPaterno = cleanNameValue(nameLines[0]);
         found = true;
       }
+      if (nameLines.length >= 2 && !result.apellidoMaterno) {
+        result.apellidoMaterno = cleanNameValue(nameLines[1]);
+        found = true;
+      }
+      if (nameLines.length >= 3 && !result.nombre) {
+        result.nombre = cleanNameValue(nameLines.slice(2).join(" "));
+        found = true;
+      }
+      continue; // ya procesamos el bloque, no continuar con inline-checks
     }
 
     // ── Etiqueta y valor en la misma línea ────────────────────────────────
@@ -620,8 +738,10 @@ function extractNamesFromLabels(lines: string[]): NameResult | null {
     }
   }
 
-  // Fallback: si solo tenemos "nombre" completo y no los apellidos separados,
-  // asumir formato mexicano más común: PATERNO MATERNO NOMBRE(S).
+  // Fallback: si solo tenemos un "nombre" completo (sin apellidos), ocurre
+  // cuando ninguna etiqueta estructural fue encontrada pero una línea inline
+  // como "NOMBRE(S) GARCIA LOPEZ JUAN" dejó todo en result.nombre.
+  // En ese caso splitear con el orden estándar mexicano.
   if (result.nombre && !result.apellidoPaterno && !result.apellidoMaterno) {
     const split = splitFullName(result.nombre);
     result.apellidoPaterno = split.apellidoPaterno;
@@ -690,6 +810,8 @@ function extractNamesFromBlock(
     if (/^[A-ZÁÉÍÓÚÑÜ\s]{3,}$/.test(cleaned) && !isLabel(l) && l.length >= 3) {
       candidates.unshift(l.trim());
       skippedNonMatch = 0;
+      // INE nunca tiene más de 3 líneas de nombre (paterno / materno / nombre(s))
+      if (candidates.length >= 3) break;
     } else {
       skippedNonMatch++;
       // Tolerar hasta 2 líneas de ruido intercaladas (ML Kit a veces inserta
@@ -816,10 +938,376 @@ function isDomicilioStop(line: string): boolean {
   return DOMICILIO_STOP_TOKENS.some((re) => re.test(line));
 }
 
-// NOTA: extractDomicilio fue reemplazado por extractDomicilioExpert en ine-address.ts
-// que implementa 6 estrategias independientes con scoring y fusión.
+// ── Estrategia §11: keywords fuzzy ───────────────────────────────────────────
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+/**
+ * Distancia de Levenshtein (edición mínima) — O(m*n) tiempo, O(n) espacio.
+ * Usada para detectar keywords INE con errores OCR típicos, p.ej.:
+ *   "N0MBRE" → "NOMBRE"  (dist 1)
+ *   "APELIDO" → "APELLIDO" (dist 1)
+ *   "PATERN0" → "PATERNO"  (dist 1)
+ */
+function levenshtein(a: string, b: string): number {
+  if (a.length === 0) return b.length;
+  if (b.length === 0) return a.length;
+  const prev = Array.from({ length: b.length + 1 }, (_, k) => k);
+  const curr = new Array<number>(b.length + 1);
+  for (let i = 1; i <= a.length; i++) {
+    curr[0] = i;
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      curr[j] = Math.min(prev[j] + 1, curr[j - 1] + 1, prev[j - 1] + cost);
+    }
+    for (let j = 0; j <= b.length; j++) prev[j] = curr[j];
+  }
+  return prev[b.length];
+}
+
+/**
+ * Campos del resultado fuzzy (unión de todos los campos INE extraíbles).
+ */
+type FuzzyFields = {
+  nombre: string;
+  apellidoPaterno: string;
+  apellidoMaterno: string;
+  curp: string;
+  sexo: string;
+  seccion: string;
+  vigencia: string;
+  claveElector: string;
+  domicilio: string;
+  fechaNacimiento: string;
+};
+
+/**
+ * Definición de cada keyword INE con límites de extracción por campo.
+ *
+ * maxWords: número máximo de palabras que constituyen el VALOR del campo.
+ *   NOMBRE puede ser 4 o más palabras ("JUAN CARLOS MIGUEL ANGEL").
+ *   APELLIDO PATERNO/MATERNO a lo más 2 palabras ("GARCIA HERNANDEZ").
+ *   CURP, SEXO, SECCIÓN, VIGENCIA: 1 valor compacto.
+ *
+ * multiLine: si el valor puede extenderse a más de una línea (domicilio).
+ *
+ * isNameBlock: si true, la etiqueta encabeza un bloque de 3 renglones:
+ *   +1 → APELLIDO PATERNO, +2 → APELLIDO MATERNO, +3 → NOMBRE(S).
+ *   Se usa para la etiqueta stand-alone "NOMBRE" de la INE real.
+ */
+interface FkDef {
+  keyword: string;
+  field: keyof FuzzyFields;
+  maxWords: number;
+  multiLine: boolean;
+  isNameBlock?: boolean;
+}
+
+const FUZZY_FIELD_KEYWORDS: FkDef[] = [
+  // “NOMBRE” standalone → encabeza el bloque paterno/materno/nombre
+  { keyword: "NOMBRE", field: "nombre", maxWords: 3, multiLine: false, isNameBlock: true },
+  {
+    keyword: "APELLIDO PATERNO",
+    field: "apellidoPaterno",
+    maxWords: 2,
+    multiLine: false,
+  },
+  {
+    keyword: "APELLIDO MATERNO",
+    field: "apellidoMaterno",
+    maxWords: 2,
+    multiLine: false,
+  },
+  {
+    keyword: "PATERNO",
+    field: "apellidoPaterno",
+    maxWords: 2,
+    multiLine: false,
+  },
+  {
+    keyword: "MATERNO",
+    field: "apellidoMaterno",
+    maxWords: 2,
+    multiLine: false,
+  },
+  { keyword: "CURP", field: "curp", maxWords: 1, multiLine: false },
+  { keyword: "SEXO", field: "sexo", maxWords: 1, multiLine: false },
+  { keyword: "SECCION", field: "seccion", maxWords: 1, multiLine: false },
+  { keyword: "VIGENCIA", field: "vigencia", maxWords: 1, multiLine: false },
+  {
+    keyword: "CLAVE ELECTOR",
+    field: "claveElector",
+    maxWords: 1,
+    multiLine: false,
+  },
+  { keyword: "DOMICILIO", field: "domicilio", maxWords: 20, multiLine: true },
+  {
+    keyword: "FECHA NACIMIENTO",
+    field: "fechaNacimiento",
+    maxWords: 3,
+    multiLine: false,
+  },
+];
+
+/**
+ * Nombres oficiales de los 32 estados de la República Mexicana.
+ * Usados para detectar la línea terminal del domicilio.
+ * El domicilio en INE siempre termina con el nombre del estado.
+ * Se incluyen variantes con y sin tildes, abreviaturas comunes y
+ * lecturas OCR frecuentes (e.g. "VERACRUZ DE IGNACIO…" → "VERACRUZ").
+ */
+const MEXICAN_STATES_RE = new RegExp(
+  "^(?:" +
+    [
+      "AGUASCALIENTES",
+      "BAJA CALIFORNIA SUR",
+      "BAJA CALIFORNIA",
+      "CAMPECHE",
+      "CHIAPAS",
+      "CHIHUAHUA",
+      "CIUDAD DE M[EÉ]XICO",
+      "CDMX",
+      "C\\.?D\\.?M\\.?X\\.?",
+      "COAHUILA(?: DE ZARAGOZA)?",
+      "COLIMA",
+      "DISTRITO FEDERAL",
+      "D\\.?F\\.?",
+      "DURANGO",
+      "GUANAJUATO",
+      "GUERRERO",
+      "HIDALGO",
+      "JALISCO",
+      "M[EÉ]XICO", // also matches Estado de México
+      "ESTADO DE M[EÉ]XICO",
+      "MICHOAC[AÁ]N(?: DE OCAMPO)?",
+      "MORELOS",
+      "NAYARIT",
+      "NUEVO LE[OÓ]N",
+      "OAXACA",
+      "PUEBLA",
+      "QUER[EÉ]TARO(?: DE ARTEAGA)?",
+      "QUINTANA ROO",
+      "SAN LUIS POTOS[IÍ]",
+      "SINALOA",
+      "SONORA",
+      "TABASCO",
+      "TAMAULIPAS",
+      "TLAXCALA",
+      "VERACRUZ(?: DE IGNACIO DE LA LLAVE)?",
+      "YUCAT[AÁ]N",
+      "ZACATECAS",
+    ].join("|") +
+    ")\\b",
+  "i",
+);
+
+/** Retorna true si la línea es (o comienza con) el nombre de un estado mexicano. */
+function isMexicanState(line: string): boolean {
+  return MEXICAN_STATES_RE.test(line.trim());
+}
+
+/**
+ * Intenta hacer match fuzzy entre una línea y los keywords INE conocidos.
+ *
+ * Algoritmo:
+ *   1. Para keywords de 1 palabra: comparar cada palabra de la línea contra
+ *      el keyword usando Levenshtein. Umbral: similitud ≥ 0.72 y dist ≤ 3.
+ *      Esto permite hasta ~2 errores OCR en palabras de 7 caracteres.
+ *   2. Para keywords multi-palabra: comparar bigramas/trigramas consecutivos
+ *      de la línea. Umbral: similitud ≥ 0.72 y dist ≤ 4.
+ *   3. Match exacto recibe score 1.0; match fuzzy recibe score × 0.85.
+ *
+ * Retorna el mejor match o null si ninguno supera el umbral.
+ * `inlineValue` contiene las palabras que vienen DESPUÉS del keyword en
+ * la misma línea (formato inline: "NOMBRE JUAN CARLOS" → inlineValue = "JUAN CARLOS").
+ */
+function fuzzyMatchKeyword(line: string): {
+  fk: FkDef;
+  score: number;
+  inlineValue: string;
+} | null {
+  const upper = line.toUpperCase().trim();
+  const lineWords = upper.split(/\s+/).filter(Boolean);
+
+  let best: { fk: FkDef; score: number; kwWordCount: number } | null = null;
+
+  for (const fk of FUZZY_FIELD_KEYWORDS) {
+    const kwWords = fk.keyword.split(" ");
+    const kwLen = kwWords.length;
+
+    if (kwLen === 1) {
+      for (const word of lineWords) {
+        if (word.length < 3) continue;
+        const dist = levenshtein(word, fk.keyword);
+        const maxL = Math.max(word.length, fk.keyword.length);
+        const sim = 1 - dist / maxL;
+        if (sim >= 0.72 && dist <= 3) {
+          const score = word === fk.keyword ? 1.0 : sim * 0.85;
+          if (!best || score > best.score) best = { fk, score, kwWordCount: 1 };
+        }
+      }
+    } else {
+      for (let i = 0; i <= lineWords.length - kwLen; i++) {
+        const ngram = lineWords.slice(i, i + kwLen).join(" ");
+        const dist = levenshtein(ngram, fk.keyword);
+        const maxL = Math.max(ngram.length, fk.keyword.length);
+        const sim = 1 - dist / maxL;
+        if (sim >= 0.72 && dist <= 4) {
+          const score = ngram === fk.keyword ? 1.0 : sim * 0.8;
+          if (!best || score > best.score)
+            best = { fk, score, kwWordCount: kwLen };
+        }
+      }
+    }
+  }
+
+  if (!best) return null;
+
+  // Compute inline value: words in the SAME line after the matched keyword.
+  // Find where the keyword ends in lineWords by scanning for the fuzzy match.
+  const kwWords = best.fk.keyword.split(" ");
+  let matchStart = -1;
+  for (let i = 0; i <= lineWords.length - kwWords.length; i++) {
+    const ngram = lineWords.slice(i, i + kwWords.length).join(" ");
+    if (levenshtein(ngram, best.fk.keyword) <= 3) {
+      matchStart = i;
+      break;
+    }
+  }
+
+  const afterWords =
+    matchStart >= 0 ? lineWords.slice(matchStart + kwWords.length) : [];
+
+  const inlineValue = afterWords.slice(0, best.fk.maxWords).join(" ");
+
+  return { fk: best.fk, score: best.score, inlineValue };
+}
+
+/**
+ * Estrategia §11 — Extracción guiada por keywords fuzzy.
+ *
+ * Para cada línea del OCR:
+ *   1. Calcular qué keyword es el más similar (fuzzy).
+ *   2. Marcar esa línea como "no dato" (es una etiqueta).
+ *   3. Si hay palabras inline después del keyword, usarlas como valor.
+ *   4. Si no, buscar en las 3 líneas siguientes, respetando:
+ *      - maxWords: límite de palabras por campo
+ *      - isLabel/fuzzyMatchKeyword: detener al llegar a otra etiqueta
+ *      - multiLine: acumular líneas para domicilio
+ *
+ * Retorna nameResult (para integrar en nameStrategies) y extras
+ * (CURP, sexo, etc. que pueden llenar huecos del parse principal).
+ */
+function extractFromFuzzyAnchors(lines: string[]): {
+  nameResult: NameResult;
+  extras: Partial<FuzzyFields>;
+} {
+  const extracted: Partial<FuzzyFields> = {};
+
+  for (let i = 0; i < lines.length; i++) {
+    const match = fuzzyMatchKeyword(lines[i]);
+    if (!match) continue;
+
+    const { fk, inlineValue } = match;
+    const field = fk.field;
+
+    // Skip: field already extracted by a previous anchor
+    if (extracted[field]) continue;
+
+    // ── NOMBRE como cabecera de bloque de 3 renglones ───────────────────────────
+    // La etiqueta "NOMBRE" en la INE introduce 3 renglones en orden fijo:
+    //   siguiente línea válida [0] → apellidoPaterno
+    //   siguiente línea válida [1] → apellidoMaterno
+    //   siguiente línea válida [2] → nombre(s)
+    if (fk.isNameBlock && !inlineValue) {
+      const nameLines: string[] = [];
+      for (
+        let j = i + 1;
+        j < Math.min(i + 7, lines.length) && nameLines.length < 3;
+        j++
+      ) {
+        const candidate = lines[j].trim();
+        if (!candidate || candidate.length < 2) continue;
+        if (fuzzyMatchKeyword(candidate)) break;
+        if (isLabel(candidate)) break;
+        nameLines.push(candidate);
+      }
+      if (nameLines.length >= 1 && !extracted.apellidoPaterno)
+        extracted.apellidoPaterno = nameLines[0];
+      if (nameLines.length >= 2 && !extracted.apellidoMaterno)
+        extracted.apellidoMaterno = nameLines[1];
+      if (nameLines.length >= 3 && !extracted.nombre)
+        extracted.nombre = nameLines.slice(2).join(" ");
+      continue;
+    }
+
+    // Case A — inline value: keyword and data on the same line
+    // e.g. "NOMBRE JUAN CARLOS" → inlineValue = "JUAN CARLOS"
+    if (inlineValue.length >= 2) {
+      extracted[field] = inlineValue;
+      continue;
+    }
+
+    // Case B — value in subsequent lines (label is on its own line)
+    // INVARIANT: los valores SIEMPRE están DEBAJO del marcador (j > i).
+    // Nunca se escanean líneas anteriores al anchor actual.
+    const valueChunks: string[] = [];
+    let wordsCollected = 0;
+
+    // Use a wider window for multiLine fields (domicilio can span many lines);
+    // single-line fields break early via the wordsCollected >= maxWords guard.
+    const windowEnd = Math.min(i + (fk.multiLine ? 10 : 6), lines.length);
+
+    for (let j = i + 1; j < windowEnd; j++) {
+      const candidate = lines[j].trim();
+      if (!candidate || candidate.length < 2) continue;
+
+      // Stop if we hit another fuzzy keyword / label line
+      if (fuzzyMatchKeyword(candidate)) break;
+      if (isLabel(candidate)) break;
+
+      const words = candidate.split(/\s+/).filter(Boolean);
+
+      if (!fk.multiLine) {
+        // Single-line value: collect up to maxWords
+        const take = words.slice(0, fk.maxWords - wordsCollected);
+        if (take.length > 0) {
+          valueChunks.push(take.join(" "));
+          wordsCollected += take.length;
+        }
+        if (wordsCollected >= fk.maxWords) break;
+      } else {
+        // Multi-line value (domicilio): acumular hacia abajo.
+        // Hard-stop tokens (header labels): no incluir, terminar.
+        if (isDomicilioStop(candidate)) break;
+        // Siempre incluir la línea actual.
+        valueChunks.push(candidate);
+        // Si es un estado mexicano, es la línea terminal → incluir y terminar.
+        if (isMexicanState(candidate)) break;
+        // Safety cap: máximo 8 líneas de domicilio
+        if (valueChunks.length >= 8) break;
+      }
+    }
+
+    if (valueChunks.length > 0) {
+      extracted[field] = (
+        fk.multiLine ? valueChunks.join(", ") : valueChunks.join(" ")
+      ).trim();
+    }
+  }
+
+  const nombre = cleanNameValue(extracted.nombre ?? "");
+  const apellidoPaterno = cleanNameValue(extracted.apellidoPaterno ?? "");
+  const apellidoMaterno = cleanNameValue(extracted.apellidoMaterno ?? "");
+
+  const nameResult: NameResult = {
+    nombre,
+    apellidoPaterno,
+    apellidoMaterno,
+    method:
+      nombre || apellidoPaterno || apellidoMaterno ? "fuzzy_labels" : "none",
+  };
+
+  return { nameResult, extras: extracted };
+}
 
 function isLabel(line: string): boolean {
   return LABEL_TOKENS.some((re) => re.test(line));
@@ -833,10 +1321,235 @@ function cleanNameValue(s: string): string {
     .trim();
 }
 
+// ── Selección inteligente de nombres (reemplaza cascada ??) ───────────────────
+
+interface NameFieldConfidences {
+  nombre: number;
+  apellidoPaterno: number;
+  apellidoMaterno: number;
+}
+
+interface MergedNameResult extends NameResult {
+  fieldConfidences: NameFieldConfidences;
+}
+
+/**
+ * Selecciona el mejor candidato por campo de nombre entre TODAS las estrategias.
+ *
+ * En vez de la cascada anterior (spatial ?? labels ?? block ?? curp_initials)
+ * que tomaba el primer resultado no-null completo, esta función:
+ *
+ *   1. Recopila candidatos no-vacíos de cada estrategia para cada campo
+ *   2. Puntúa cada candidato: confianza base × match diccionario × match CURP
+ *   3. Elige el mejor candidato por campo independientemente
+ *
+ * Esto permite mezclar resultados de estrategias diferentes:
+ *   - Spatial encontró apellidoPaterno pero no nombre
+ *   - Labels encontró nombre
+ *   → El merge devuelve ambos
+ */
+function selectBestNames(
+  strategies: { result: NameResult | null; baseConf: number }[],
+  curp: string,
+): MergedNameResult {
+  interface Candidate {
+    value: string;
+    method: NameResult["method"];
+    baseConf: number;
+  }
+
+  const patCandidates: Candidate[] = [];
+  const matCandidates: Candidate[] = [];
+  const nomCandidates: Candidate[] = [];
+
+  for (const { result, baseConf } of strategies) {
+    if (!result) continue;
+    if (result.apellidoPaterno.length >= 2) {
+      patCandidates.push({
+        value: result.apellidoPaterno,
+        method: result.method,
+        baseConf,
+      });
+    }
+    if (result.apellidoMaterno.length >= 2) {
+      matCandidates.push({
+        value: result.apellidoMaterno,
+        method: result.method,
+        baseConf,
+      });
+    }
+    if (result.nombre.length >= 2) {
+      nomCandidates.push({
+        value: result.nombre,
+        method: result.method,
+        baseConf,
+      });
+    }
+  }
+
+  const scoreCandidate = (
+    c: Candidate,
+    field: "paterno" | "materno" | "nombre",
+  ): number => {
+    let score = c.baseConf;
+
+    // Bonus por coincidencia en diccionario
+    const dictScore =
+      field === "nombre" ? scoreAsNombre(c.value) : scoreAsApellido(c.value);
+    score += dictScore * 0.2;
+
+    // Bonus por coincidencia con CURP
+    if (curp.length >= 4) {
+      const cleanVal = c.value.toUpperCase().replace(/[^A-ZÁÉÍÓÚÑÜ]/g, "");
+      if (cleanVal.length > 0) {
+        if (field === "paterno" && cleanVal[0] === curp[0]) score += 0.15;
+        if (field === "materno" && cleanVal[0] === curp[2]) score += 0.15;
+        if (field === "nombre" && cleanVal[0] === curp[3]) score += 0.15;
+      }
+    }
+
+    // Penalización por valores muy cortos (sospechosos de ser iniciales)
+    if (c.value.length <= 3 && c.method !== "curp_initials") score -= 0.2;
+    // Penalización extra para curp_initials (siempre es fallback)
+    if (c.method === "curp_initials") score -= 0.3;
+
+    return score;
+  };
+
+  const pickBest = (
+    candidates: Candidate[],
+    field: "paterno" | "materno" | "nombre",
+  ): {
+    value: string;
+    method: NameResult["method"];
+    confidence: number;
+  } | null => {
+    if (candidates.length === 0) return null;
+
+    // ── Consensus grouping ────────────────────────────────────────────────
+    // Cuando dos o más estrategias independientes extraen el mismo valor para
+    // un campo, ese acuerdo es evidencia de correctitud adicional al score
+    // individual. Aplicamos un bonus +0.10 por cada estrategia adicional que
+    // coincide, con un máximo de +0.30 (4 estrategias de acuerdo).
+    //
+    // Normalización: uppercase + solo caracteres alfabéticos para ignorar
+    // diferencias de tildes o puntuación entre extracciones.
+    const norm = (s: string) => s.toUpperCase().replace(/[^A-ZÁÉÍÓÚÑÜ]/g, "");
+
+    // Agrupar candidatos por valor normalizado
+    const groups = new Map<string, Candidate[]>();
+    for (const c of candidates) {
+      const key = norm(c.value);
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(c);
+    }
+
+    let bestValue = candidates[0].value;
+    let bestMethod = candidates[0].method;
+    let bestFinalScore = -Infinity;
+
+    for (const [, group] of groups) {
+      // Representante del grupo: el candidato de mayor confianza base
+      const rep = group.reduce((a, b) => (a.baseConf >= b.baseConf ? a : b));
+      const individual = scoreCandidate(rep, field);
+      // Bonus de consenso: +0.10 por estrategia adicional que coincide
+      const consensusBonus = Math.min((group.length - 1) * 0.1, 0.3);
+      const finalScore = individual + consensusBonus;
+
+      if (finalScore > bestFinalScore) {
+        bestFinalScore = finalScore;
+        bestValue = rep.value;
+        bestMethod = rep.method;
+      }
+    }
+
+    // Confianza reportada: base + bonus de consenso, capped a 1.0
+    const winnerGroup = groups.get(norm(bestValue)) ?? [candidates[0]];
+    const maxBaseConf = winnerGroup.reduce(
+      (acc, c) => Math.max(acc, c.baseConf),
+      0,
+    );
+    const winnerBonus = Math.min((winnerGroup.length - 1) * 0.1, 0.3);
+
+    return {
+      value: bestValue,
+      method: bestMethod,
+      confidence: Math.min(maxBaseConf + winnerBonus, 1.0),
+    };
+  };
+
+  const bestPat = pickBest(patCandidates, "paterno");
+  const bestMat = pickBest(matCandidates, "materno");
+  const bestNom = pickBest(nomCandidates, "nombre");
+
+  // Determinar el método primario (la estrategia que contribuyó más campos)
+  const methods = [bestPat?.method, bestMat?.method, bestNom?.method].filter(
+    Boolean,
+  ) as NameResult["method"][];
+  const methodCounts = new Map<string, number>();
+  for (const m of methods) {
+    methodCounts.set(m, (methodCounts.get(m) ?? 0) + 1);
+  }
+  const primaryMethod =
+    ([...methodCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] as
+      | NameResult["method"]
+      | undefined) ?? "none";
+
+  // ── Rescue: nombre contiene apellidos (todo vino en un campo) ────────────
+  // Ocurre cuando el OCR no encontró etiquetas independientes y puso la línea
+  // completa "GARCIA LOPEZ JUAN" en el campo nombre. Si no tenemos apellido
+  // paterno pero el nombre tiene ≥2 palabras, intentamos separarlo usando el
+  // orden estándar mexicano: PATERNO MATERNO NOMBRE(S).
+  // Verificamos contra la inicial del CURP para evitar inversiones erróneas.
+  if (!bestPat && bestNom) {
+    const words = bestNom.value.split(/\s+/).filter(Boolean);
+    if (words.length >= 2) {
+      const split = splitFullName(bestNom.value);
+      if (split.apellidoPaterno.length >= 2) {
+        const firstLetter = split.apellidoPaterno
+          .toUpperCase()
+          .replace(/[^A-ZÁÉÍÓÚÑÜ]/g, "")[0];
+        const curpOk =
+          !curp || curp.length < 1 || !firstLetter || firstLetter === curp[0];
+        if (curpOk) {
+          const derivedConf = Math.min((bestNom.confidence ?? 0.5) * 0.8, 0.75);
+          return {
+            apellidoPaterno: split.apellidoPaterno,
+            apellidoMaterno: split.apellidoMaterno,
+            nombre: split.nombre,
+            method: primaryMethod,
+            fieldConfidences: {
+              apellidoPaterno: derivedConf,
+              apellidoMaterno:
+                split.apellidoMaterno.length >= 2 ? derivedConf * 0.9 : 0,
+              nombre: split.nombre.length >= 1 ? derivedConf * 0.85 : 0,
+            },
+          };
+        }
+      }
+    }
+  }
+
+  return {
+    apellidoPaterno: bestPat?.value ?? "",
+    apellidoMaterno: bestMat?.value ?? "",
+    nombre: bestNom?.value ?? "",
+    method: primaryMethod,
+    fieldConfidences: {
+      apellidoPaterno: bestPat?.confidence ?? 0,
+      apellidoMaterno: bestMat?.confidence ?? 0,
+      nombre: bestNom?.confidence ?? 0,
+    },
+  };
+}
+
 // ── Cálculo de confianza global (Decisión §5) ─────────────────────────────────
 
 type FieldConf = Record<
-  keyof Omit<IneOcrResult, "confidence" | "fieldConfidence" | "modeloDetected">,
+  keyof Omit<
+    IneOcrResult,
+    "confidence" | "fieldConfidence" | "modeloDetected" | "domicilioDesglosado"
+  >,
   number
 >;
 
@@ -898,7 +1611,21 @@ export function parseIneOcrText(
   modeloHint?: IneModelo,
   frontBlocks?: OcrBlock[],
   backBlocks?: OcrBlock[],
+  corrections?: FieldCorrections,
 ): IneOcrResult {
+  // Paso 0: Extraer MRZ del texto CRUDO (antes de normalizar)
+  // normalizeOcrText() filtra líneas con < que son esenciales para el MRZ.
+  const mrzData = parseMrz(backText, frontText);
+  const mrzNames: NameResult | null =
+    mrzData && (mrzData.apellidoPaterno || mrzData.nombre)
+      ? {
+          apellidoPaterno: mrzData.apellidoPaterno,
+          apellidoMaterno: mrzData.apellidoMaterno,
+          nombre: mrzData.nombre,
+          method: "mrz" as const,
+        }
+      : null;
+
   // Paso 1: Normalizar ambos textos
   const front = normalizeOcrText(frontText ?? "");
   const back = normalizeOcrText(backText ?? "");
@@ -953,7 +1680,9 @@ export function parseIneOcrText(
     if (best) {
       res.curp = best;
       // Validar con regex estricto post-corrección
-      fc.curp = /^[A-Z]{4}\d{6}[HM][A-Z]{5}[A-Z\d]{2}$/.test(best) ? 1.0 : 0.75;
+      const strictOk = /^[A-Z]{4}\d{6}[HM][A-Z]{5}[A-Z\d]{2}$/.test(best);
+      const checksumOk = verifyCurpCheckDigit(best);
+      fc.curp = strictOk && checksumOk ? 1.0 : strictOk ? 0.85 : 0.75;
     }
   }
 
@@ -969,6 +1698,16 @@ export function parseIneOcrText(
     if (best) {
       res.claveElector = best;
       fc.claveElector = /^[A-Z]{6}\d{8}[HM]\d{3}$/.test(best) ? 1.0 : 0.7;
+    }
+  }
+
+  // Cross-validar Clave de Elector vs CURP.
+  // El primer caracter de Clave de Elector debe coincidir con CURP[0]
+  // (ambos codifican la inicial del apellido paterno).
+  // Una discrepancia sugiere error OCR en uno de los dos campos.
+  if (res.claveElector.length === 18 && res.curp.length === 18) {
+    if (res.claveElector[0] !== res.curp[0]) {
+      fc.claveElector = Math.max(fc.claveElector - 0.15, 0.4);
     }
   }
 
@@ -990,13 +1729,17 @@ export function parseIneOcrText(
   }
   // Fallback: derivar fecha desde CURP si el OCR no encontró una fecha.
   // CURP posiciones 4-5=YY, 6-7=MM, 8-9=DD.
-  // Lógica de siglo para padrón electoral (edad mínima 18 años en 2026):
-  //   YY 00-08 → 2000-2008 (18-26 años),  YY 09-99 → 1909-1999 (27+ años).
+  // Lógica de siglo dinámica para padrón electoral (edad mínima 18 años):
+  //   Calculamos el año de corte dinámicamente: (añoActual - 18) % 100
+  //   Si YY <= corte → 2000+YY (persona de 18+ años nacida en 200x)
+  //   Si YY > corte  → 1900+YY (persona nacida en 19xx)
   if (!res.fechaNacimiento && res.curp.length === 18) {
     const yy = parseInt(res.curp.substring(4, 6), 10);
     const mm = res.curp.substring(6, 8);
     const dd = res.curp.substring(8, 10);
-    const year = yy <= 8 ? 2000 + yy : 1900 + yy;
+    const currentYear = new Date().getFullYear();
+    const cutoff = (currentYear - 18) % 100;
+    const year = yy <= cutoff ? 2000 + yy : 1900 + yy;
     // Sólo usar si los valores son plausibles
     if (isValidDate(dd, mm, String(year))) {
       res.fechaNacimiento = `${dd}/${mm}/${year}`;
@@ -1019,12 +1762,51 @@ export function parseIneOcrText(
     }
   }
 
+  // ── Enriquecimiento desde MRZ ────────────────────────────────────────────
+  // Si el MRZ proporcionó fecha o sexo y el OCR principal no, usarlos.
+  if (mrzData) {
+    if (!res.fechaNacimiento && mrzData.fechaNacimiento) {
+      res.fechaNacimiento = mrzData.fechaNacimiento;
+      fc.fechaNacimiento = mrzData.confidence * 0.9;
+    }
+    if (!res.sexo && mrzData.sexo) {
+      res.sexo = mrzData.sexo;
+      fc.sexo = mrzData.confidence * 0.85;
+    }
+  }
+
+  // Cross-validar fecha OCR vs fecha codificada en el CURP.
+  // El CURP codifica la fecha de forma determinista (posiciones 4–9: YYMMDD).
+  // Si el OCR de texto libre extrajo una fecha diferente, el CURP gana:
+  // es más resistente a errores de segmentación de línea.
+  if (res.fechaNacimiento && res.curp.length === 18) {
+    const yyCurp = parseInt(res.curp.substring(4, 6), 10);
+    const mmCurp = res.curp.substring(6, 8);
+    const ddCurp = res.curp.substring(8, 10);
+    const currentYear = new Date().getFullYear();
+    const cutoff = (currentYear - 18) % 100;
+    const yearCurp = yyCurp <= cutoff ? 2000 + yyCurp : 1900 + yyCurp;
+    if (isValidDate(ddCurp, mmCurp, String(yearCurp))) {
+      const curpDerivedDate = `${ddCurp}/${mmCurp}/${yearCurp}`;
+      if (res.fechaNacimiento !== curpDerivedDate) {
+        res.fechaNacimiento = curpDerivedDate;
+        // Confianza ligeramente reducida: el año de siglo es inferido, no literal
+        fc.fechaNacimiento = Math.min(fc.curp * 0.9, 0.85);
+      }
+    }
+  }
+
   // ── Campo: Sección electoral ─────────────────────────────────────────────
   {
     const secMatch = combined.match(SECCION_RE);
     if (secMatch) {
-      res.seccion = secMatch[1];
-      fc.seccion = 1.0;
+      const secNum = parseInt(secMatch[1], 10);
+      // Rango válido RENAPO: 0001–9300.
+      if (secNum >= 1 && secNum <= 9300) {
+        res.seccion = secMatch[1];
+        fc.seccion = 1.0;
+      }
+      // Fuera de rango → descartado silenciosamente (probable error OCR)
     }
   }
 
@@ -1032,51 +1814,73 @@ export function parseIneOcrText(
   {
     const vigMatch = combined.match(VIGENCIA_RE);
     if (vigMatch) {
-      res.vigencia = vigMatch[1];
-      fc.vigencia = 1.0;
+      const vigNum = parseInt(vigMatch[1], 10);
+      // Rango plausible de vigencia INE: 2010–2040.
+      // Valores fuera de rango son artefactos OCR (e.g. "2I05" → 2105).
+      if (vigNum >= 2010 && vigNum <= 2040) {
+        res.vigencia = vigMatch[1];
+        fc.vigencia = 1.0;
+      }
     }
   }
 
   // ── Campos: Nombres ──────────────────────────────────────────────────────
-  // Cascada de estrategias (Decisión §7)
-  // Prioridad: spatial > labels > block > curp_initials
+  // Estrategia mejorada: en vez de cascada con ?? (donde la primera
+  // estrategia no-null bloquea las demás), ejecutamos TODAS las estrategias
+  // y seleccionamos el mejor candidato por campo individual.
   //
-  // Clasificamos los bloques del frente UNA sola vez; usaremos
-  // frontClassified.addressBlocks más abajo para el domicilio.
+  // Esto permite que si spatial encuentra apellidoPaterno pero no nombre,
+  // y labels encuentra nombre pero no apellidoPaterno, los combine.
+  //
+  // Prioridad base: mrz > spatial > labels > fuzzy_labels > block > curp_initials
   const frontClassified = frontBlocks ? classifyFrontBlocks(frontBlocks) : null;
-  const namesBySpatial = frontClassified
-    ? extractNamesFromSpatial(frontClassified.nameBlocks)
-    : null;
-  const namesByLabels = extractNamesFromLabels(lines);
-  const namesByBlock = extractNamesFromBlock(lines, res.curp);
-  const namesFallback = res.curp ? extractNamesFromCurp(res.curp) : null;
 
-  const nameResult = namesBySpatial ??
-    namesByLabels ??
-    namesByBlock ??
-    namesFallback ?? {
-      nombre: "",
-      apellidoPaterno: "",
-      apellidoMaterno: "",
-      method: "none" as const,
-    };
+  // Estrategia §11: fuzzy keyword — ejecutar primero para tener los extras
+  // disponibles para rellenar campos que las otras estrategias no encontraron.
+  const fuzzyResult = extractFromFuzzyAnchors(lines);
 
-  const nameConfidenceMap: Record<NameResult["method"], number> = {
-    spatial: 0.95,
-    labels: 0.9,
-    block: 0.7,
-    curp_initials: 0.3,
-    none: 0.0,
-  };
-  const nameConf = nameConfidenceMap[nameResult.method];
+  const nameStrategies: { result: NameResult | null; baseConf: number }[] = [
+    {
+      result: mrzNames,
+      baseConf: mrzNames ? mrzData!.confidence : 0,
+    },
+    {
+      result: frontClassified
+        ? extractNamesFromSpatial(frontClassified.nameBlocks)
+        : null,
+      baseConf: 0.95,
+    },
+    {
+      result: extractNamesFromLabels(lines),
+      baseConf: 0.9,
+    },
+    // Estrategia §11: keywords fuzzy (entre labels y block)
+    // Captura etiquetas con errores OCR (N0MBRE, APELIDO, PATERN0…)
+    // y extrae el valor respetando maxWords por campo.
+    {
+      result: fuzzyResult.nameResult,
+      baseConf: 0.82,
+    },
+    {
+      result: extractNamesFromBlock(lines, res.curp),
+      baseConf: 0.7,
+    },
+    {
+      result: res.curp ? extractNamesFromCurp(res.curp) : null,
+      baseConf: 0.3,
+    },
+  ];
+
+  // ── Merge: mejor candidato por campo ────────────────────────────────────
+  const merged = selectBestNames(nameStrategies, res.curp);
 
   // Aplicar corrección OCR y diccionario a nombres
-  res.nombre = correctNameFromDictionary(fixNameOcr(nameResult.nombre));
+  res.nombre = correctNameFromDictionary(fixNameOcr(merged.nombre));
   res.apellidoPaterno = correctNameFromDictionary(
-    fixNameOcr(nameResult.apellidoPaterno),
+    fixNameOcr(merged.apellidoPaterno),
   );
   res.apellidoMaterno = correctNameFromDictionary(
-    fixNameOcr(nameResult.apellidoMaterno),
+    fixNameOcr(merged.apellidoMaterno),
   );
 
   // ── Cross-validación CURP ↔ Nombres ──────────────────────────────────────
@@ -1091,27 +1895,29 @@ export function parseIneOcrText(
     );
 
     if (curpMatch.score < 0.5) {
-      // Intentar intercambios: si nombre↔paterno o nombre↔materno da mejor score
-      const swaps: [string, string, string][] = [
-        // [nombre, paterno, materno]
-        [res.apellidoPaterno, res.nombre, res.apellidoMaterno],
-        [res.apellidoMaterno, res.apellidoPaterno, res.nombre],
-        [res.nombre, res.apellidoMaterno, res.apellidoPaterno],
+      // Intentar TODAS las permutaciones posibles de los 3 campos
+      const fields = [res.nombre, res.apellidoPaterno, res.apellidoMaterno];
+      const permutations: [string, string, string][] = [
+        [fields[1], fields[0], fields[2]], // swap nombre ↔ paterno
+        [fields[2], fields[1], fields[0]], // swap nombre ↔ materno
+        [fields[0], fields[2], fields[1]], // swap paterno ↔ materno
+        [fields[1], fields[2], fields[0]], // rotación: p→n, m→p, n→m
+        [fields[2], fields[0], fields[1]], // rotación: m→n, n→p, p→m
       ];
 
       let bestScore = curpMatch.score;
-      let bestSwap: [string, string, string] | null = null;
+      let bestPerm: [string, string, string] | null = null;
 
-      for (const [n, p, m] of swaps) {
+      for (const [n, p, m] of permutations) {
         const s = matchCurpInitials(res.curp, n, p, m);
         if (s.score > bestScore) {
           bestScore = s.score;
-          bestSwap = [n, p, m];
+          bestPerm = [n, p, m];
         }
       }
 
-      if (bestSwap) {
-        [res.nombre, res.apellidoPaterno, res.apellidoMaterno] = bestSwap;
+      if (bestPerm) {
+        [res.nombre, res.apellidoPaterno, res.apellidoMaterno] = bestPerm;
       }
     }
 
@@ -1126,9 +1932,69 @@ export function parseIneOcrText(
       }
     }
   }
-  fc.nombre = res.nombre ? nameConf : 0;
-  fc.apellidoPaterno = res.apellidoPaterno ? nameConf : 0;
-  fc.apellidoMaterno = res.apellidoMaterno ? nameConf : 0;
+
+  // Confianza por campo: calculada del merge (qué estrategia contribuyó)
+  fc.nombre = res.nombre ? merged.fieldConfidences.nombre : 0;
+  fc.apellidoPaterno = res.apellidoPaterno
+    ? merged.fieldConfidences.apellidoPaterno
+    : 0;
+  fc.apellidoMaterno = res.apellidoMaterno
+    ? merged.fieldConfidences.apellidoMaterno
+    : 0;
+
+  // ── Relleno de campos con extras fuzzy (§11) ─────────────────────────────
+  // Si la extracción principal no encontró un campo, los extras que la
+  // estrategia fuzzy derivó desde sus anclas cubren el hueco.
+  // Se aplica con confianza reducida (~0.65-0.70) porque el fuzzy puede
+  // capturar texto adyacente que no sea el valor correcto.
+  {
+    const ext = fuzzyResult.extras;
+
+    if (!res.curp && ext.curp) {
+      const fixed = fixCurpOcr(ext.curp.replace(/\s+/g, ""));
+      if (fixed.length === 18) {
+        res.curp = fixed;
+        fc.curp = 0.6;
+      }
+    }
+
+    if (!res.sexo && ext.sexo) {
+      // Eliminar cualquier caracter que no sea H o M antes de comparar.
+      // Cubre errores OCR como "H.", "H1", "M." o "H M" (espacio extra).
+      const s = ext.sexo
+        .replace(/[^HhMm]/g, "")
+        .charAt(0)
+        .toUpperCase();
+      if (s === "H" || s === "M") {
+        res.sexo = s;
+        fc.sexo = 0.7;
+      }
+    }
+
+    if (!res.seccion && ext.seccion) {
+      const sec = ext.seccion.match(/\d{3,4}/)?.[0];
+      if (sec) {
+        res.seccion = sec;
+        fc.seccion = 0.7;
+      }
+    }
+
+    if (!res.vigencia && ext.vigencia) {
+      const vig = ext.vigencia.match(/\d{4}/)?.[0];
+      if (vig) {
+        res.vigencia = vig;
+        fc.vigencia = 0.7;
+      }
+    }
+
+    if (!res.fechaNacimiento && ext.fechaNacimiento) {
+      const fr = extractFecha(ext.fechaNacimiento);
+      if (fr) {
+        res.fechaNacimiento = fr.value;
+        fc.fechaNacimiento = fr.confidence * 0.75;
+      }
+    }
+  }
 
   // ── Campo: Domicilio ─────────────────────────────────────────────────────
   // El domicilio está en el FRENTE de la INE, entre los nombres y los datos
@@ -1207,17 +2073,108 @@ export function parseIneOcrText(
     }
   }
 
+  // ── Post-proceso: eliminar contaminación de nombres en domicilio ─────────
+  // Cuando la clasificación espacial falla (p.ej. sin ancla DOMICILIO), los
+  // bloques de nombre pueden caer en la zona de dirección y aparecer como
+  // segmentos del domicilio. Aquí eliminamos esos segmentos si coinciden
+  // exactamente con los valores de nombre ya extraídos.
+  if (res.domicilio) {
+    const nameValues = [res.apellidoPaterno, res.apellidoMaterno, res.nombre]
+      .filter((n) => n && n.length >= 2)
+      .map((n) => n.toUpperCase().trim());
+
+    if (nameValues.length > 0) {
+      // 1. Eliminar segmentos exactos (cada segmento está separado por ", ")
+      const segments = res.domicilio.split(",").map((s) => s.trim());
+      const cleaned = segments.filter((seg) => {
+        const segUpper = seg
+          .toUpperCase()
+          .replace(/[^A-ZÁÉÍÓÚÑÜ\s]/g, "")
+          .trim();
+        return !nameValues.some((name) => segUpper === name);
+      });
+      res.domicilio = cleaned.join(", ").trim();
+
+      // 2. Eliminar si el domicilio COMIENZA con el nombre completo concatenado
+      const fullNameUpper = [
+        res.apellidoPaterno,
+        res.apellidoMaterno,
+        res.nombre,
+      ]
+        .filter((n) => n && n.length >= 2)
+        .join(" ")
+        .toUpperCase();
+      if (fullNameUpper.length >= 4) {
+        const domUpper = res.domicilio.toUpperCase();
+        if (domUpper.startsWith(fullNameUpper)) {
+          res.domicilio = res.domicilio
+            .slice(fullNameUpper.length)
+            .replace(/^[,\s]+/, "")
+            .trim();
+        }
+      }
+
+      // 3. Limpiar comas huérfanas y espacios dobles
+      res.domicilio = res.domicilio
+        .replace(/^[,\s]+|[,\s]+$/g, "")
+        .replace(/,\s*,/g, ",")
+        .replace(/\s+/g, " ")
+        .trim();
+    }
+  }
+
   // ── Modelo de credencial ─────────────────────────────────────────────────
   // Auto-detect primero; si falla y el brigadista indicó un hint, usar ese.
   const autoModelo = detectIneModelo(combined);
   const modeloDetected =
     autoModelo !== "unknown" ? autoModelo : (modeloHint ?? "unknown");
 
+  // ── Aplicar correcciones aprendidas (Decisión: OCR learning) ─────────────
+  // Si el parser extrajo un valor que el usuario corrigió en una captura
+  // anterior, sustituirlo automáticamente antes de devolver el resultado.
+  if (corrections) {
+    const textFields: (keyof typeof res)[] = [
+      "nombre",
+      "apellidoPaterno",
+      "apellidoMaterno",
+      "claveElector",
+      "curp",
+      "fechaNacimiento",
+      "sexo",
+      "seccion",
+      "vigencia",
+      "domicilio",
+    ];
+    for (const field of textFields) {
+      const current = res[field] as string;
+      if (current) {
+        const corrected = applyFieldCorrection(
+          current,
+          corrections,
+          field as import("./ocr-corrections").IneTextFieldKey,
+        );
+        if (corrected !== current) {
+          (res as any)[field] = corrected;
+          // Boost confidence al nivel heurístico si era baja
+          if (fc[field as keyof FieldConf] < 0.75) {
+            fc[field as keyof FieldConf] = 0.75;
+          }
+        }
+      }
+    }
+  }
+
+  // ── Desglose estructurado del domicilio ──────────────────────────────────
+  const domicilioDesglosado = res.domicilio
+    ? parseAddressComponents(res.domicilio)
+    : undefined;
+
   // ── Confianza global ─────────────────────────────────────────────────────
   const confidence = computeOverallConfidence(fc, res);
 
   return {
     ...res,
+    domicilioDesglosado,
     modeloDetected,
     confidence,
     fieldConfidence: fc,

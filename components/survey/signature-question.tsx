@@ -119,7 +119,10 @@ export function SignatureQuestion({
         <View
           style={[
             styles.signEmptyCard,
-            { borderColor: colors.border, backgroundColor: colors.surface },
+            {
+              borderColor: colors.onPrimaryContainer + "40",
+              backgroundColor: colors.primaryContainer,
+            },
           ]}
         >
           {/* Signature illustration zone */}
@@ -127,8 +130,8 @@ export function SignatureQuestion({
             style={[
               styles.signIllustrationArea,
               {
-                borderColor: colors.primary + "40",
-                backgroundColor: colors.primary + "06",
+                borderColor: colors.onPrimaryContainer + "40",
+                backgroundColor: colors.primaryContainer,
               },
             ]}
             onPress={handleFullscreenOpen}
@@ -173,8 +176,10 @@ export function SignatureQuestion({
             accessibilityLabel="Abrir panel de firma"
             accessibilityRole="button"
           >
-            <Ionicons name="pencil" size={20} color="#fff" />
-            <Text style={styles.signBtnText}>Firmar</Text>
+            <Ionicons name="pencil" size={20} color={colors.onPrimary} />
+            <Text style={[styles.signBtnText, { color: colors.onPrimary }]}>
+              Firmar
+            </Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -209,7 +214,10 @@ export function SignatureQuestion({
             <TouchableOpacity
               style={[
                 styles.actionBtn,
-                { borderColor: colors.border, backgroundColor: colors.surface },
+                {
+                  borderColor: colors.onPrimaryContainer + "40",
+                  backgroundColor: colors.primaryContainer,
+                },
               ]}
               onPress={handleFullscreenOpen}
               activeOpacity={0.7}
@@ -219,9 +227,14 @@ export function SignatureQuestion({
               <Ionicons
                 name="create-outline"
                 size={18}
-                color={colors.primary}
+                color={colors.onPrimaryContainer}
               />
-              <Text style={[styles.actionBtnText, { color: colors.primary }]}>
+              <Text
+                style={[
+                  styles.actionBtnText,
+                  { color: colors.onPrimaryContainer },
+                ]}
+              >
                 Editar
               </Text>
             </TouchableOpacity>
@@ -229,8 +242,8 @@ export function SignatureQuestion({
               style={[
                 styles.actionBtn,
                 {
-                  borderColor: colors.error + "40",
-                  backgroundColor: colors.surface,
+                  borderColor: colors.error + "60",
+                  backgroundColor: colors.error + "10",
                 },
               ]}
               onPress={handleClear}
@@ -362,8 +375,8 @@ export function SignatureQuestion({
               style={[
                 styles.actionBtn,
                 {
-                  borderColor: colors.border,
-                  backgroundColor: colors.surface,
+                  borderColor: colors.onPrimaryContainer + "40",
+                  backgroundColor: colors.primaryContainer,
                   flex: 1,
                 },
               ]}
@@ -388,8 +401,8 @@ export function SignatureQuestion({
               style={[
                 styles.actionBtn,
                 {
-                  borderColor: colors.error + "40",
-                  backgroundColor: colors.surface,
+                  borderColor: colors.error + "60",
+                  backgroundColor: colors.error + "10",
                   flex: 1,
                 },
               ]}
@@ -455,7 +468,6 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   signBtnText: {
-    color: "#fff",
     fontSize: 16,
     fontWeight: "700",
   },
@@ -480,7 +492,6 @@ const styles = StyleSheet.create({
     width: "100%",
     height: 140,
     borderRadius: 10,
-    backgroundColor: "#fafafa",
   },
   actionRow: {
     flexDirection: "row",

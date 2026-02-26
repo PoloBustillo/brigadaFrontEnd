@@ -116,7 +116,10 @@ function FAQAccordion({ item }: { item: FAQItem }) {
       activeOpacity={0.7}
     >
       <View style={styles.faqHeader}>
-        <Text style={[styles.faqQuestion, { color: colors.text }]} numberOfLines={open ? undefined : 2}>
+        <Text
+          style={[styles.faqQuestion, { color: colors.text }]}
+          numberOfLines={open ? undefined : 2}
+        >
           {item.question}
         </Text>
         <Ionicons
@@ -204,10 +207,7 @@ export default function HelpScreen() {
                 Correo de soporte
               </Text>
               <Text
-                style={[
-                  styles.contactValue,
-                  { color: colors.textSecondary },
-                ]}
+                style={[styles.contactValue, { color: colors.textSecondary }]}
               >
                 brigadadigitalmorena@gmail.com
               </Text>

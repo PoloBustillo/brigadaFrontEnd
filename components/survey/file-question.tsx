@@ -132,7 +132,13 @@ export function FileQuestion({
     const iconName = iconForMime(value.mimeType) as any;
     const isImage = value.mimeType?.startsWith("image/");
     return (
-      <View style={[styles.attachedCard, isImage && styles.attachedCardImage]}>
+      <View
+        style={[
+          styles.attachedCard,
+          { borderColor: colors.border, backgroundColor: colors.surface },
+          isImage && styles.attachedCardImage,
+        ]}
+      >
         {isImage ? (
           /* ── Image preview thumbnail ── */
           <View style={styles.imageThumbnailWrap}>
@@ -187,8 +193,8 @@ export function FileQuestion({
       style={[
         styles.pickBtn,
         {
-          borderColor: colors.border ?? "#e0e0e0",
-          backgroundColor: colors.surface ?? "#fafafa",
+          borderColor: colors.onPrimaryContainer + "40",
+          backgroundColor: colors.primaryContainer,
         },
       ]}
       onPress={pickFile}
@@ -243,7 +249,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#e0e0e0",
     padding: 12,
     gap: 12,
   },

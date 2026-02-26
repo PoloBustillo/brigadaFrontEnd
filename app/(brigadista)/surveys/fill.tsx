@@ -468,7 +468,7 @@ export default function FillSurveyScreen() {
           onPress={() => router.back()}
           activeOpacity={0.85}
         >
-          <Text style={[styles.backBtnText, { color: "#fff" }]}>
+          <Text style={[styles.backBtnText, { color: colors.onPrimary }]}>
             Volver a encuestas
           </Text>
         </TouchableOpacity>

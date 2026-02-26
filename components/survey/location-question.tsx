@@ -209,12 +209,7 @@ export function LocationQuestion({
     });
 
     return (
-      <View
-        style={[
-          styles.capturedCard,
-          { borderColor: colors.border ?? "#e0e0e0" },
-        ]}
-      >
+      <View style={[styles.capturedCard, { borderColor: colors.border }]}>
         {/* Header */}
         <View style={styles.capturedHeader}>
           <View
@@ -255,7 +250,7 @@ export function LocationQuestion({
               {formatCoord(value.latitude)}
             </Text>
           </View>
-          <View style={styles.coordSep} />
+          <View style={[styles.coordSep, { backgroundColor: colors.border }]} />
           <View style={styles.coordItem}>
             <Text
               style={[
@@ -290,8 +285,8 @@ export function LocationQuestion({
           style={[
             styles.addressCard,
             {
-              borderColor: colors.border ?? "#e0e0e0",
-              backgroundColor: colors.surface ?? "#fafafa",
+              borderColor: colors.border,
+              backgroundColor: colors.surface,
             },
           ]}
         >
@@ -391,12 +386,21 @@ export function LocationQuestion({
           <TouchableOpacity
             style={[
               styles.actionBtn,
-              { borderColor: colors.border ?? "#e0e0e0" },
+              { borderColor: colors.onPrimaryContainer + "40" },
             ]}
             onPress={() => openInMaps(value.latitude, value.longitude)}
           >
-            <Ionicons name="map-outline" size={16} color={colors.primary} />
-            <Text style={[styles.actionBtnText, { color: colors.primary }]}>
+            <Ionicons
+              name="map-outline"
+              size={16}
+              color={colors.onPrimaryContainer}
+            />
+            <Text
+              style={[
+                styles.actionBtnText,
+                { color: colors.onPrimaryContainer },
+              ]}
+            >
               Abrir Maps
             </Text>
           </TouchableOpacity>
@@ -404,21 +408,29 @@ export function LocationQuestion({
           <TouchableOpacity
             style={[
               styles.actionBtn,
-              { borderColor: colors.border ?? "#e0e0e0" },
+              { borderColor: colors.onPrimaryContainer + "40" },
             ]}
             onPress={captureLocation}
             disabled={loading}
           >
             {loading ? (
-              <ActivityIndicator size="small" color={colors.primary} />
+              <ActivityIndicator
+                size="small"
+                color={colors.onPrimaryContainer}
+              />
             ) : (
               <Ionicons
                 name="refresh-outline"
                 size={16}
-                color={colors.primary}
+                color={colors.onPrimaryContainer}
               />
             )}
-            <Text style={[styles.actionBtnText, { color: colors.primary }]}>
+            <Text
+              style={[
+                styles.actionBtnText,
+                { color: colors.onPrimaryContainer },
+              ]}
+            >
               GPS actual
             </Text>
           </TouchableOpacity>
@@ -426,7 +438,10 @@ export function LocationQuestion({
           <TouchableOpacity
             style={[
               styles.actionBtn,
-              { borderColor: colors.border ?? "#e0e0e0" },
+              {
+                borderColor: colors.error + "60",
+                backgroundColor: colors.error + "10",
+              },
             ]}
             onPress={clearLocation}
           >
@@ -455,8 +470,8 @@ export function LocationQuestion({
       style={[
         styles.captureBtn,
         {
-          borderColor: colors.border ?? "#e0e0e0",
-          backgroundColor: colors.surface ?? "#fafafa",
+          borderColor: colors.onPrimaryContainer + "40",
+          backgroundColor: colors.primaryContainer,
         },
       ]}
       onPress={captureLocation}
@@ -547,7 +562,6 @@ const styles = StyleSheet.create({
   coordSep: {
     width: 1,
     height: 32,
-    backgroundColor: "#e0e0e0",
     marginHorizontal: 12,
   },
   coordLabel: {

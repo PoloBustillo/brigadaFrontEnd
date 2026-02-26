@@ -188,8 +188,8 @@ export function DateQuestion({
         accessibilityLabel="Seleccionar fecha de hoy"
         accessibilityRole="button"
       >
-        <Ionicons name="today-outline" size={20} color="#fff" />
-        <Text style={styles.todayText}>Hoy</Text>
+        <Ionicons name="today-outline" size={20} color={colors.onPrimary} />
+        <Text style={[styles.todayText, { color: colors.onPrimary }]}>Hoy</Text>
       </TouchableOpacity>
 
       {/* Date display */}
@@ -232,7 +232,7 @@ export function DateQuestion({
           styles.pickerBtn,
           {
             borderColor: colors.primary,
-            backgroundColor: colors.primary + "10",
+            backgroundColor: colors.primaryContainer,
           },
         ]}
         onPress={openPicker}
@@ -264,7 +264,9 @@ export function DateQuestion({
               onPress={closePicker}
               activeOpacity={0.8}
             >
-              <Text style={styles.doneBtnText}>Listo</Text>
+              <Text style={[styles.doneBtnText, { color: colors.onPrimary }]}>
+                Listo
+              </Text>
             </TouchableOpacity>
           )}
         </View>
@@ -372,7 +374,6 @@ const styles = StyleSheet.create({
     borderRadius: 14,
   },
   todayText: {
-    color: "#fff",
     fontSize: 16,
     fontWeight: "700",
   },
@@ -411,7 +412,6 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   doneBtnText: {
-    color: "#fff",
     fontSize: 15,
     fontWeight: "700",
   },

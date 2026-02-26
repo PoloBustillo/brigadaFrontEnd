@@ -238,6 +238,14 @@ function isDefinitelyNotAddress(line: string): boolean {
   if (/CREDENCIAL\s+PARA\s+VOTAR/i.test(trimmed)) return true;
   // Texto que es mayormente < (MRZ parcial)
   if ((trimmed.match(/</g)?.length ?? 0) >= 3) return true;
+  // Etiquetas de nombre: "APELLIDO PATERNO", "APELLIDO MATERNO", "NOMBRE(S)"
+  if (
+    /^(?:A(?:PELLID|PELL[I1]D)[O0]\s+)?(?:PATERN[O0]|MATERN[O0])$/i.test(
+      trimmed,
+    )
+  )
+    return true;
+  if (/^N[O0]MBRE(?:\([S5]\))?$/i.test(trimmed)) return true;
 
   return false;
 }
@@ -407,6 +415,8 @@ function strategyDomicilioAnchor(lines: string[]): AddressCandidate | null {
     if (isDefinitelyNotAddress(line)) break;
     if (line.trim().length < 2) continue;
     collected.push(line);
+    // El estado mexicano es siempre la línea terminal del domicilio en INE
+    if (detectState(line)) break;
   }
 
   if (collected.length === 0) return null;
@@ -593,6 +603,8 @@ function strategyColonia(lines: string[]): AddressCandidate | null {
     if (isDefinitelyNotAddress(l)) break;
     if (l.trim().length < 2) continue;
     collected.push(l);
+    // El estado mexicano es siempre la línea terminal del domicilio en INE
+    if (detectState(l)) break;
   }
 
   if (collected.length === 0) return null;
@@ -631,11 +643,13 @@ function strategyNegativeFilter(lines: string[]): AddressCandidate | null {
     if (/^D[O0]M[I1]C[I1]L[I1][O0]$/i.test(trimmed)) continue;
 
     // Filtro: líneas que parecen nombres de persona (no dirección)
-    // (3+ palabras de puras letras sin números y sin keywords de dirección)
-    if (
-      /^[A-ZÁÉÍÓÚÑÜ]+(\s+[A-ZÁÉÍÓÚÑÜ]+){2,}$/.test(trimmed) &&
-      addressLineLikelihood(trimmed) < 0.1
-    ) {
+    // (1+ palabras de letras puras sin números y sin keywords de dirección)
+    // Solo si la línea NO tiene ningún indicador de dirección.
+    const isNameLike =
+      /^[A-ZÁÉÍÓÚÑÜ]{2,}(\s+[A-ZÁÉÍÓÚÑÜ]{2,}){0,2}$/.test(trimmed) &&
+      addressLineLikelihood(trimmed) < 0.1 &&
+      !detectState(trimmed);
+    if (isNameLike) {
       continue;
     }
 
@@ -707,6 +721,8 @@ function strategyStreetType(lines: string[]): AddressCandidate | null {
     if (isDefinitelyNotAddress(l)) break;
     if (l.trim().length < 2) continue;
     collected.push(l);
+    // El estado mexicano es siempre la línea terminal del domicilio en INE
+    if (detectState(l)) break;
   }
 
   const address = assembleAddress(collected);
@@ -853,6 +869,169 @@ export function extractAddressFromSpatialExpert(
     confidence: result.value ? boostedConfidence : 0,
     method: `spatial_${result.method}`,
   };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// DESGLOSE DE DOMICILIO EN SUB-COMPONENTES
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Representa los sub-componentes estructurados de un domicilio mexicano.
+ * Todos los campos son strings normalizados a mayúsculas.
+ * Los campos no detectados quedarán como cadena vacía "".
+ */
+export interface ParsedAddress {
+  /** Calle y número: "CALLE REFORMA 123 INT 4" */
+  calle: string;
+  /** Colonia / fraccionamiento (sin el prefijo COL./COLONIA): "CENTRO" */
+  colonia: string;
+  /** Código postal de 5 dígitos: "06600" */
+  codigoPostal: string;
+  /** Municipio, delegación o alcaldía: "CUAUHTÉMOC" */
+  municipio: string;
+  /** Estado de México (normalizado): "CIUDAD DE MEXICO" */
+  estado: string;
+}
+
+/**
+ * Desglosa un string de domicilio ensamblado en sus sub-componentes.
+ *
+ * La cadena de entrada es el resultado de `assembleAddress()`, con partes
+ * separadas por comas. Por ejemplo:
+ *   "CALLE REFORMA 123, COL. CENTRO, C.P. 06000 CUAUHTÉMOC, CIUDAD DE MEXICO"
+ *
+ * Usa los mismos patrones y detectores que las estrategias de extracción
+ * para identificar cada componente sin depender de orden fijo.
+ *
+ * @param domicilio String de domicilio ensamblado (o texto multilines con \n)
+ * @returns ParsedAddress con los sub-campos detectados; vacíos si no se detectan
+ */
+export function parseAddressComponents(domicilio: string): ParsedAddress {
+  const result: ParsedAddress = {
+    calle: "",
+    colonia: "",
+    codigoPostal: "",
+    municipio: "",
+    estado: "",
+  };
+
+  if (!domicilio.trim()) return result;
+
+  // Normalizar a uppercase NFC
+  const upper = domicilio.trim().toUpperCase().normalize("NFC");
+
+  // Dividir por coma o salto de línea
+  const parts = upper
+    .split(/,|\n/)
+    .map((s) => s.trim())
+    .filter((s) => s.length >= 2);
+
+  if (parts.length === 0) return result;
+
+  const used = new Set<number>();
+
+  // 1. Estado — buscar desde el final (el estado siempre cierra una dirección)
+  for (let i = parts.length - 1; i >= 0; i--) {
+    const state = detectState(parts[i]);
+    if (state) {
+      result.estado = state;
+      used.add(i);
+      break;
+    }
+  }
+
+  // 2. Código Postal — preferir el form etiquetado "C.P. XXXXX"
+  for (let i = 0; i < parts.length; i++) {
+    const m = parts[i].match(CP_LABELED_RE);
+    if (m) {
+      result.codigoPostal = m[1];
+      break;
+    }
+  }
+  if (!result.codigoPostal) {
+    for (let i = 0; i < parts.length; i++) {
+      const m = parts[i].match(CP_BARE_RE);
+      if (m) {
+        result.codigoPostal = m[1];
+        break;
+      }
+    }
+  }
+
+  // 3. Colonia — parte con prefijo COL./COLONIA/FRACC./etc.
+  for (let i = 0; i < parts.length; i++) {
+    if (COLONIA_RE.test(parts[i])) {
+      // Eliminar el prefijo de colonia para dejar solo el nombre
+      result.colonia = parts[i].replace(COLONIA_RE, "").trim();
+      used.add(i);
+      break;
+    }
+  }
+
+  // 4. Municipio — parte con prefijo MUNICIPIO/DELEGACION/ALCALDIA
+  for (let i = 0; i < parts.length; i++) {
+    if (MUNICIPIO_RE.test(parts[i])) {
+      result.municipio = parts[i]
+        .replace(MUNICIPIO_RE, "")
+        .replace(CP_LABELED_RE, "")
+        .replace(CP_BARE_RE, "")
+        .trim();
+      used.add(i);
+      break;
+    }
+  }
+
+  // 4b. Municipio — fallback: texto después del C.P. en la misma parte
+  if (!result.municipio && result.codigoPostal) {
+    for (let i = 0; i < parts.length; i++) {
+      if (parts[i].includes(result.codigoPostal)) {
+        const afterCp = parts[i]
+          .replace(new RegExp(`.*\\b${result.codigoPostal}\\b\\s*`), "")
+          .replace(MUNICIPIO_RE, "")
+          .trim();
+        // Solo tomar si no es el estado y tiene contenido
+        if (
+          afterCp.length >= 2 &&
+          !detectState(afterCp) &&
+          !COLONIA_RE.test(afterCp)
+        ) {
+          result.municipio = afterCp;
+        }
+        break;
+      }
+    }
+  }
+
+  // 5. Calle — primera parte sin usar que tenga vialidad o score de dirección
+  for (let i = 0; i < parts.length; i++) {
+    if (used.has(i)) continue;
+    const part = parts[i];
+    // Descartar si es solo un CP de 5 dígitos o es el estado detectado
+    if (/^\d{5}$/.test(part)) continue;
+    if (detectState(part) && part.length < 25) continue;
+    // Evaluar si parece calle
+    if (
+      STREET_TYPE_RE.test(part) ||
+      (addressLineLikelihood(part) > 0.25 && !COLONIA_RE.test(part))
+    ) {
+      result.calle = part;
+      used.add(i);
+      break;
+    }
+  }
+
+  // 5b. Calle — fallback: primera parte no usada que no sea claramente otra cosa
+  if (!result.calle) {
+    for (let i = 0; i < parts.length; i++) {
+      if (used.has(i)) continue;
+      if (/^\d{5}$/.test(parts[i])) continue;
+      if (detectState(parts[i]) && parts[i].length < 25) continue;
+      result.calle = parts[i];
+      break;
+    }
+  }
+
+  return result;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

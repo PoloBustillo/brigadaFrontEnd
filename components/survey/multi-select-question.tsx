@@ -101,7 +101,11 @@ export function MultiSelectQuestion({
                 ]}
               >
                 {isSelected && (
-                  <Ionicons name="checkmark" size={14} color="#fff" />
+                  <Ionicons
+                    name="checkmark"
+                    size={14}
+                    color={colors.onPrimary}
+                  />
                 )}
               </View>
               <Text

@@ -32,6 +32,25 @@ export interface ThemeColors {
   primaryLight: string;
   primaryDark: string;
 
+  /**
+   * Contrast-safe color for text/icons rendered ON a `primary` background.
+   * For most dark themes `primary` is white, so onPrimary must be the
+   * dark background colour, not white.
+   */
+  onPrimary: string;
+
+  /**
+   * Subtle tinted background for outline/ghost buttons whose label uses
+   * `onPrimaryContainer`.  Works in both light & dark modes.
+   */
+  primaryContainer: string;
+
+  /**
+   * Text/icon color placed on `primaryContainer` backgrounds.
+   * A saturated, readable version of the brand colour.
+   */
+  onPrimaryContainer: string;
+
   // Status colors
   success: string;
   warning: string;
@@ -67,6 +86,9 @@ const pinkScheme: ColorScheme = {
     primary: "#FF1B8D",
     primaryLight: "#FFE8F0",
     primaryDark: "#CC1670",
+    onPrimary: "#FFFFFF",
+    primaryContainer: "rgba(255, 27, 141, 0.12)",
+    onPrimaryContainer: "#FF1B8D",
 
     success: "#10B981",
     warning: "#F59E0B",
@@ -95,6 +117,9 @@ const pinkScheme: ColorScheme = {
     primary: "#FF1B8D",
     primaryLight: "#FF85BE",
     primaryDark: "#CC1670",
+    onPrimary: "#FFFFFF",
+    primaryContainer: "rgba(255, 27, 141, 0.15)",
+    onPrimaryContainer: "#FF85BE",
 
     success: "#34D399",
     warning: "#FBBF24",
@@ -129,6 +154,9 @@ const blueScheme: ColorScheme = {
     primary: "#0284C7",
     primaryLight: "#E0F2FE",
     primaryDark: "#075985",
+    onPrimary: "#FFFFFF",
+    primaryContainer: "rgba(2, 132, 199, 0.12)",
+    onPrimaryContainer: "#0284C7",
 
     success: "#10B981",
     warning: "#F59E0B",
@@ -156,6 +184,9 @@ const blueScheme: ColorScheme = {
     primary: "#FFFFFF",
     primaryLight: "#E0F2FE",
     primaryDark: "#F0F0F0",
+    onPrimary: "#0C4A6E",
+    primaryContainer: "rgba(255, 255, 255, 0.15)",
+    onPrimaryContainer: "#E0F2FE",
 
     success: "#34D399",
     warning: "#FBBF24",
@@ -190,6 +221,9 @@ const purpleScheme: ColorScheme = {
     primary: "#7C3AED",
     primaryLight: "#F3E8FF",
     primaryDark: "#5B21B6",
+    onPrimary: "#FFFFFF",
+    primaryContainer: "rgba(124, 58, 237, 0.12)",
+    onPrimaryContainer: "#7C3AED",
 
     success: "#10B981",
     warning: "#F59E0B",
@@ -217,6 +251,9 @@ const purpleScheme: ColorScheme = {
     primary: "#FFFFFF",
     primaryLight: "#F3E8FF",
     primaryDark: "#F0F0F0",
+    onPrimary: "#6B21A8",
+    primaryContainer: "rgba(255, 255, 255, 0.15)",
+    onPrimaryContainer: "#F3E8FF",
 
     success: "#34D399",
     warning: "#FBBF24",
@@ -251,6 +288,9 @@ const greenScheme: ColorScheme = {
     primary: "#16A34A",
     primaryLight: "#DCFCE7",
     primaryDark: "#15803D",
+    onPrimary: "#FFFFFF",
+    primaryContainer: "rgba(22, 163, 74, 0.12)",
+    onPrimaryContainer: "#16A34A",
 
     success: "#10B981",
     warning: "#F59E0B",
@@ -278,6 +318,9 @@ const greenScheme: ColorScheme = {
     primary: "#FFFFFF",
     primaryLight: "#DCFCE7",
     primaryDark: "#F0F0F0",
+    onPrimary: "#14532D",
+    primaryContainer: "rgba(255, 255, 255, 0.15)",
+    onPrimaryContainer: "#DCFCE7",
 
     success: "#34D399",
     warning: "#FBBF24",
@@ -312,6 +355,9 @@ const orangeScheme: ColorScheme = {
     primary: "#EA580C",
     primaryLight: "#FFEDD5",
     primaryDark: "#C2410C",
+    onPrimary: "#FFFFFF",
+    primaryContainer: "rgba(234, 88, 12, 0.12)",
+    onPrimaryContainer: "#EA580C",
 
     success: "#10B981",
     warning: "#F59E0B",
@@ -339,6 +385,9 @@ const orangeScheme: ColorScheme = {
     primary: "#FFFFFF",
     primaryLight: "#FFEDD5",
     primaryDark: "#F0F0F0",
+    onPrimary: "#7C2D12",
+    primaryContainer: "rgba(255, 255, 255, 0.15)",
+    onPrimaryContainer: "#FFEDD5",
 
     success: "#34D399",
     warning: "#FBBF24",
@@ -373,6 +422,9 @@ const redScheme: ColorScheme = {
     primary: "#DC2626",
     primaryLight: "#FEE2E2",
     primaryDark: "#B91C1C",
+    onPrimary: "#FFFFFF",
+    primaryContainer: "rgba(220, 38, 38, 0.12)",
+    onPrimaryContainer: "#DC2626",
 
     success: "#10B981",
     warning: "#F59E0B",
@@ -400,6 +452,9 @@ const redScheme: ColorScheme = {
     primary: "#FFFFFF",
     primaryLight: "#FEE2E2",
     primaryDark: "#F0F0F0",
+    onPrimary: "#7F1D1D",
+    primaryContainer: "rgba(255, 255, 255, 0.15)",
+    onPrimaryContainer: "#FEE2E2",
 
     success: "#34D399",
     warning: "#FBBF24",
@@ -434,6 +489,9 @@ const darkElegantScheme: ColorScheme = {
     primary: "#111827",
     primaryLight: "#E5E7EB",
     primaryDark: "#030712",
+    onPrimary: "#FFFFFF",
+    primaryContainer: "rgba(17, 24, 39, 0.12)",
+    onPrimaryContainer: "#111827",
 
     success: "#10B981",
     warning: "#F59E0B",
@@ -461,6 +519,9 @@ const darkElegantScheme: ColorScheme = {
     primary: "#FFFFFF",
     primaryLight: "#E5E7EB",
     primaryDark: "#F9FAFB",
+    onPrimary: "#111827",
+    primaryContainer: "rgba(255, 255, 255, 0.12)",
+    onPrimaryContainer: "#E5E7EB",
 
     success: "#34D399",
     warning: "#FBBF24",
@@ -495,6 +556,9 @@ const indigoScheme: ColorScheme = {
     primary: "#4F46E5",
     primaryLight: "#E0E7FF",
     primaryDark: "#3730A3",
+    onPrimary: "#FFFFFF",
+    primaryContainer: "rgba(79, 70, 229, 0.12)",
+    onPrimaryContainer: "#4F46E5",
 
     success: "#10B981",
     warning: "#F59E0B",
@@ -522,6 +586,9 @@ const indigoScheme: ColorScheme = {
     primary: "#FFFFFF",
     primaryLight: "#E0E7FF",
     primaryDark: "#F5F7FA",
+    onPrimary: "#312E81",
+    primaryContainer: "rgba(255, 255, 255, 0.15)",
+    onPrimaryContainer: "#E0E7FF",
 
     success: "#34D399",
     warning: "#FBBF24",
@@ -556,6 +623,9 @@ const tealScheme: ColorScheme = {
     primary: "#14B8A6",
     primaryLight: "#CCFBF1",
     primaryDark: "#0F766E",
+    onPrimary: "#FFFFFF",
+    primaryContainer: "rgba(20, 184, 166, 0.12)",
+    onPrimaryContainer: "#14B8A6",
 
     success: "#10B981",
     warning: "#F59E0B",
@@ -583,6 +653,9 @@ const tealScheme: ColorScheme = {
     primary: "#FFFFFF",
     primaryLight: "#CCFBF1",
     primaryDark: "#F0F9FF",
+    onPrimary: "#115E59",
+    primaryContainer: "rgba(255, 255, 255, 0.15)",
+    onPrimaryContainer: "#CCFBF1",
 
     success: "#34D399",
     warning: "#FBBF24",

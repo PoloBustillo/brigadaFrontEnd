@@ -174,15 +174,27 @@ export function PhotoQuestion({
           <TouchableOpacity
             style={[
               styles.retakeBtn,
-              { borderColor: colors.border, backgroundColor: colors.surface },
+              {
+                borderColor: colors.onPrimaryContainer + "40",
+                backgroundColor: colors.primaryContainer,
+              },
             ]}
             onPress={launchCamera}
             activeOpacity={0.7}
             accessibilityLabel="Tomar otra foto"
             accessibilityRole="button"
           >
-            <Ionicons name="camera-outline" size={18} color={colors.primary} />
-            <Text style={[styles.retakeBtnText, { color: colors.primary }]}>
+            <Ionicons
+              name="camera-outline"
+              size={18}
+              color={colors.onPrimaryContainer}
+            />
+            <Text
+              style={[
+                styles.retakeBtnText,
+                { color: colors.onPrimaryContainer },
+              ]}
+            >
               Tomar otra
             </Text>
           </TouchableOpacity>
@@ -191,8 +203,8 @@ export function PhotoQuestion({
             style={[
               styles.retakeBtn,
               {
-                borderColor: colors.error + "40",
-                backgroundColor: colors.surface,
+                borderColor: colors.error + "60",
+                backgroundColor: colors.error + "10",
               },
             ]}
             onPress={clearPhoto}
@@ -217,7 +229,10 @@ export function PhotoQuestion({
         <View
           style={[
             styles.loadingCard,
-            { backgroundColor: colors.surface, borderColor: colors.border },
+            {
+              backgroundColor: colors.primaryContainer,
+              borderColor: colors.primary + "40",
+            },
           ]}
         >
           <ActivityIndicator size="large" color={colors.primary} />
@@ -238,12 +253,14 @@ export function PhotoQuestion({
             <Ionicons
               name={mode === "document" ? "scan-outline" : "camera"}
               size={32}
-              color="#fff"
+              color={colors.onPrimary}
             />
-            <Text style={styles.cameraBtnText}>
+            <Text style={[styles.cameraBtnText, { color: colors.onPrimary }]}>
               {mode === "document" ? "Escanear documento" : "Tomar foto"}
             </Text>
-            <Text style={styles.cameraBtnHint}>
+            <Text
+              style={[styles.cameraBtnHint, { color: colors.onPrimary + "B3" }]}
+            >
               {mode === "document"
                 ? "Corrección automática de perspectiva"
                 : "Abre la cámara del dispositivo"}
@@ -254,7 +271,10 @@ export function PhotoQuestion({
           <TouchableOpacity
             style={[
               styles.galleryBtn,
-              { borderColor: colors.border, backgroundColor: colors.surface },
+              {
+                borderColor: colors.onPrimaryContainer + "40",
+                backgroundColor: colors.primaryContainer,
+              },
             ]}
             onPress={launchGallery}
             activeOpacity={0.7}
@@ -292,12 +312,10 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   cameraBtnText: {
-    color: "#fff",
     fontSize: 18,
     fontWeight: "700",
   },
   cameraBtnHint: {
-    color: "rgba(255,255,255,0.7)",
     fontSize: 13,
   },
   galleryBtn: {

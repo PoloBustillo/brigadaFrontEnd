@@ -1,467 +1,354 @@
 /**
- * Encargado Responses - Team Responses
- * Shows: All responses submitted by team members
- * Access: Encargados only (Rule 10)
+ * Encargado Responses – Team Responses
+ * Paginated infinite-scroll list with stat header
  */
 
 import { AppHeader, CMSNotice } from "@/components/shared";
 import { useThemeColors } from "@/contexts/theme-context";
 import { useTabBarHeight } from "@/hooks/use-tab-bar-height";
-import { getCached, setCached } from "@/lib/api/memory-cache";
-import { getAllTeamResponses, type TeamResponse } from "@/lib/api/assignments";
+import { getTeamResponses, type TeamResponse } from "@/lib/api/assignments";
 import { Ionicons } from "@expo/vector-icons";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  FlatList,
   RefreshControl,
-  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
 
+const PAGE_SIZE = 20;
+
 export default function EncargadoResponses() {
   const colors = useThemeColors();
   const { contentPadding } = useTabBarHeight();
-  const initialResponses = getCached<TeamResponse[]>("encargado:responses");
-  const [responses, setResponses] = useState<TeamResponse[]>(initialResponses ?? []);
-  const [isLoading, setIsLoading] = useState(!initialResponses);
+  const [responses, setResponses] = useState<TeamResponse[]>([]);
+  const [total, setTotal] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [fetchError, setFetchError] = useState(false);
-  const [hasLoadedOnce, setHasLoadedOnce] = useState(!!initialResponses);
   const [refreshing, setRefreshing] = useState(false);
+  const hasMore = useRef(true);
 
-  const fetchResponses = async (silent = false) => {
-    if (!silent) setIsLoading(true);
-    setFetchError(false);
+  const fetchPage = useCallback(async (skip: number, append: boolean) => {
     try {
-      const data = await getAllTeamResponses();
-      setResponses(data);
-      setHasLoadedOnce(true);
-      setCached("encargado:responses", data);
+      const res = await getTeamResponses(skip, PAGE_SIZE);
+      if (append) {
+        setResponses((prev) => [...prev, ...res.items]);
+      } else {
+        setResponses(res.items);
+      }
+      setTotal(res.total);
+      hasMore.current = res.has_more;
+      setFetchError(false);
     } catch {
-      setFetchError(true);
-    } finally {
-      setIsLoading(false);
-      setRefreshing(false);
+      if (!append) setFetchError(true);
     }
-  };
-
-  useEffect(() => {
-    fetchResponses(!!initialResponses);
   }, []);
 
-  const onRefresh = () => {
+  useEffect(() => {
+    fetchPage(0, false).finally(() => setIsLoading(false));
+  }, []);
+
+  const onRefresh = async () => {
     setRefreshing(true);
-    fetchResponses();
+    await fetchPage(0, false);
+    setRefreshing(false);
   };
 
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return "—";
-    const date = new Date(dateString);
-    const today = new Date();
-    const diffTime = Math.abs(today.getTime() - date.getTime());
-    const diffHours = Math.floor(diffTime / (1000 * 60 * 60));
-    if (diffHours < 24) return `Hace ${diffHours}h`;
-    const diffDays = Math.floor(diffHours / 24);
-    return `Hace ${diffDays}d`;
+  const loadMore = async () => {
+    if (loadingMore || !hasMore.current) return;
+    setLoadingMore(true);
+    await fetchPage(responses.length, true);
+    setLoadingMore(false);
+  };
+
+  // ── Helpers ──────────────────────────────────────────────────
+
+  const formatRelative = (iso: string | null) => {
+    if (!iso) return "—";
+    const diff = Date.now() - new Date(iso).getTime();
+    const h = Math.floor(diff / 3_600_000);
+    if (h < 1) return "Hace <1 h";
+    if (h < 24) return `Hace ${h} h`;
+    return `Hace ${Math.floor(h / 24)} d`;
   };
 
   const formatLocation = (loc: object | null) => {
     if (!loc) return null;
     const l = loc as Record<string, unknown>;
     if (l.address) return String(l.address);
-    if (l.latitude && l.longitude) return `${l.latitude}, ${l.longitude}`;
+    if (l.latitude && l.longitude)
+      return `${Number(l.latitude).toFixed(4)}, ${Number(l.longitude).toFixed(4)}`;
     return null;
   };
 
+  // ── Header (stats + notice) ──────────────────────────────────
+
+  const ListHeader = () => (
+    <View>
+      <View style={styles.noticeContainer}>
+        <CMSNotice message="Vista informativa. El análisis avanzado se realiza en el CMS web." />
+      </View>
+      <View style={styles.statsRow}>
+        <View
+          style={[
+            styles.statCard,
+            { backgroundColor: colors.surface, borderColor: colors.border },
+          ]}
+        >
+          <Ionicons name="chatbox" size={22} color={colors.primary} />
+          <Text style={[styles.statValue, { color: colors.text }]}>
+            {total}
+          </Text>
+          <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
+            Total
+          </Text>
+        </View>
+        <View
+          style={[
+            styles.statCard,
+            { backgroundColor: colors.surface, borderColor: colors.border },
+          ]}
+        >
+          <Ionicons name="people" size={22} color={colors.success} />
+          <Text style={[styles.statValue, { color: colors.text }]}>
+            {new Set(responses.map((r) => r.user_id)).size}
+          </Text>
+          <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
+            Brigadistas
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
+
+  // ── Card ─────────────────────────────────────────────────────
+
+  const renderCard = ({ item: r }: { item: TeamResponse }) => {
+    const loc = formatLocation(r.location);
+
+    return (
+      <View
+        style={[
+          styles.card,
+          { backgroundColor: colors.surface, borderColor: colors.border },
+        ]}
+      >
+        {/* Top: survey title */}
+        <Text
+          style={[styles.cardTitle, { color: colors.text }]}
+          numberOfLines={1}
+        >
+          {r.survey_title}
+        </Text>
+
+        {/* Brigadista row */}
+        <View style={styles.brigadistaRow}>
+          <View
+            style={[styles.avatar, { backgroundColor: colors.success + "18" }]}
+          >
+            <Ionicons name="person" size={16} color={colors.success} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text
+              style={[styles.brigadistaName, { color: colors.text }]}
+              numberOfLines={1}
+            >
+              {r.brigadista_name}
+            </Text>
+          </View>
+        </View>
+
+        {/* Chips */}
+        <View style={styles.chipRow}>
+          <View
+            style={[styles.chip, { backgroundColor: colors.primary + "12" }]}
+          >
+            <Ionicons name="list-outline" size={13} color={colors.primary} />
+            <Text style={[styles.chipText, { color: colors.primary }]}>
+              {r.answer_count} resp.
+            </Text>
+          </View>
+          {loc && (
+            <View
+              style={[styles.chip, { backgroundColor: colors.info + "12" }]}
+            >
+              <Ionicons name="location-outline" size={13} color={colors.info} />
+              <Text
+                style={[styles.chipText, { color: colors.info }]}
+                numberOfLines={1}
+              >
+                {loc}
+              </Text>
+            </View>
+          )}
+          <View
+            style={[
+              styles.chip,
+              { backgroundColor: colors.textTertiary + "12" },
+            ]}
+          >
+            <Ionicons
+              name="time-outline"
+              size={13}
+              color={colors.textTertiary}
+            />
+            <Text style={[styles.chipText, { color: colors.textTertiary }]}>
+              {formatRelative(r.completed_at)}
+            </Text>
+          </View>
+        </View>
+      </View>
+    );
+  };
+
+  // ── Main ─────────────────────────────────────────────────────
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <AppHeader title="Respuestas del Equipo" />
+      <AppHeader
+        title="Respuestas del Equipo"
+        subtitle={total > 0 ? `${total} total` : undefined}
+      />
 
-      <View style={styles.noticeContainer}>
-        <CMSNotice message="Vista informativa. El análisis avanzado y gestión se realizan en el CMS web." />
-      </View>
-
-      {fetchError && responses.length > 0 && (
-        <TouchableOpacity style={styles.errorBanner} onPress={() => fetchResponses()}>
-          <Text style={styles.errorBannerText}>
-            No se pudo actualizar. Toca para reintentar.
+      {fetchError && responses.length === 0 && !isLoading && (
+        <TouchableOpacity
+          style={[styles.errorBanner, { backgroundColor: colors.error + "15" }]}
+          onPress={() => {
+            setIsLoading(true);
+            fetchPage(0, false).finally(() => setIsLoading(false));
+          }}
+        >
+          <Ionicons
+            name="cloud-offline-outline"
+            size={18}
+            color={colors.error}
+          />
+          <Text style={[styles.errorText, { color: colors.error }]}>
+            No se pudo cargar. Toca para reintentar.
           </Text>
         </TouchableOpacity>
       )}
 
       {isLoading ? (
-        <View style={styles.loadingContainer}>
+        <View style={styles.centered}>
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : (
-        <ScrollView
-          contentContainerStyle={[styles.content, { paddingBottom: contentPadding }]}
+        <FlatList
+          data={responses}
+          keyExtractor={(r) => String(r.id)}
+          renderItem={renderCard}
+          ListHeaderComponent={ListHeader}
+          contentContainerStyle={[
+            styles.listContent,
+            { paddingBottom: contentPadding + 20 },
+            responses.length === 0 && styles.centered,
+          ]}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.primary}
+            />
           }
-        >
-          {/* Stats Cards */}
-          <View style={styles.statsContainer}>
-            <View
-              style={[
-                styles.statCard,
-                { backgroundColor: colors.surface, borderColor: colors.border },
-              ]}
-            >
-              <Ionicons name="chatbox" size={24} color={colors.primary} />
-              <Text style={[styles.statValue, { color: colors.text }]}>
-                {responses.length}
-              </Text>
-              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-                Total
-              </Text>
-            </View>
-            <View
-              style={[
-                styles.statCard,
-                { backgroundColor: colors.surface, borderColor: colors.border },
-              ]}
-            >
+          onEndReached={loadMore}
+          onEndReachedThreshold={0.4}
+          ListEmptyComponent={
+            <View style={styles.empty}>
               <Ionicons
-                name="checkmark-done-circle"
-                size={24}
-                color={colors.success}
+                name="chatbox-outline"
+                size={56}
+                color={colors.textTertiary}
               />
-              <Text style={[styles.statValue, { color: colors.text }]}>
-                {responses.length}
+              <Text style={[styles.emptyTitle, { color: colors.text }]}>
+                Sin respuestas aún
               </Text>
-              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-                Sincronizadas
+              <Text
+                style={[styles.emptySubtitle, { color: colors.textSecondary }]}
+              >
+                Las respuestas de tu equipo aparecerán aquí
               </Text>
             </View>
-          </View>
-
-          {/* Responses List */}
-          <View style={styles.listContainer}>
-            {responses.length === 0 ? (
-              fetchError && !hasLoadedOnce ? (
-                <TouchableOpacity
-                  style={styles.emptyState}
-                  onPress={() => fetchResponses()}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons
-                    name="cloud-offline-outline"
-                    size={64}
-                    color={colors.error}
-                  />
-                  <Text style={[styles.emptyText, { color: colors.error }]}>
-                    Sin conexión
-                  </Text>
-                  <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>
-                    No se pudieron cargar las respuestas. Toca para reintentar.
-                  </Text>
-                </TouchableOpacity>
-              ) : (
-                <View style={styles.emptyState}>
-                  <Ionicons
-                    name="chatbox-outline"
-                    size={64}
-                    color={colors.textSecondary}
-                  />
-                  <Text style={[styles.emptyText, { color: colors.text }]}>
-                    Sin respuestas aún
-                  </Text>
-                  <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>
-                    Las respuestas de tu equipo aparecerán aquí
-                  </Text>
-                </View>
-              )
-            ) : (
-              responses.map((response) => {
-                return (
-                  <View
-                    key={response.id}
-                    style={[
-                      styles.responseCard,
-                      {
-                        backgroundColor: colors.surface,
-                        borderColor: colors.border,
-                      },
-                    ]}
-                  >
-                    {/* Header */}
-                    <View style={styles.cardHeader}>
-                      <Text
-                        style={[styles.surveyTitle, { color: colors.text }]}
-                        numberOfLines={1}
-                      >
-                        {response.survey_title}
-                      </Text>
-                      <Ionicons
-                        name="checkmark-circle"
-                        size={20}
-                        color={colors.success}
-                      />
-                    </View>
-
-                    {/* Brigadista Info */}
-                    <View style={styles.brigadistaInfo}>
-                      <View
-                        style={[
-                          styles.avatar,
-                          { backgroundColor: colors.success + "20" },
-                        ]}
-                      >
-                        <Ionicons
-                          name="person"
-                          size={20}
-                          color={colors.success}
-                        />
-                      </View>
-                      <View style={styles.brigadistaDetails}>
-                        <Text
-                          style={[
-                            styles.brigadistaLabel,
-                            { color: colors.textSecondary },
-                          ]}
-                        >
-                          Brigadista
-                        </Text>
-                        <Text
-                          style={[
-                            styles.brigadistaName,
-                            { color: colors.text },
-                          ]}
-                        >
-                          {response.brigadista_name}
-                        </Text>
-                      </View>
-                    </View>
-
-                    {/* Footer */}
-                    <View
-                      style={[
-                        styles.cardFooter,
-                        { borderTopColor: colors.border },
-                      ]}
-                    >
-                      <View style={styles.footerInfo}>
-                        {formatLocation(response.location) && (
-                          <View style={styles.footerItem}>
-                            <Ionicons
-                              name="location-outline"
-                              size={14}
-                              color={colors.textSecondary}
-                            />
-                            <Text
-                              style={[
-                                styles.footerText,
-                                { color: colors.textSecondary },
-                              ]}
-                            >
-                              {formatLocation(response.location)}
-                            </Text>
-                          </View>
-                        )}
-                        <View style={styles.footerItem}>
-                          <Ionicons
-                            name="time-outline"
-                            size={14}
-                            color={colors.textSecondary}
-                          />
-                          <Text
-                            style={[
-                              styles.footerText,
-                              { color: colors.textSecondary },
-                            ]}
-                          >
-                            {formatDate(response.completed_at)}
-                          </Text>
-                        </View>
-                        <View style={styles.footerItem}>
-                          <Ionicons
-                            name="list-outline"
-                            size={14}
-                            color={colors.textSecondary}
-                          />
-                          <Text
-                            style={[
-                              styles.footerText,
-                              { color: colors.textSecondary },
-                            ]}
-                          >
-                            {response.answer_count} respuestas
-                          </Text>
-                        </View>
-                      </View>
-                      <Ionicons
-                        name="eye-outline"
-                        size={20}
-                        color={colors.textSecondary}
-                      />
-                    </View>
-                  </View>
-                );
-              })
-            )}
-          </View>
-        </ScrollView>
+          }
+          ListFooterComponent={
+            loadingMore ? (
+              <View style={styles.footer}>
+                <ActivityIndicator size="small" color={colors.primary} />
+              </View>
+            ) : null
+          }
+        />
       )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  noticeContainer: {
-    marginHorizontal: 20,
-    marginTop: 8,
-    marginBottom: 4,
-  },
-  content: {
-    padding: 20,
-  },
-  statsContainer: {
+  container: { flex: 1 },
+  centered: { flex: 1, justifyContent: "center", alignItems: "center" },
+  listContent: { padding: 16, gap: 10 },
+  noticeContainer: { marginBottom: 8 },
+  errorBanner: {
     flexDirection: "row",
-    gap: 12,
-    marginBottom: 20,
+    alignItems: "center",
+    gap: 8,
+    margin: 16,
+    marginBottom: 0,
+    padding: 12,
+    borderRadius: 10,
   },
+  errorText: { fontSize: 13, fontWeight: "600" },
+
+  /* Stats */
+  statsRow: { flexDirection: "row", gap: 10, marginBottom: 12 },
   statCard: {
     flex: 1,
-    padding: 16,
+    padding: 14,
     borderRadius: 12,
     borderWidth: 1,
     alignItems: "center",
-    gap: 8,
+    gap: 4,
   },
-  statValue: {
-    fontSize: 24,
-    fontWeight: "700",
-  },
-  statLabel: {
-    fontSize: 12,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  errorBanner: {
-    backgroundColor: "#FF3B30",
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-  },
-  errorBannerText: {
-    color: "#fff",
-    textAlign: "center",
-    fontWeight: "600",
-  },
-  listContainer: {
-    gap: 12,
-  },
-  emptyState: {
-    alignItems: "center",
-    paddingVertical: 60,
-  },
-  emptyText: {
-    fontSize: 20,
-    fontWeight: "600",
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  emptySubtext: {
-    fontSize: 14,
-    textAlign: "center",
-    paddingHorizontal: 32,
-  },
-  responseCard: {
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  cardHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 12,
-    gap: 8,
-  },
-  surveyTitle: {
-    flex: 1,
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  badges: {
-    flexDirection: "row",
-    gap: 6,
-  },
-  brigadistaInfo: {
+  statValue: { fontSize: 22, fontWeight: "700" },
+  statLabel: { fontSize: 11 },
+
+  /* Card */
+  card: { borderRadius: 14, borderWidth: 1, padding: 14 },
+  cardTitle: { fontSize: 15, fontWeight: "700", marginBottom: 10 },
+  brigadistaRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
-    marginBottom: 12,
+    gap: 10,
+    marginBottom: 10,
   },
   avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
   },
-  brigadistaDetails: {
-    flex: 1,
-  },
-  brigadistaLabel: {
-    fontSize: 12,
-    marginBottom: 2,
-  },
-  brigadistaName: {
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  progressSection: {
-    marginBottom: 12,
-  },
-  progressHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 6,
-  },
-  progressText: {
-    fontSize: 12,
-  },
-  progressValue: {
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  progressBar: {
-    height: 6,
-    borderRadius: 3,
-    overflow: "hidden",
-  },
-  progressFill: {
-    height: "100%",
-  },
-  cardFooter: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingTop: 12,
-    borderTopWidth: 1,
-  },
-  footerInfo: {
-    flexDirection: "row",
-    gap: 12,
-    flex: 1,
-  },
-  footerItem: {
+  brigadistaName: { fontSize: 13, fontWeight: "600" },
+  chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+  chip: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    flex: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
   },
-  footerText: {
-    fontSize: 12,
-    flex: 1,
-  },
+  chipText: { fontSize: 11, fontWeight: "600" },
+
+  /* Empty */
+  empty: { alignItems: "center", paddingVertical: 48, gap: 8 },
+  emptyTitle: { fontSize: 18, fontWeight: "700" },
+  emptySubtitle: { fontSize: 14, textAlign: "center", paddingHorizontal: 32 },
+
+  /* Footer loader */
+  footer: { paddingVertical: 16, alignItems: "center" },
 });

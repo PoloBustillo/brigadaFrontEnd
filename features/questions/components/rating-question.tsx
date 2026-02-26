@@ -121,7 +121,7 @@ export function ScaleQuestion({
               <Text
                 style={[
                   styles.scaleItemText,
-                  { color: selected ? "#fff" : colors.text },
+                  { color: selected ? colors.onPrimary : colors.text },
                 ]}
               >
                 {v}

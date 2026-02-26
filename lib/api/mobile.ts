@@ -46,6 +46,14 @@ export interface AssignedSurveyResponse {
 
 // ─── My responses types ───────────────────────────────────────────────────────
 
+export interface PaginatedResponse<T> {
+  items: T[];
+  total: number;
+  skip: number;
+  limit: number;
+  has_more: boolean;
+}
+
 export interface QuestionAnswerDetail {
   id: number;
   question_id: number;
@@ -64,7 +72,7 @@ export interface SurveyResponseDetail {
   completed_at: string;
   synced_at: string;
   device_info: Record<string, any> | null;
-  answers: QuestionAnswerDetail[];
+  answers?: QuestionAnswerDetail[];
 }
 
 // ─── API calls ───────────────────────────────────────────────────────────────
@@ -149,20 +157,20 @@ export async function submitBatchResponses(
 
 /**
  * GET /mobile/responses/me
- * Returns the current user's submitted responses.
+ * Returns the current user's submitted responses (paginated).
  */
 export async function getMyResponses(
   skip = 0,
-  limit = 100,
-): Promise<SurveyResponseDetail[]> {
+  limit = 20,
+): Promise<PaginatedResponse<SurveyResponseDetail>> {
   return timedCall(
     `GET /mobile/responses/me`,
     () =>
       apiClient
-        .get<SurveyResponseDetail[]>(`/mobile/responses/me`, {
+        .get<PaginatedResponse<SurveyResponseDetail>>(`/mobile/responses/me`, {
           params: { skip, limit },
         })
         .then((r) => r.data),
-    (items) => `${items.length} items`,
+    (res) => `${res.items.length}/${res.total} items`,
   );
 }

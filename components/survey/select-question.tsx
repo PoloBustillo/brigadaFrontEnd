@@ -89,7 +89,14 @@ export function SelectQuestion({
                   },
                 ]}
               >
-                {selected && <View style={styles.radioInner} />}
+                {selected && (
+                  <View
+                    style={[
+                      styles.radioInner,
+                      { backgroundColor: colors.onPrimary },
+                    ]}
+                  />
+                )}
               </View>
               <Text
                 style={[
@@ -147,7 +154,14 @@ export function SelectQuestion({
                 },
               ]}
             >
-              {selected && <View style={styles.radioInner} />}
+              {selected && (
+                <View
+                  style={[
+                    styles.radioInner,
+                    { backgroundColor: colors.onPrimary },
+                  ]}
+                />
+              )}
             </View>
             <Text
               style={[
