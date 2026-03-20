@@ -60,6 +60,7 @@ export interface QuestionAnswerDetail {
   answer_value: any;
   media_url: string | null;
   answered_at: string;
+  answer_meta?: Record<string, any> | null;
 }
 
 export interface SurveyResponseDetail {
@@ -72,6 +73,7 @@ export interface SurveyResponseDetail {
   completed_at: string;
   synced_at: string;
   device_info: Record<string, any> | null;
+  capture_meta?: Record<string, any> | null;
   answers?: QuestionAnswerDetail[];
 }
 
@@ -110,6 +112,7 @@ export interface QuestionAnswerCreate {
   answer_value: any;
   answered_at: string; // ISO 8601
   media_url?: string;
+  answer_meta?: Record<string, any>;
 }
 
 export interface SurveyResponseCreate {
@@ -119,6 +122,7 @@ export interface SurveyResponseCreate {
   completed_at: string;
   location?: Record<string, any>;
   device_info?: Record<string, any>;
+  capture_meta?: Record<string, any>;
   answers: QuestionAnswerCreate[];
 }
 

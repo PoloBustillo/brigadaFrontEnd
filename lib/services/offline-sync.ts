@@ -58,7 +58,9 @@ export interface SubmitResponseInput {
     answer_value: any;
     answered_at: string;
     media_url?: string;
+    answer_meta?: Record<string, any>;
   }[];
+  captureMeta?: Record<string, any>;
 }
 
 export interface SyncResult {
@@ -178,12 +180,41 @@ class OfflineSyncService {
       // Continue anyway — the response was already saved as draft
     }
 
+    const localResponse = await responseRepository.getResponseById(
+      input.responseId,
+    );
+
     // Step B: Build API payload
     const apiPayload: SurveyResponseCreate = {
       client_id: input.responseId,
       version_id: input.versionId,
       started_at: input.startedAt,
       completed_at: completedAt,
+      location:
+        localResponse?.latitude != null && localResponse?.longitude != null
+          ? {
+              latitude: localResponse.latitude,
+              longitude: localResponse.longitude,
+              accuracy: localResponse.accuracy,
+              timestamp: localResponse.location_captured_at,
+            }
+          : undefined,
+      device_info: localResponse
+        ? {
+            platform: localResponse.device_platform,
+            os_version: localResponse.device_os_version,
+            app_version: localResponse.device_app_version,
+          }
+        : undefined,
+      capture_meta: {
+        total_duration_ms: Math.max(
+          0,
+          new Date(completedAt).getTime() - new Date(input.startedAt).getTime(),
+        ),
+        offline_mode: true,
+        submitted_at: completedAt,
+        ...input.captureMeta,
+      },
       answers: input.answers,
     };
 
@@ -244,11 +275,40 @@ class OfflineSyncService {
     await this.initialize();
 
     const completedAt = new Date().toISOString();
+    const localResponse = await responseRepository.getResponseById(
+      input.responseId,
+    );
+
     const apiPayload: SurveyResponseCreate = {
       client_id: input.responseId,
       version_id: input.versionId,
       started_at: input.startedAt,
       completed_at: completedAt,
+      location:
+        localResponse?.latitude != null && localResponse?.longitude != null
+          ? {
+              latitude: localResponse.latitude,
+              longitude: localResponse.longitude,
+              accuracy: localResponse.accuracy,
+              timestamp: localResponse.location_captured_at,
+            }
+          : undefined,
+      device_info: localResponse
+        ? {
+            platform: localResponse.device_platform,
+            os_version: localResponse.device_os_version,
+            app_version: localResponse.device_app_version,
+          }
+        : undefined,
+      capture_meta: {
+        total_duration_ms: Math.max(
+          0,
+          new Date(completedAt).getTime() - new Date(input.startedAt).getTime(),
+        ),
+        offline_mode: true,
+        submitted_at: completedAt,
+        ...input.captureMeta,
+      },
       answers: input.answers,
     };
 

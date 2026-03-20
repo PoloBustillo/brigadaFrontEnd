@@ -193,6 +193,17 @@ export default function FillSurveyScreen() {
   const [fieldError, setFieldError] = useState<string | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
   const [syncedOnSubmit, setSyncedOnSubmit] = useState(false);
+  const questionTimingRef = useRef<
+    Record<
+      number,
+      {
+        enteredAt: number;
+        firstInteractionAt?: number;
+        lastInteractionAt?: number;
+        changeCount: number;
+      }
+    >
+  >({});
 
   // ── Offline draft management (via hook) ────────────────────────────────────
   const {
@@ -232,6 +243,17 @@ export default function FillSurveyScreen() {
   const isLast = currentIndex === total - 1;
   const progressPercent = total > 0 ? (currentIndex + 1) / total : 0;
 
+  useEffect(() => {
+    if (!current) return;
+    const existing = questionTimingRef.current[current.id];
+    if (!existing) {
+      questionTimingRef.current[current.id] = {
+        enteredAt: Date.now(),
+        changeCount: 0,
+      };
+    }
+  }, [current]);
+
   // Animate progress bar on question change
   useEffect(() => {
     Animated.timing(progressAnim, {
@@ -262,6 +284,18 @@ export default function FillSurveyScreen() {
     (value: any, advance = false) => {
       setFieldError(null);
       if (!current) return;
+
+      const nowMs = Date.now();
+      const timing = questionTimingRef.current[current.id] ?? {
+        enteredAt: nowMs,
+        changeCount: 0,
+      };
+      questionTimingRef.current[current.id] = {
+        ...timing,
+        firstInteractionAt: timing.firstInteractionAt ?? nowMs,
+        lastInteractionAt: nowMs,
+        changeCount: timing.changeCount + 1,
+      };
 
       // Persist answer to SQLite draft (state update is inside saveAnswer)
       saveAnswer(current.id, value);
@@ -355,11 +389,31 @@ export default function FillSurveyScreen() {
     const answeredAt = new Date().toISOString();
     const rawAnswers = visibleQuestions
       .filter((q) => answers[q.id] !== undefined && answers[q.id] !== null)
-      .map((q) => ({
-        question_id: q.id,
-        answer_value: answers[q.id],
-        answered_at: answeredAt,
-      }));
+      .map((q) => {
+        const timing = questionTimingRef.current[q.id];
+        const answeredAtIso = timing?.lastInteractionAt
+          ? new Date(timing.lastInteractionAt).toISOString()
+          : answeredAt;
+        return {
+          question_id: q.id,
+          answer_value: answers[q.id],
+          answered_at: answeredAtIso,
+          answer_meta: {
+            time_spent_ms: timing
+              ? Math.max(
+                  0,
+                  (timing.lastInteractionAt ?? timing.enteredAt) -
+                    timing.enteredAt,
+                )
+              : 0,
+            time_to_first_interaction_ms: timing?.firstInteractionAt
+              ? Math.max(0, timing.firstInteractionAt - timing.enteredAt)
+              : null,
+            changed_answer_count: timing?.changeCount ?? 0,
+            revisited: (timing?.changeCount ?? 0) > 1,
+          },
+        };
+      });
 
     if (rawAnswers.length === 0) {
       Alert.alert(
@@ -391,6 +445,16 @@ export default function FillSurveyScreen() {
         versionId,
         startedAt,
         answers: answersPayload,
+        captureMeta: {
+          total_questions_visible: visibleQuestions.length,
+          total_answers_submitted: answersPayload.length,
+          total_duration_ms: Math.max(
+            0,
+            new Date(answeredAt).getTime() - new Date(startedAt).getTime(),
+          ),
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          app_capture_source: "mobile_brigadista",
+        },
       });
 
       if (result.synced) {

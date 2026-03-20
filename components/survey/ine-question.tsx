@@ -86,13 +86,12 @@ function getDocumentScanner(): DocumentScannerModule | null {
     return null;
   }
   try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const mod = require("react-native-document-scanner-plugin");
     _scannerCache = mod?.default ?? mod ?? null;
   } catch {
     _scannerCache = null;
   }
-  return _scannerCache;
+  return _scannerCache ?? null;
 }
 
 // Lazy-load the native ML Kit module so the component doesn't crash in
@@ -118,13 +117,12 @@ function getTextRecognition(): TextRecognitionModule | null {
     return null;
   }
   try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const mod = require("@react-native-ml-kit/text-recognition");
     _textRecCache = mod?.default ?? mod ?? null;
   } catch {
     _textRecCache = null;
   }
-  return _textRecCache;
+  return _textRecCache ?? null;
 }
 
 /** Returns true when the native ML Kit module is present but not linked (Expo Go). */
@@ -1139,14 +1137,13 @@ export function INEQuestion({
             }) => {
               // ── Sección especial: domicilio desglosado ─────────────────────────────
               if (isAddress) {
-                const addr: ParsedAddress =
-                  editableOcr.domicilioDesglosado ?? {
-                    calle: "",
-                    colonia: "",
-                    codigoPostal: "",
-                    municipio: "",
-                    estado: "",
-                  };
+                const addr: ParsedAddress = editableOcr.domicilioDesglosado ?? {
+                  calle: "",
+                  colonia: "",
+                  codigoPostal: "",
+                  municipio: "",
+                  estado: "",
+                };
                 const domConf =
                   editableOcr.fieldConfidence?.domicilio ??
                   (editableOcr.domicilio ? 0.5 : 0);
@@ -1155,18 +1152,14 @@ export function INEQuestion({
                 const addrBorderColor = isLowDom
                   ? colors.error + "60"
                   : colors.border;
-                const addrBg = isLowDom
-                  ? colors.error + "15"
-                  : colors.surface;
+                const addrBg = isLowDom ? colors.error + "15" : colors.surface;
                 return (
                   <View key={key} style={styles.ocrFieldRow}>
                     <View style={styles.ocrFieldLabelRow}>
                       <Ionicons
                         name="home-outline"
                         size={14}
-                        color={
-                          isLowDom ? colors.error : colors.textSecondary
-                        }
+                        color={isLowDom ? colors.error : colors.textSecondary}
                       />
                       <Text
                         style={[
@@ -1200,7 +1193,11 @@ export function INEQuestion({
                     <TextInput
                       style={[
                         styles.ocrFieldInput,
-                        { color: colors.text, borderColor: addrBorderColor, backgroundColor: addrBg },
+                        {
+                          color: colors.text,
+                          borderColor: addrBorderColor,
+                          backgroundColor: addrBg,
+                        },
                       ]}
                       value={addr.calle}
                       onChangeText={(v) => updateAddressField("calle", v)}
@@ -1222,7 +1219,11 @@ export function INEQuestion({
                     <TextInput
                       style={[
                         styles.ocrFieldInput,
-                        { color: colors.text, borderColor: addrBorderColor, backgroundColor: addrBg },
+                        {
+                          color: colors.text,
+                          borderColor: addrBorderColor,
+                          backgroundColor: addrBg,
+                        },
                       ]}
                       value={addr.colonia}
                       onChangeText={(v) => updateAddressField("colonia", v)}
@@ -1246,7 +1247,11 @@ export function INEQuestion({
                         <TextInput
                           style={[
                             styles.ocrFieldInput,
-                            { color: colors.text, borderColor: addrBorderColor, backgroundColor: addrBg },
+                            {
+                              color: colors.text,
+                              borderColor: addrBorderColor,
+                              backgroundColor: addrBg,
+                            },
                           ]}
                           value={addr.codigoPostal}
                           onChangeText={(v) =>
@@ -1270,7 +1275,11 @@ export function INEQuestion({
                         <TextInput
                           style={[
                             styles.ocrFieldInput,
-                            { color: colors.text, borderColor: addrBorderColor, backgroundColor: addrBg },
+                            {
+                              color: colors.text,
+                              borderColor: addrBorderColor,
+                              backgroundColor: addrBg,
+                            },
                           ]}
                           value={addr.municipio}
                           onChangeText={(v) =>
@@ -1296,7 +1305,11 @@ export function INEQuestion({
                     <TextInput
                       style={[
                         styles.ocrFieldInput,
-                        { color: colors.text, borderColor: addrBorderColor, backgroundColor: addrBg },
+                        {
+                          color: colors.text,
+                          borderColor: addrBorderColor,
+                          backgroundColor: addrBg,
+                        },
                       ]}
                       value={addr.estado}
                       onChangeText={(v) => updateAddressField("estado", v)}
