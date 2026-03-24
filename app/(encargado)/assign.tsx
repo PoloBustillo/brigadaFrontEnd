@@ -1,8 +1,8 @@
 import { ScreenHeader } from "@/components/shared";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { colors } from "@/constants/colors";
 import { spacing } from "@/constants/spacing";
+import { useThemeColors } from "@/contexts/theme-context";
 import { getAdminSurveys } from "@/lib/api/admin";
 import {
   BrigadistaForAssignment,
@@ -54,6 +54,7 @@ interface InviteFormData {
 
 export default function AssignBrigadistasScreen() {
   const router = useRouter();
+  const colors = useThemeColors();
 
   // Mode: assign existing users or invite new ones
   const [mode, setMode] = useState<Mode>("assign");
@@ -492,6 +493,327 @@ export default function AssignBrigadistasScreen() {
       setCreating(false);
     }
   };
+
+  // Dynamic styles based on theme
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        container: {
+          flex: 1,
+          backgroundColor: colors.background,
+        },
+        centerContent: {
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+        },
+        loadingText: {
+          marginTop: spacing.md,
+          fontSize: 14,
+          color: colors.textSecondary,
+        },
+        emptyText: {
+          fontSize: 16,
+          color: colors.textSecondary,
+          textAlign: "center",
+        },
+        listContent: {
+          paddingHorizontal: spacing.lg,
+          paddingVertical: spacing.md,
+        },
+        surveyCard: {
+          marginBottom: spacing.md,
+          paddingVertical: spacing.md,
+          paddingHorizontal: spacing.lg,
+          backgroundColor: colors.surface,
+          borderRadius: 8,
+          borderLeftWidth: 3,
+          borderLeftColor: colors.primary,
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 4,
+          elevation: 3,
+        },
+        surveyCardHeader: {
+          flexDirection: "row",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: spacing.sm,
+        },
+        surveyTitle: {
+          fontSize: 16,
+          fontWeight: "600",
+          color: colors.text,
+          flex: 1,
+        },
+        surveyDescription: {
+          fontSize: 13,
+          color: colors.textSecondary,
+          marginBottom: spacing.sm,
+        },
+        surveyMeta: {
+          marginTop: spacing.sm,
+          paddingTop: spacing.sm,
+          borderTopWidth: 1,
+          borderTopColor: colors.border,
+        },
+        surveyMetaText: {
+          fontSize: 12,
+          color: colors.textSecondary,
+        },
+        searchContainer: {
+          flexDirection: "row",
+          alignItems: "center",
+          marginHorizontal: spacing.lg,
+          marginVertical: spacing.md,
+          paddingHorizontal: spacing.md,
+          backgroundColor: colors.surface,
+          borderRadius: 8,
+          borderWidth: 1,
+          borderColor: colors.border,
+        },
+        searchIcon: {
+          marginRight: spacing.sm,
+        },
+        searchInput: {
+          flex: 1,
+          paddingVertical: spacing.sm,
+          paddingHorizontal: spacing.sm,
+          color: colors.text,
+          fontSize: 16,
+        },
+        brigadistaCard: {
+          marginBottom: spacing.md,
+          paddingVertical: spacing.md,
+          paddingHorizontal: spacing.lg,
+          flexDirection: "row",
+          alignItems: "center",
+          backgroundColor: colors.surface,
+          borderRadius: 8,
+          borderWidth: 2,
+          borderColor: colors.border,
+        },
+        brigadistaCardSelected: {
+          borderColor: colors.primary,
+          backgroundColor: colors.background,
+        },
+        checkboxContainer: {
+          marginRight: spacing.md,
+        },
+        checkbox: {
+          width: 24,
+          height: 24,
+          borderRadius: 4,
+          borderWidth: 2,
+          borderColor: colors.border,
+          justifyContent: "center",
+          alignItems: "center",
+        },
+        checkboxSelected: {
+          backgroundColor: colors.primary,
+          borderColor: colors.primary,
+        },
+        brigadistaInfo: {
+          flex: 1,
+        },
+        brigadistaName: {
+          fontSize: 16,
+          fontWeight: "600",
+          color: colors.text,
+        },
+        brigadistaEmail: {
+          fontSize: 13,
+          color: colors.textSecondary,
+          marginTop: spacing.xs,
+        },
+        assignedBadge: {
+          marginTop: spacing.xs,
+          fontSize: 12,
+          color: colors.success,
+          fontWeight: "600",
+        },
+        assignedActions: {
+          marginTop: spacing.xs,
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+        },
+        unassignButton: {
+          paddingHorizontal: spacing.sm,
+          paddingVertical: 4,
+          borderRadius: 6,
+          borderWidth: 1,
+          borderColor: colors.warning,
+        },
+        unassignButtonText: {
+          fontSize: 12,
+          fontWeight: "600",
+          color: colors.warning,
+        },
+        confirmContent: {
+          flex: 1,
+          paddingHorizontal: spacing.lg,
+          paddingVertical: spacing.md,
+        },
+        confirmSection: {
+          marginBottom: spacing.lg,
+          paddingVertical: spacing.md,
+          paddingHorizontal: spacing.lg,
+          backgroundColor: colors.surface,
+          borderRadius: 8,
+          borderLeftWidth: 3,
+          borderLeftColor: colors.primary,
+        },
+        confirmLabel: {
+          fontSize: 14,
+          fontWeight: "600",
+          color: colors.textSecondary,
+          marginBottom: spacing.sm,
+        },
+        confirmValue: {
+          fontSize: 16,
+          fontWeight: "500",
+          color: colors.text,
+        },
+        confirmList: {
+          marginTop: spacing.sm,
+        },
+        confirmItem: {
+          flexDirection: "row",
+          alignItems: "center",
+          paddingVertical: spacing.sm,
+          paddingHorizontal: spacing.md,
+          marginVertical: spacing.xs,
+          backgroundColor: colors.background,
+          borderRadius: 6,
+        },
+        confirmItemIcon: {
+          marginRight: spacing.md,
+        },
+        confirmItemText: {
+          flex: 1,
+        },
+        confirmItemName: {
+          fontSize: 14,
+          fontWeight: "500",
+          color: colors.text,
+        },
+        confirmItemEmail: {
+          fontSize: 12,
+          color: colors.textSecondary,
+          marginTop: spacing.xs,
+        },
+        footer: {
+          flexDirection: "row",
+          paddingHorizontal: spacing.lg,
+          paddingVertical: spacing.md,
+          borderTopWidth: 1,
+          borderTopColor: colors.border,
+          gap: spacing.md,
+        },
+        button: {
+          flex: 1,
+          paddingVertical: spacing.md,
+          borderRadius: 8,
+          justifyContent: "center",
+          alignItems: "center",
+        },
+        cancelButton: {
+          backgroundColor: colors.surface,
+          borderWidth: 1,
+          borderColor: colors.border,
+        },
+        cancelButtonText: {
+          fontSize: 16,
+          fontWeight: "600",
+          color: colors.text,
+        },
+        confirmButton: {
+          backgroundColor: colors.primary,
+        },
+        confirmButtonText: {
+          fontSize: 16,
+          fontWeight: "600",
+          color: colors.onPrimary,
+        },
+        buttonDisabled: {
+          opacity: 0.5,
+        },
+        modeSelector: {
+          flexDirection: "row",
+          paddingHorizontal: spacing.lg,
+          paddingVertical: spacing.sm,
+          gap: spacing.md,
+          backgroundColor: colors.background,
+          borderBottomWidth: 1,
+          borderBottomColor: colors.border,
+        },
+        modeButton: {
+          flex: 1,
+          paddingVertical: spacing.md,
+          borderBottomWidth: 2,
+          borderBottomColor: "transparent",
+          justifyContent: "center",
+          alignItems: "center",
+        },
+        modeButtonActive: {
+          borderBottomColor: colors.primary,
+        },
+        modeButtonText: {
+          fontSize: 14,
+          fontWeight: "500",
+          color: colors.textSecondary,
+        },
+        modeButtonTextActive: {
+          color: colors.primary,
+          fontWeight: "600",
+        },
+        scrollContent: {
+          flexGrow: 1,
+          paddingHorizontal: spacing.lg,
+          paddingVertical: spacing.md,
+        },
+        formContent: {
+          flex: 1,
+        },
+        formSection: {
+          marginBottom: spacing.md,
+        },
+        formLabel: {
+          fontSize: 14,
+          fontWeight: "600",
+          color: colors.text,
+          marginBottom: spacing.xs,
+        },
+        formInput: {
+          borderWidth: 1,
+          borderColor: colors.border,
+          borderRadius: 8,
+          paddingHorizontal: spacing.md,
+          paddingVertical: spacing.md,
+          fontSize: 14,
+          color: colors.text,
+          backgroundColor: colors.surface,
+        },
+        infoBox: {
+          backgroundColor: `${colors.primary}15`,
+          borderLeftWidth: 3,
+          borderLeftColor: colors.primary,
+          borderRadius: 6,
+          paddingHorizontal: spacing.md,
+          paddingVertical: spacing.md,
+          marginBottom: spacing.md,
+        },
+        infoText: {
+          fontSize: 13,
+          color: colors.primary,
+          fontWeight: "500",
+          lineHeight: 18,
+        },
+      }),
+    [colors],
+  );
 
   // Step: Select Survey
   if (step === "select-survey") {
@@ -973,319 +1295,3 @@ export default function AssignBrigadistasScreen() {
 
   return null;
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  centerContent: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  loadingText: {
-    marginTop: spacing.md,
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
-  emptyText: {
-    fontSize: 16,
-    color: colors.textSecondary,
-    textAlign: "center",
-  },
-  listContent: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-  },
-  surveyCard: {
-    marginBottom: spacing.md,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    backgroundColor: colors.surface,
-    borderRadius: 8,
-    borderLeftWidth: 3,
-    borderLeftColor: colors.primary,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  surveyCardHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: spacing.sm,
-  },
-  surveyTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: colors.text,
-    flex: 1,
-  },
-  surveyDescription: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    marginBottom: spacing.sm,
-  },
-  surveyMeta: {
-    marginTop: spacing.sm,
-    paddingTop: spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  surveyMetaText: {
-    fontSize: 12,
-    color: colors.textSecondary,
-  },
-  searchContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginHorizontal: spacing.lg,
-    marginVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-    backgroundColor: colors.surface,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  searchIcon: {
-    marginRight: spacing.sm,
-  },
-  searchInput: {
-    flex: 1,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.sm,
-    color: colors.text,
-    fontSize: 16,
-  },
-  brigadistaCard: {
-    marginBottom: spacing.md,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: colors.surface,
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: colors.border,
-  },
-  brigadistaCardSelected: {
-    borderColor: colors.primary,
-    backgroundColor: colors.background,
-  },
-  checkboxContainer: {
-    marginRight: spacing.md,
-  },
-  checkbox: {
-    width: 24,
-    height: 24,
-    borderRadius: 4,
-    borderWidth: 2,
-    borderColor: colors.border,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  checkboxSelected: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  brigadistaInfo: {
-    flex: 1,
-  },
-  brigadistaName: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: colors.text,
-  },
-  brigadistaEmail: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    marginTop: spacing.xs,
-  },
-  assignedBadge: {
-    marginTop: spacing.xs,
-    fontSize: 12,
-    color: colors.success,
-    fontWeight: "600",
-  },
-  assignedActions: {
-    marginTop: spacing.xs,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  unassignButton: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: colors.warning,
-  },
-  unassignButtonText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: colors.warning,
-  },
-  confirmContent: {
-    flex: 1,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-  },
-  confirmSection: {
-    marginBottom: spacing.lg,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    backgroundColor: colors.surface,
-    borderRadius: 8,
-    borderLeftWidth: 3,
-    borderLeftColor: colors.primary,
-  },
-  confirmLabel: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: colors.textSecondary,
-    marginBottom: spacing.sm,
-  },
-  confirmValue: {
-    fontSize: 16,
-    fontWeight: "500",
-    color: colors.text,
-  },
-  confirmList: {
-    marginTop: spacing.sm,
-  },
-  confirmItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    marginVertical: spacing.xs,
-    backgroundColor: colors.background,
-    borderRadius: 6,
-  },
-  confirmItemIcon: {
-    marginRight: spacing.md,
-  },
-  confirmItemText: {
-    flex: 1,
-  },
-  confirmItemName: {
-    fontSize: 14,
-    fontWeight: "500",
-    color: colors.text,
-  },
-  confirmItemEmail: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginTop: spacing.xs,
-  },
-  footer: {
-    flexDirection: "row",
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    gap: spacing.md,
-  },
-  button: {
-    flex: 1,
-    paddingVertical: spacing.md,
-    borderRadius: 8,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  cancelButton: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  cancelButtonText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: colors.text,
-  },
-  confirmButton: {
-    backgroundColor: colors.primary,
-  },
-  confirmButtonText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#fff",
-  },
-  buttonDisabled: {
-    opacity: 0.5,
-  },
-  modeSelector: {
-    flexDirection: "row",
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    gap: spacing.md,
-    backgroundColor: colors.background,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  modeButton: {
-    flex: 1,
-    paddingVertical: spacing.md,
-    borderBottomWidth: 2,
-    borderBottomColor: "transparent",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  modeButtonActive: {
-    borderBottomColor: colors.primary,
-  },
-  modeButtonText: {
-    fontSize: 14,
-    fontWeight: "500",
-    color: colors.textSecondary,
-  },
-  modeButtonTextActive: {
-    color: colors.primary,
-    fontWeight: "600",
-  },
-  scrollContent: {
-    flexGrow: 1,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-  },
-  formContent: {
-    flex: 1,
-  },
-  formSection: {
-    marginBottom: spacing.md,
-  },
-  formLabel: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: colors.text,
-    marginBottom: spacing.xs,
-  },
-  formInput: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 8,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    fontSize: 14,
-    color: colors.text,
-    backgroundColor: colors.surface,
-  },
-  infoBox: {
-    backgroundColor: `${colors.primary}15`,
-    borderLeftWidth: 3,
-    borderLeftColor: colors.primary,
-    borderRadius: 6,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    marginBottom: spacing.md,
-  },
-  infoText: {
-    fontSize: 13,
-    color: colors.primary,
-    fontWeight: "500",
-    lineHeight: 18,
-  },
-});
