@@ -649,7 +649,7 @@ export default function AssignBrigadistasScreen() {
         unassignButtonText: {
           fontSize: 12,
           fontWeight: "600",
-          color: colors.warning,
+          color: colors.text,
         },
         confirmContent: {
           flex: 1,

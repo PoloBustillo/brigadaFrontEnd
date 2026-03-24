@@ -544,20 +544,26 @@ export default function EncargadoHome() {
         <TouchableOpacity
           style={[
             styles.quickActionButton,
-            { backgroundColor: colors.primary },
+            {
+              backgroundColor: colors.primary,
+              borderColor: colors.primaryLight,
+            },
           ]}
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
             router.push("/(encargado)/assign" as any);
           }}
         >
-          <Ionicons name="person-add" size={20} color="#fff" />
-          <Text style={styles.quickActionText}>Asignar</Text>
+          <Ionicons name="person-add" size={20} color={colors.onPrimary} />
+          <Text style={[styles.quickActionText, { color: colors.onPrimary }]}>Asignar</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[
             styles.quickActionButton,
-            { backgroundColor: colors.success },
+            {
+              backgroundColor: colors.success,
+              borderColor: colors.success,
+            },
           ]}
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -759,6 +765,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+    borderWidth: 1,
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 8,
