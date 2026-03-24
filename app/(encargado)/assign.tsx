@@ -1,6 +1,6 @@
+import { ScreenHeader } from "@/components/shared";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { ScreenHeader } from "@/components/shared";
 import { colors } from "@/constants/colors";
 import { spacing } from "@/constants/spacing";
 import { getAdminSurveys } from "@/lib/api/admin";
@@ -14,8 +14,8 @@ import {
   WhitelistCreatePayload,
 } from "@/lib/api/assignments";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
 import { useFocusEffect, usePreventRemove } from "@react-navigation/native";
+import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -179,7 +179,12 @@ export default function AssignBrigadistasScreen() {
 
   const loadAssignedForSurvey = useCallback(async (surveyId: number) => {
     try {
-      const assignments = await getSurveyAssignments(surveyId, "active", 0, 200);
+      const assignments = await getSurveyAssignments(
+        surveyId,
+        "active",
+        0,
+        200,
+      );
       const userIds = Array.from(new Set(assignments.map((a) => a.user_id)));
       const byUser: Record<number, number> = {};
       assignments.forEach((a) => {
@@ -226,8 +231,10 @@ export default function AssignBrigadistasScreen() {
         return next;
       });
 
-      setSelectedBrigadistas((current) => current.filter((b) => b.id !== userId));
-      
+      setSelectedBrigadistas((current) =>
+        current.filter((b) => b.id !== userId),
+      );
+
       Alert.alert("Éxito", "Brigadista desactivado");
     } catch (err) {
       console.error("Error unassigning brigadista:", err);
@@ -363,67 +370,50 @@ export default function AssignBrigadistasScreen() {
         }),
       );
       const results = await Promise.allSettled(promises);
-      console.log(`[DEBUG] Promise.allSettled results:`, results.map((r, idx) => ({
-        index: idx,
-        status: r.status,
-        reason: r.status === 'rejected' ? ((r as any).reason?.message || (r as any).reason?.toString()) : 'fulfilled'
-      })));
 
       const conflictIndexes = results
         .map((r, idx) => ({ r, idx }))
-        .filter(({ r, idx }) => {
+        .filter(({ r }) => {
           if (r.status !== "rejected") return false;
           const axiosStatus = (r.reason as any)?.response?.status;
-          const isConflict = axiosStatus === 409;
-          if (isConflict) {
-            console.log(`[DEBUG] Found conflict at index ${idx}: ${axiosStatus}`);
-          }
-          return isConflict;
+          return axiosStatus === 409;
         })
         .map(({ idx }) => idx);
 
       let reactivatedCount = 0;
       if (conflictIndexes.length > 0) {
-        console.log(`[DEBUG] Got ${conflictIndexes.length} conflicts, fetching inactive assignments to reactivate`);
         const inactiveAssignments = await getSurveyAssignments(
           selectedSurvey.id,
           "inactive",
           0,
           200,
         );
-        console.log(`[DEBUG] Found ${inactiveAssignments.length} inactive assignments:`, inactiveAssignments.map(a => ({ id: a.id, user_id: a.user_id })));
         const inactiveByUser = new Map(
           inactiveAssignments.map((a) => [a.user_id, a.id]),
         );
 
         for (const idx of conflictIndexes) {
           const userId = brigadistasToAssign[idx]?.id;
-          if (!userId) {
-            console.log(`[DEBUG] No userId for index ${idx}`);
-            continue;
-          }
+          if (!userId) continue;
           const inactiveAssignmentId = inactiveByUser.get(userId);
-          if (!inactiveAssignmentId) {
-            console.log(`[DEBUG] No inactive assignment found for user ${userId} - backend should have reactivated it!`);
-            continue;
-          }
+          if (!inactiveAssignmentId) continue;
 
           try {
-            console.log(`[DEBUG] Reactivating assignment ${inactiveAssignmentId} for user ${userId}`);
             await updateAssignment(inactiveAssignmentId, { status: "active" });
             reactivatedCount += 1;
-            console.log(`[DEBUG] Successfully reactivated`);
-          } catch (e) {
-            console.error(`[DEBUG] Failed to reactivate assignment ${inactiveAssignmentId}:`, e);
+          } catch {
             // leave as failure; handled by summary below
           }
         }
       }
 
-      const createdCount = results.filter((r) => r.status === "fulfilled").length;
+      const createdCount = results.filter(
+        (r) => r.status === "fulfilled",
+      ).length;
       const conflictCount = conflictIndexes.length;
       const unresolvedConflicts = conflictCount - reactivatedCount;
-      const failedCount = results.length - createdCount - conflictCount + unresolvedConflicts;
+      const failedCount =
+        results.length - createdCount - conflictCount + unresolvedConflicts;
 
       if (failedCount > 0) {
         throw new Error("assignment_partial_failure");
@@ -698,17 +688,17 @@ export default function AssignBrigadistasScreen() {
                   styles.brigadistaCard,
                   (selectedBrigadistas.some((b) => b.id === item.id) ||
                     (selectedSurvey
-                      ? (assignedUserIdsBySurvey[selectedSurvey.id] ?? []).includes(
-                          item.id,
-                        )
+                      ? (
+                          assignedUserIdsBySurvey[selectedSurvey.id] ?? []
+                        ).includes(item.id)
                       : false)) &&
                     styles.brigadistaCardSelected,
                 ]}
                 onPress={() => {
                   const isAlreadyAssigned = selectedSurvey
-                    ? (assignedUserIdsBySurvey[selectedSurvey.id] ?? []).includes(
-                        item.id,
-                      )
+                    ? (
+                        assignedUserIdsBySurvey[selectedSurvey.id] ?? []
+                      ).includes(item.id)
                     : false;
                   if (isAlreadyAssigned) return;
                   handleToggleBrigadista(item);
@@ -720,18 +710,18 @@ export default function AssignBrigadistasScreen() {
                       styles.checkbox,
                       (selectedBrigadistas.some((b) => b.id === item.id) ||
                         (selectedSurvey
-                          ? (assignedUserIdsBySurvey[selectedSurvey.id] ?? []).includes(
-                              item.id,
-                            )
+                          ? (
+                              assignedUserIdsBySurvey[selectedSurvey.id] ?? []
+                            ).includes(item.id)
                           : false)) &&
                         styles.checkboxSelected,
                     ]}
                   >
                     {(selectedBrigadistas.some((b) => b.id === item.id) ||
                       (selectedSurvey
-                        ? (assignedUserIdsBySurvey[selectedSurvey.id] ?? []).includes(
-                            item.id,
-                          )
+                        ? (
+                            assignedUserIdsBySurvey[selectedSurvey.id] ?? []
+                          ).includes(item.id)
                         : false)) && (
                       <Ionicons name="checkmark" size={16} color="#fff" />
                     )}
@@ -749,7 +739,9 @@ export default function AssignBrigadistasScreen() {
                     item.id,
                   ) ? (
                     <View style={styles.assignedActions}>
-                      <ThemedText style={styles.assignedBadge}>Ya asignado</ThemedText>
+                      <ThemedText style={styles.assignedBadge}>
+                        Ya asignado
+                      </ThemedText>
                       <TouchableOpacity
                         onPress={() => handleUnassignBrigadista(item.id)}
                         disabled={creating}

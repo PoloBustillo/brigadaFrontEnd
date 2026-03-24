@@ -3,18 +3,13 @@
  * Página de personalización de tema y esquema de colores
  */
 
-import { ColorSchemeSelector } from "@/components/ui/color-scheme-selector";
 import { ScreenHeader } from "@/components/shared";
+import { ColorSchemeSelector } from "@/components/ui/color-scheme-selector";
 import { useTheme, useThemeColors } from "@/contexts/theme-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React from "react";
-import {
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 
 export default function ThemeSettingsScreen() {
   const { themeMode, setThemeMode } = useTheme();

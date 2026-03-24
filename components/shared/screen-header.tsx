@@ -64,7 +64,15 @@ function ScreenHeaderComponent({
       {centerTitle ? (
         <View style={styles.centerRow}>
           {leftControl}
-          <Text style={[styles.title, styles.titleCentered, { color: colors.text }, titleStyle]} numberOfLines={1}>
+          <Text
+            style={[
+              styles.title,
+              styles.titleCentered,
+              { color: colors.text },
+              titleStyle,
+            ]}
+            numberOfLines={1}
+          >
             {title}
           </Text>
           {rightControl}
@@ -73,9 +81,17 @@ function ScreenHeaderComponent({
         <View style={styles.leftRow}>
           {onBackPress ? leftControl : null}
           <View style={styles.textWrap}>
-            <Text style={[styles.title, { color: colors.text }, titleStyle]}>{title}</Text>
+            <Text style={[styles.title, { color: colors.text }, titleStyle]}>
+              {title}
+            </Text>
             {subtitle ? (
-              <Text style={[styles.subtitle, { color: colors.textSecondary }, subtitleStyle]}>
+              <Text
+                style={[
+                  styles.subtitle,
+                  { color: colors.textSecondary },
+                  subtitleStyle,
+                ]}
+              >
                 {subtitle}
               </Text>
             ) : null}

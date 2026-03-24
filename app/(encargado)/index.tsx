@@ -13,12 +13,12 @@ import { ThemeToggleIcon } from "@/components/ui/theme-toggle";
 import { useAuth } from "@/contexts/auth-context";
 import { useThemeColors } from "@/contexts/theme-context";
 import { useTabBarHeight } from "@/hooks/use-tab-bar-height";
+import { getAdminSurveys } from "@/lib/api/admin";
 import {
   getAllTeamResponses,
   getMyCreatedAssignments,
   getMyTeam,
 } from "@/lib/api/assignments";
-import { getAdminSurveys } from "@/lib/api/admin";
 import { getCached, setCached } from "@/lib/api/memory-cache";
 import { Ionicons } from "@expo/vector-icons";
 import NetInfo from "@react-native-community/netinfo";
@@ -266,7 +266,8 @@ export default function EncargadoHome() {
         assignmentsResult.status === "fulfilled" ? assignmentsResult.value : [];
       const responses =
         responsesResult.status === "fulfilled" ? responsesResult.value : [];
-      const surveys = surveysResult.status === "fulfilled" ? surveysResult.value : [];
+      const surveys =
+        surveysResult.status === "fulfilled" ? surveysResult.value : [];
 
       // If secondary data failed, show a soft banner
       if (

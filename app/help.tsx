@@ -3,8 +3,8 @@
  * Preguntas frecuentes y guía rápida de la app
  */
 
-import { useThemeColors } from "@/contexts/theme-context";
 import { ScreenHeader } from "@/components/shared";
+import { useThemeColors } from "@/contexts/theme-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as Application from "expo-application";
 import { useRouter } from "expo-router";
@@ -147,7 +147,11 @@ export default function HelpScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
-      <ScreenHeader title="Ayuda" centerTitle onBackPress={() => router.back()} />
+      <ScreenHeader
+        title="Ayuda"
+        centerTitle
+        onBackPress={() => router.back()}
+      />
 
       <ScrollView
         style={styles.scrollView}
