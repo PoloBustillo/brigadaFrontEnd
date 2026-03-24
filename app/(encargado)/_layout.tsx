@@ -95,6 +95,21 @@ export default function EncargadoLayout() {
             tabBarStyle: { display: "none" },
           }}
         />
+        <Tabs.Screen
+          name="map"
+          options={{
+            title: "Mapa",
+            tabBarIcon: ({ color }) => (
+              <Ionicons name="map" size={24} color={color} />
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="assign"
+          options={{
+            href: null, // Hidden route - accessed via modal/navigation
+          }}
+        />
       </Tabs>
     </ProtectedRoute>
   );

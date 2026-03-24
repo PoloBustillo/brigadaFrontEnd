@@ -1,6 +1,6 @@
 /**
  * Offline Mode Banner & Sync Status
- * 
+ *
  * Visible indicator of offline/online mode with:
  * - Real-time connectivity status
  * - Pending items count
@@ -8,11 +8,17 @@
  * - Manual sync trigger button
  */
 
-import React, { useEffect, useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, Animated } from "react-native";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useSync } from "@/contexts/sync-context";
 import { useThemeColors } from "@/contexts/theme-context";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import React, { useEffect, useState } from "react";
+import {
+  Animated,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 interface OfflineBannerProps {
   compact?: boolean;
@@ -118,7 +124,10 @@ export function OfflineBanner({
         <View style={styles.actions}>
           {!isOnline && pendingCount > 0 && (
             <TouchableOpacity
-              style={[styles.syncButton, { backgroundColor: "rgba(255,255,255,0.2)" }]}
+              style={[
+                styles.syncButton,
+                { backgroundColor: "rgba(255,255,255,0.2)" },
+              ]}
               onPress={syncAll}
               disabled={isSyncing}
             >
@@ -126,7 +135,9 @@ export function OfflineBanner({
                 name={isSyncing ? "sync" : "sync-circle"}
                 size={20}
                 color="#fff"
-                style={isSyncing ? { transform: [{ rotate: "45deg" }] } : undefined}
+                style={
+                  isSyncing ? { transform: [{ rotate: "45deg" }] } : undefined
+                }
               />
               <Text style={styles.syncButtonText}>
                 {isSyncing ? "Syncing..." : "Retry"}

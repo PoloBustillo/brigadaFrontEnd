@@ -1,6 +1,6 @@
 /**
  * useOfflinePolicy - Check offline access permissions
- * 
+ *
  * Hook that checks if current user can perform an action while offline
  * based on their role and pre-defined policies.
  */

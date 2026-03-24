@@ -531,6 +531,36 @@ export default function EncargadoHome() {
         ))}
       </View>
 
+      {/* Quick Actions */}
+      <View style={styles.quickActionsRow}>
+        <TouchableOpacity
+          style={[
+            styles.quickActionButton,
+            { backgroundColor: colors.primary },
+          ]}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            router.push("/(encargado)/assign" as any);
+          }}
+        >
+          <Ionicons name="person-add" size={20} color="#fff" />
+          <Text style={styles.quickActionText}>Asignar</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.quickActionButton,
+            { backgroundColor: colors.success },
+          ]}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            router.push("/(encargado)/map" as any);
+          }}
+        >
+          <Ionicons name="map" size={20} color="#fff" />
+          <Text style={styles.quickActionText}>Mapa</Text>
+        </TouchableOpacity>
+      </View>
+
       {/* Error banner only when we have PARTIAL data — not on first-load failure */}
       {fetchError && teamMembers.length > 0 && (
         <TouchableOpacity
@@ -709,6 +739,27 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     gap: 12,
     marginBottom: 32,
+  },
+  quickActionsRow: {
+    paddingHorizontal: 20,
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 24,
+  },
+  quickActionButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    gap: 8,
+  },
+  quickActionText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#fff",
   },
   loadingContainer: {
     alignItems: "center",

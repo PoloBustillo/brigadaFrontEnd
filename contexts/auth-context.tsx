@@ -106,7 +106,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
           setUser(parsedUser);
           setToken(storedToken);
-          console.log("✅ Session restored:", parsedUser.email, parsedUser.role);
+          console.log(
+            "✅ Session restored:",
+            parsedUser.email,
+            parsedUser.role,
+          );
         }
       }
     } catch (error) {

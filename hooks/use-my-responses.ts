@@ -1,17 +1,17 @@
 /**
  * useMyResponses - Fetch and cache user responses
- * 
+ *
  * Implements stale-while-revalidate pattern:
  * 1. Load cache immediately if available
  * 2. Revalidate via API in background
  * 3. Only show error if cache empty + API failed
  */
 
-import { useCallback, useEffect, useState } from "react";
-import { cacheRepository } from "@/lib/db/repositories/cache.repository";
 import { useAuth } from "@/contexts/auth-context";
 import { useSync } from "@/contexts/sync-context";
 import { apiClient } from "@/lib/api/client";
+import { cacheRepository } from "@/lib/db/repositories/cache.repository";
+import { useCallback, useEffect, useState } from "react";
 
 const CACHE_KEY = "my_responses";
 const CACHE_TTL = 3600000; // 1 hour
@@ -59,15 +59,12 @@ export function useMyResponses(): UseMyResponsesResult {
       }
 
       try {
-        const { data } = await apiClient.get<any[]>(
-          "/mobile/responses",
-          {
-            params: {
-              limit: 100,
-              offset: 0,
-            },
-          }
-        );
+        const { data } = await apiClient.get<any[]>("/mobile/responses", {
+          params: {
+            limit: 100,
+            offset: 0,
+          },
+        });
 
         // Update cache with fresh data
         await cacheRepository.set(CACHE_KEY, data, CACHE_TTL);
@@ -87,7 +84,7 @@ export function useMyResponses(): UseMyResponsesResult {
           setError(
             apiError instanceof Error
               ? apiError
-              : new Error("Failed to fetch responses")
+              : new Error("Failed to fetch responses"),
           );
           setHasRenderableData(false);
         }
@@ -95,7 +92,7 @@ export function useMyResponses(): UseMyResponsesResult {
     } catch (err) {
       console.error("Error in useMyResponses:", err);
       setError(
-        err instanceof Error ? err : new Error("Unknown error occurred")
+        err instanceof Error ? err : new Error("Unknown error occurred"),
       );
       setIsLoading(false);
     } finally {

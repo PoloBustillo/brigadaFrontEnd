@@ -99,7 +99,7 @@ export const OFFLINE_POLICIES: Record<UserRole, OfflineAccessPolicy> = {
 
 export function canPerformOfflineAction(
   role: UserRole,
-  action: keyof OfflineAccessPolicy
+  action: keyof OfflineAccessPolicy,
 ): { allowed: boolean; reason?: string } {
   const policy = OFFLINE_POLICIES[role];
 

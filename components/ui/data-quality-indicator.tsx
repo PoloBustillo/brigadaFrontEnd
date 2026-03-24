@@ -1,19 +1,24 @@
 /**
  * Data Quality Indicator
- * 
+ *
  * Shows visual indicators for response data quality:
  * - Missing fields (GPS, metadata)
  * - Sync issues
  * - OCR confidence for INE documents
  */
 
-import React from "react";
-import { View, Text, StyleSheet } from "react-native";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useThemeColors } from "@/contexts/theme-context";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import React from "react";
+import { StyleSheet, Text, View } from "react-native";
 
 interface DataQualityIssue {
-  type: "missing_gps" | "missing_metadata" | "low_ocr" | "sync_error" | "offline";
+  type:
+    | "missing_gps"
+    | "missing_metadata"
+    | "low_ocr"
+    | "sync_error"
+    | "offline";
   severity: "warning" | "error" | "info";
   message: string;
 }
@@ -47,7 +52,11 @@ export function DataQualityIndicator({
       <View style={styles.compactContainer}>
         {syncStatus === "pending" && (
           <View style={[styles.statusBadge, { backgroundColor: info }]}>
-            <MaterialCommunityIcons name="clock-outline" size={14} color="#fff" />
+            <MaterialCommunityIcons
+              name="clock-outline"
+              size={14}
+              color="#fff"
+            />
             <Text style={styles.statusText}>Pending sync</Text>
           </View>
         )}
@@ -59,7 +68,11 @@ export function DataQualityIndicator({
         )}
         {syncStatus === "error" && (
           <View style={[styles.statusBadge, { backgroundColor: error }]}>
-            <MaterialCommunityIcons name="alert-circle" size={14} color="#fff" />
+            <MaterialCommunityIcons
+              name="alert-circle"
+              size={14}
+              color="#fff"
+            />
             <Text style={styles.statusText}>Sync error</Text>
           </View>
         )}
@@ -76,7 +89,9 @@ export function DataQualityIndicator({
               size={14}
               color="#fff"
             />
-            <Text style={styles.statusText}>{allWarnings.length} warning(s)</Text>
+            <Text style={styles.statusText}>
+              {allWarnings.length} warning(s)
+            </Text>
           </View>
         )}
       </View>
@@ -107,13 +122,17 @@ export function DataQualityIndicator({
                   size={18}
                   color={warning}
                 />
-                <Text style={[styles.text, { color: text }]}>Waiting to sync</Text>
+                <Text style={[styles.text, { color: text }]}>
+                  Waiting to sync
+                </Text>
               </>
             )}
             {syncStatus === "syncing" && (
               <>
                 <MaterialCommunityIcons name="sync" size={18} color={info} />
-                <Text style={[styles.text, { color: text }]}>Syncing changes...</Text>
+                <Text style={[styles.text, { color: text }]}>
+                  Syncing changes...
+                </Text>
               </>
             )}
             {syncStatus === "error" && (
@@ -134,7 +153,7 @@ export function DataQualityIndicator({
 
       {allErrors.length > 0 && (
         <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: error }]}>Issues:</Text>
+          <Text style={[styles.sectionTitle, { color: error }]}>Issues:</Text>
           {allErrors.map((issue, idx) => (
             <View key={idx} style={styles.issueRow}>
               <MaterialCommunityIcons
@@ -143,7 +162,9 @@ export function DataQualityIndicator({
                 color={error}
                 style={styles.issueIcon}
               />
-              <Text style={[styles.issueText, { color: text }]}>{issue.message}</Text>
+              <Text style={[styles.issueText, { color: text }]}>
+                {issue.message}
+              </Text>
             </View>
           ))}
         </View>
@@ -152,7 +173,9 @@ export function DataQualityIndicator({
       {allWarnings.length > 0 && (
         <View style={styles.section}>
           {!allErrors.length && (
-            <Text style={[styles.sectionTitle, { color: warning }]}>Warnings:</Text>
+            <Text style={[styles.sectionTitle, { color: warning }]}>
+              Warnings:
+            </Text>
           )}
           {allWarnings.map((issue, idx) => (
             <View key={idx} style={styles.issueRow}>
@@ -162,7 +185,9 @@ export function DataQualityIndicator({
                 color={warning}
                 style={styles.issueIcon}
               />
-              <Text style={[styles.issueText, { color: text }]}>{issue.message}</Text>
+              <Text style={[styles.issueText, { color: text }]}>
+                {issue.message}
+              </Text>
             </View>
           ))}
         </View>

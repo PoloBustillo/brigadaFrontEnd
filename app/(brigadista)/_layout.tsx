@@ -28,78 +28,78 @@ export default function BrigadistaLayout() {
             tabBarButton: HapticTab,
           }}
         >
-        <Tabs.Screen
-          name="index"
-          options={{
-            title: "Inicio",
-            href: isOnline ? undefined : null,
-            tabBarIcon: ({ color }) => (
-              <Ionicons name="home" size={24} color={color} />
-            ),
-          }}
-        />
-        <Tabs.Screen
-          name="my-surveys"
-          options={{
-            title: "Mis Encuestas",
-            tabBarIcon: ({ color }) => (
-              <Ionicons name="clipboard" size={24} color={color} />
-            ),
-          }}
-        />
-        <Tabs.Screen
-          name="responses/index"
-          options={{
-            title: "Respuestas",
-            href: isOnline ? undefined : null,
-            tabBarIcon: ({ color }) => (
-              <Ionicons name="checkmark-circle" size={24} color={color} />
-            ),
-          }}
-        />
-        <Tabs.Screen
-          name="profile"
-          options={{
-            href: null, // Hidden from tabs - accessible via navigation
-          }}
-        />
-        <Tabs.Screen
-          name="edit-profile"
-          options={{
-            href: null, // Hidden from tabs
-          }}
-        />
-        <Tabs.Screen
-          name="change-avatar"
-          options={{
-            href: null, // Hidden from tabs
-          }}
-        />
-        <Tabs.Screen
-          name="change-password"
-          options={{
-            href: null, // Hidden from tabs
-          }}
-        />
-        <Tabs.Screen
-          name="surveys/index"
-          options={{
-            href: null, // Hidden from tabs
-          }}
-        />
-        <Tabs.Screen
-          name="surveys/fill"
-          options={{
-            href: null, // Hidden from tabs
-            tabBarStyle: { display: "none" },
-          }}
-        />
-        <Tabs.Screen
-          name="notifications"
-          options={{
-            href: null, // Not available yet
-          }}
-        />
+          <Tabs.Screen
+            name="index"
+            options={{
+              title: "Inicio",
+              href: isOnline ? undefined : null,
+              tabBarIcon: ({ color }) => (
+                <Ionicons name="home" size={24} color={color} />
+              ),
+            }}
+          />
+          <Tabs.Screen
+            name="my-surveys"
+            options={{
+              title: "Mis Encuestas",
+              tabBarIcon: ({ color }) => (
+                <Ionicons name="clipboard" size={24} color={color} />
+              ),
+            }}
+          />
+          <Tabs.Screen
+            name="responses/index"
+            options={{
+              title: "Respuestas",
+              href: isOnline ? undefined : null,
+              tabBarIcon: ({ color }) => (
+                <Ionicons name="checkmark-circle" size={24} color={color} />
+              ),
+            }}
+          />
+          <Tabs.Screen
+            name="profile"
+            options={{
+              href: null, // Hidden from tabs - accessible via navigation
+            }}
+          />
+          <Tabs.Screen
+            name="edit-profile"
+            options={{
+              href: null, // Hidden from tabs
+            }}
+          />
+          <Tabs.Screen
+            name="change-avatar"
+            options={{
+              href: null, // Hidden from tabs
+            }}
+          />
+          <Tabs.Screen
+            name="change-password"
+            options={{
+              href: null, // Hidden from tabs
+            }}
+          />
+          <Tabs.Screen
+            name="surveys/index"
+            options={{
+              href: null, // Hidden from tabs
+            }}
+          />
+          <Tabs.Screen
+            name="surveys/fill"
+            options={{
+              href: null, // Hidden from tabs
+              tabBarStyle: { display: "none" },
+            }}
+          />
+          <Tabs.Screen
+            name="notifications"
+            options={{
+              href: null, // Not available yet
+            }}
+          />
         </Tabs>
       </View>
     </ProtectedRoute>

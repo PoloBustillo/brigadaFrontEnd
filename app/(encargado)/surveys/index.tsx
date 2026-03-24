@@ -7,9 +7,12 @@
 import { AppHeader, CMSNotice } from "@/components/shared";
 import { useThemeColors } from "@/contexts/theme-context";
 import { useTabBarHeight } from "@/hooks/use-tab-bar-height";
-import type { AssignmentDetail } from "@/lib/api/assignments";
-import { getMyCreatedAssignments, updateAssignment } from "@/lib/api/assignments";
 import { getAdminSurveys } from "@/lib/api/admin";
+import type { AssignmentDetail } from "@/lib/api/assignments";
+import {
+  getMyCreatedAssignments,
+  updateAssignment,
+} from "@/lib/api/assignments";
 import { getCached, setCached } from "@/lib/api/memory-cache";
 import { getLatestSurveyVersion } from "@/lib/api/mobile";
 import { Ionicons } from "@expo/vector-icons";
@@ -99,7 +102,10 @@ export default function EncargadoSurveys() {
     setFetchError(false);
     try {
       const [adminSurveysResult, createdAssignmentsResult] =
-        await Promise.allSettled([getAdminSurveys(), getMyCreatedAssignments()]);
+        await Promise.allSettled([
+          getAdminSurveys(),
+          getMyCreatedAssignments(),
+        ]);
 
       const createdAssignments =
         createdAssignmentsResult.status === "fulfilled"
@@ -117,7 +123,10 @@ export default function EncargadoSurveys() {
         grouped = adminSurveysResult.value.map((survey) => {
           const byAssignments = groupedBySurveyId.get(survey.id);
           const versions = Array.isArray(survey.versions)
-            ? (survey.versions as Array<{ is_published?: boolean; created_at?: string }>)
+            ? (survey.versions as Array<{
+                is_published?: boolean;
+                created_at?: string;
+              }>)
             : [];
 
           return {
@@ -492,7 +501,8 @@ export default function EncargadoSurveys() {
                           ]}
                           onPress={() => handleToggleStatus(survey)}
                           disabled={
-                            busySurveyId === survey.surveyId || !survey.manageable
+                            busySurveyId === survey.surveyId ||
+                            !survey.manageable
                           }
                         >
                           <Ionicons
@@ -517,7 +527,8 @@ export default function EncargadoSurveys() {
                               styles.actionButtonText,
                               {
                                 color:
-                                  survey.status === "active" && survey.manageable
+                                  survey.status === "active" &&
+                                  survey.manageable
                                     ? colors.warning
                                     : survey.manageable
                                       ? colors.success

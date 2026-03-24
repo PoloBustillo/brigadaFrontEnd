@@ -1,6 +1,6 @@
 /**
  * Offline Access Policy Manager
- * 
+ *
  * Restricts functionality based on user role when offline
  * - BRIGADISTA: Can view and fill surveys, see cached responses
  * - ENCARGADO: Can view surveys and responses, limited actions
@@ -9,7 +9,12 @@
  * - SUPERVISOR: Can view limited data when offline
  */
 
-export type UserRole = "BRIGADISTA" | "ENCARGADO" | "AUDITOR" | "SUPERVISOR" | "ADMIN";
+export type UserRole =
+  | "BRIGADISTA"
+  | "ENCARGADO"
+  | "AUDITOR"
+  | "SUPERVISOR"
+  | "ADMIN";
 
 export interface OfflineAccessPolicy {
   canViewSurveys: boolean;
@@ -99,7 +104,7 @@ export const OFFLINE_POLICIES: Record<UserRole, OfflineAccessPolicy> = {
  */
 export function canPerformOfflineAction(
   role: UserRole,
-  action: keyof OfflineAccessPolicy
+  action: keyof OfflineAccessPolicy,
 ): { allowed: boolean; reason?: string } {
   const policy = OFFLINE_POLICIES[role];
 

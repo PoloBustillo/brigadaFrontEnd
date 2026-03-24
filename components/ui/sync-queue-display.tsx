@@ -1,6 +1,6 @@
 /**
  * Sync Queue Display
- * 
+ *
  * Shows pending items with status badges
  * - Responses pending upload
  * - Documents pending upload
@@ -8,11 +8,17 @@
  * - Manual retry option
  */
 
-import React, { useMemo } from "react";
-import { View, Text, FlatList, TouchableOpacity, StyleSheet } from "react-native";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useSync } from "@/contexts/sync-context";
 import { useThemeColors } from "@/contexts/theme-context";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import React, { useMemo } from "react";
+import {
+  FlatList,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 interface SyncQueueDisplayProps {
   compact?: boolean;
@@ -95,7 +101,9 @@ export function SyncQueueDisplay({
             )}
             {pendingByType.files > 0 && (
               <View style={[styles.compactBadge, { backgroundColor: info }]}>
-                <Text style={styles.compactBadgeText}>{pendingByType.files}</Text>
+                <Text style={styles.compactBadgeText}>
+                  {pendingByType.files}
+                </Text>
               </View>
             )}
           </View>
@@ -128,7 +136,9 @@ export function SyncQueueDisplay({
                 color="#fff"
                 style={{ marginRight: 4 }}
               />
-              <Text style={styles.typeBadgeText}>{pendingByType.responses}</Text>
+              <Text style={styles.typeBadgeText}>
+                {pendingByType.responses}
+              </Text>
             </View>
           )}
           {pendingByType.files > 0 && (
@@ -183,7 +193,8 @@ export function SyncQueueDisplay({
                     : item.type === "survey"
                       ? "Survey"
                       : "User"}{" "}
-                ({item.retryCount > 0 ? `retry: ${item.retryCount}` : "1st try"})
+                ({item.retryCount > 0 ? `retry: ${item.retryCount}` : "1st try"}
+                )
               </Text>
               {item.error && (
                 <Text style={[styles.itemError, { color: error }]}>

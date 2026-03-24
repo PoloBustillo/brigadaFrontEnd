@@ -228,7 +228,9 @@ async function attemptTokenRefresh(): Promise<string | null> {
 
     // Network/downstream failure while offline: keep local session.
     if (!error?.response) {
-      console.log("Refresh skipped: offline/unreachable. Keeping local session.");
+      console.log(
+        "Refresh skipped: offline/unreachable. Keeping local session.",
+      );
       return null;
     }
 

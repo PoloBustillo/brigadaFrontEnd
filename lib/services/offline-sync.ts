@@ -105,7 +105,8 @@ class OfflineSyncService {
         latitude: localResponse.latitude,
         longitude: localResponse.longitude,
         accuracy:
-          localResponse.accuracy != null && Number.isFinite(localResponse.accuracy)
+          localResponse.accuracy != null &&
+          Number.isFinite(localResponse.accuracy)
             ? localResponse.accuracy
             : null,
         timestamp: localResponse.location_captured_at ?? fallbackTimestamp,
@@ -126,7 +127,12 @@ class OfflineSyncService {
         continue;
       }
 
-      if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+      if (
+        latitude < -90 ||
+        latitude > 90 ||
+        longitude < -180 ||
+        longitude > 180
+      ) {
         continue;
       }
 
@@ -138,7 +144,8 @@ class OfflineSyncService {
         longitude,
         accuracy: Number.isFinite(maybeAccuracy) ? maybeAccuracy : null,
         timestamp:
-          typeof maybeTimestamp === "string" || typeof maybeTimestamp === "number"
+          typeof maybeTimestamp === "string" ||
+          typeof maybeTimestamp === "number"
             ? maybeTimestamp
             : fallbackTimestamp,
       };
@@ -163,11 +170,14 @@ class OfflineSyncService {
     return {
       ...raw,
       total_duration_ms:
-        Number.isFinite(duration) && duration >= 0 ? duration : computedDuration,
+        Number.isFinite(duration) && duration >= 0
+          ? duration
+          : computedDuration,
       offline_mode:
         typeof raw.offline_mode === "boolean" ? raw.offline_mode : true,
       submitted_at:
-        typeof raw.submitted_at === "string" && raw.submitted_at.trim().length > 0
+        typeof raw.submitted_at === "string" &&
+        raw.submitted_at.trim().length > 0
           ? raw.submitted_at
           : completedAt,
       timezone:

@@ -143,3 +143,89 @@ export async function getAllTeamResponses(
   );
   return all;
 }
+
+// ---------------------------------------------------------------------------
+// Invite & Assignment Creation API
+
+export interface AssignmentCreatePayload {
+  user_id: number;
+  survey_id: number;
+  location?: string;
+  notes?: string;
+}
+
+/**
+ * POST /assignments — Create a new assignment
+ * Assigns a survey to a brigadista (or encargado to another encargado)
+ */
+export async function createAssignment(
+  payload: AssignmentCreatePayload,
+): Promise<AssignmentResponse> {
+  return timedCall(
+    "POST /assignments",
+    () =>
+      apiClient
+        .post<AssignmentResponse>("/assignments", payload)
+        .then((r) => r.data),
+    (item) => `assigned survey_id=${item.survey_id} to user_id=${item.user_id}`,
+  );
+}
+
+/** Available brigadista for assignment */
+export interface BrigadistaForAssignment extends UserMini {
+  id: number;
+  full_name: string;
+  email: string;
+}
+
+/**
+ * GET /users?role=brigadista — List available brigadistas
+ * Only ENCARGADO can call this; returns brigadistas in their scope
+ */
+export async function getAvailableBrigadistas(
+  search?: string,
+  skip = 0,
+  limit = 100,
+): Promise<BrigadistaForAssignment[]> {
+  const safeLimit = Math.min(Math.max(limit, 1), 100);
+  const params: Record<string, any> = {
+    role: "brigadista",
+    skip,
+    limit: safeLimit,
+  };
+  if (search) params.search = search;
+  return timedCall(
+    "GET /users?role=brigadista",
+    () =>
+      apiClient
+        .get<BrigadistaForAssignment[]>("/users", { params })
+        .then((r) => r.data),
+    (items) => `${items.length} items`,
+  );
+}
+// ---------------------------------------------------------------------------
+// Invitation API
+
+export interface WhitelistCreatePayload {
+  identifier: string; // email
+  identifier_type: string; // "email"
+  full_name: string;
+  phone?: string;
+  assigned_role: string; // "brigadista"
+  assigned_survey_id: number;
+  notes?: string;
+}
+
+/**
+ * POST /admin/whitelist — Invite a brigadista
+ * ENCARGADO can only invite brigadistas to surveys they manage
+ */
+export async function inviteBrigadista(
+  payload: WhitelistCreatePayload,
+): Promise<any> {
+  return timedCall(
+    "POST /admin/whitelist",
+    () => apiClient.post<any>("/admin/whitelist", payload).then((r) => r.data),
+    () => `invited ${payload.full_name}`,
+  );
+}
