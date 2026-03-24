@@ -3,6 +3,7 @@
  * Authentication endpoints and user management
  */
 
+import { APP_CONFIG } from "@/constants/config";
 import type { User } from "@/types/user";
 import * as Application from "expo-application";
 import * as Crypto from "expo-crypto";
@@ -50,6 +51,7 @@ export async function login(
   password: string,
 ): Promise<{ user: User; token: string }> {
   try {
+    console.log("[auth] Login API base URL:", APP_CONFIG.api.baseUrl);
     const response = await apiClient.post<LoginResponse>("/mobile/login", {
       email,
       password,
@@ -81,6 +83,12 @@ export async function login(
     return { user, token: access_token };
   } catch (error: any) {
     console.error("Login error:", error);
+
+    if (!error?.response) {
+      throw new Error(
+        `No se pudo conectar al servidor (${APP_CONFIG.api.baseUrl}). Si pruebas en teléfono físico, usa la IP LAN de tu computadora en EXPO_PUBLIC_API_URL.`,
+      );
+    }
 
     if (error.response?.status === 401) {
       throw new Error("Email o contraseña incorrectos");

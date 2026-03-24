@@ -10,6 +10,10 @@ import {
   type ColorScheme,
   type ThemeColors,
 } from "@/constants/color-schemes";
+import {
+  fetchPublicAppConfig,
+  getCachedPublicAppConfig,
+} from "@/lib/api/app-config";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { useColorScheme as useRNColorScheme } from "react-native";
@@ -21,6 +25,7 @@ interface ThemeContextType {
   theme: ActiveTheme;
   themeMode: ThemeMode;
   colors: ThemeColors;
+  allowUserThemeOverride: boolean;
   setThemeMode: (mode: ThemeMode) => void;
   toggleTheme: () => void;
   // Color scheme selection
@@ -33,6 +38,8 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 const THEME_STORAGE_KEY = "@brigada_theme_mode";
 const SCHEME_STORAGE_KEY = "@brigada_color_scheme";
+const THEME_USER_OVERRIDE_KEY = "@brigada_theme_user_override";
+const SCHEME_USER_OVERRIDE_KEY = "@brigada_scheme_user_override";
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const systemColorScheme = useRNColorScheme();
@@ -40,6 +47,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [colorSchemeId, setColorSchemeIdState] = useState<string>(
     defaultScheme.id,
   );
+  const [allowUserThemeOverride, setAllowUserThemeOverride] =
+    useState<boolean>(true);
   const [isLoading, setIsLoading] = useState(true);
 
   // Cargar preferencias guardadas
@@ -49,16 +58,75 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   const loadPreferences = async () => {
     try {
-      const [savedMode, savedScheme] = await Promise.all([
+      const [
+        savedMode,
+        savedScheme,
+        savedThemeOverride,
+        savedSchemeOverride,
+        remoteConfig,
+      ] = await Promise.all([
         AsyncStorage.getItem(THEME_STORAGE_KEY),
         AsyncStorage.getItem(SCHEME_STORAGE_KEY),
+        AsyncStorage.getItem(THEME_USER_OVERRIDE_KEY),
+        AsyncStorage.getItem(SCHEME_USER_OVERRIDE_KEY),
+        fetchPublicAppConfig(),
       ]);
 
-      if (savedMode && ["light", "dark", "auto"].includes(savedMode)) {
+      const cachedConfig = !remoteConfig ? await getCachedPublicAppConfig() : null;
+      const effectiveRemoteConfig = remoteConfig ?? cachedConfig;
+
+      const userCanOverride =
+        effectiveRemoteConfig?.allow_user_theme_override ?? true;
+      setAllowUserThemeOverride(userCanOverride);
+
+      const hasUserThemeOverride = savedThemeOverride === "true";
+      const hasUserSchemeOverride = savedSchemeOverride === "true";
+
+      if (!userCanOverride) {
+        if (
+          effectiveRemoteConfig?.default_theme_mode &&
+          ["light", "dark", "auto"].includes(
+            effectiveRemoteConfig.default_theme_mode,
+          )
+        ) {
+          setThemeModeState(effectiveRemoteConfig.default_theme_mode as ThemeMode);
+        }
+
+        if (
+          effectiveRemoteConfig?.default_color_scheme &&
+          getColorScheme(effectiveRemoteConfig.default_color_scheme)
+        ) {
+          setColorSchemeIdState(effectiveRemoteConfig.default_color_scheme);
+        }
+
+        return;
+      }
+
+      if (
+        hasUserThemeOverride &&
+        savedMode &&
+        ["light", "dark", "auto"].includes(savedMode)
+      ) {
+        setThemeModeState(savedMode as ThemeMode);
+      } else if (
+        effectiveRemoteConfig?.default_theme_mode &&
+        ["light", "dark", "auto"].includes(
+          effectiveRemoteConfig.default_theme_mode,
+        )
+      ) {
+        setThemeModeState(effectiveRemoteConfig.default_theme_mode as ThemeMode);
+      } else if (savedMode && ["light", "dark", "auto"].includes(savedMode)) {
         setThemeModeState(savedMode as ThemeMode);
       }
 
-      if (savedScheme && getColorScheme(savedScheme)) {
+      if (hasUserSchemeOverride && savedScheme && getColorScheme(savedScheme)) {
+        setColorSchemeIdState(savedScheme);
+      } else if (
+        effectiveRemoteConfig?.default_color_scheme &&
+        getColorScheme(effectiveRemoteConfig.default_color_scheme)
+      ) {
+        setColorSchemeIdState(effectiveRemoteConfig.default_color_scheme);
+      } else if (savedScheme && getColorScheme(savedScheme)) {
         setColorSchemeIdState(savedScheme);
       }
     } catch (error) {
@@ -69,8 +137,12 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   };
 
   const setThemeMode = async (mode: ThemeMode) => {
+    if (!allowUserThemeOverride) return;
     try {
-      await AsyncStorage.setItem(THEME_STORAGE_KEY, mode);
+      await Promise.all([
+        AsyncStorage.setItem(THEME_STORAGE_KEY, mode),
+        AsyncStorage.setItem(THEME_USER_OVERRIDE_KEY, "true"),
+      ]);
       setThemeModeState(mode);
     } catch (error) {
       console.error("Error saving theme preference:", error);
@@ -78,9 +150,13 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   };
 
   const setColorScheme = async (schemeId: string) => {
+    if (!allowUserThemeOverride) return;
     try {
       if (getColorScheme(schemeId)) {
-        await AsyncStorage.setItem(SCHEME_STORAGE_KEY, schemeId);
+        await Promise.all([
+          AsyncStorage.setItem(SCHEME_STORAGE_KEY, schemeId),
+          AsyncStorage.setItem(SCHEME_USER_OVERRIDE_KEY, "true"),
+        ]);
         setColorSchemeIdState(schemeId);
       }
     } catch (error) {
@@ -115,6 +191,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         theme,
         themeMode,
         colors,
+        allowUserThemeOverride,
         setThemeMode,
         toggleTheme,
         colorScheme: colorSchemeId,

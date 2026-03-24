@@ -18,6 +18,10 @@ import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import NetInfo from "@react-native-community/netinfo";
 import { useFonts } from "expo-font";
 import { LinearGradient } from "expo-linear-gradient";
+import {
+  fetchPublicAppConfig,
+  getCachedPublicAppConfig,
+} from "@/lib/api/app-config";
 import React, { useEffect, useState } from "react";
 import {
   Animated,
@@ -76,7 +80,8 @@ const SPLASH_DURATION = 2500; // ms total
 const FADE_DURATION = 400; // ms para fade in/out
 
 // Gradiente principal mejorado
-const GRADIENT_COLORS = ["#FF1B8D", "#FF4B7D", "#FF6B9D"] as const;
+const DEFAULT_GRADIENT_COLORS = ["#FF1B8D", "#FF4B7D", "#FF6B9D"] as const;
+const DEFAULT_MESSAGE_COLOR = "#FFFFFF";
 const GRADIENT_START = { x: 0, y: 0 };
 const GRADIENT_END = { x: 1, y: 1 };
 
@@ -88,6 +93,14 @@ export default function SplashScreen({ onLoadComplete }: SplashScreenProps) {
   const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
   const [isOnline, setIsOnline] = useState(true);
   const [connectionType, setConnectionType] = useState<string>("wifi");
+  const [appDisplayName, setAppDisplayName] = useState("brigada Digital");
+  const [gradientColors, setGradientColors] = useState<[string, string, string]>([
+    ...DEFAULT_GRADIENT_COLORS,
+  ]);
+  const [messageColor, setMessageColor] = useState(DEFAULT_MESSAGE_COLOR);
+  const [splashFontType, setSplashFontType] = useState<
+    "script" | "system" | "serif" | "mono" | "rounded"
+  >("script");
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
   const scaleAnim = React.useRef(new Animated.Value(0.9)).current;
   const pulseAnim = React.useRef(new Animated.Value(1)).current;
@@ -136,6 +149,57 @@ export default function SplashScreen({ onLoadComplete }: SplashScreenProps) {
     } catch (error) {
       console.error("[Splash] Error initializing app:", error);
     }
+  }, []);
+
+  useEffect(() => {
+    const applySplashBranding = (
+      config: Awaited<ReturnType<typeof getCachedPublicAppConfig>>,
+    ) => {
+      if (!config) {
+        return;
+      }
+
+      if (config.app_display_name?.trim()) {
+        setAppDisplayName(config.app_display_name.trim());
+      }
+
+      const colors = [
+        config.splash_gradient_start,
+        config.splash_gradient_mid,
+        config.splash_gradient_end,
+      ] as const;
+      if (colors.every((color) => isHexColor(color))) {
+        setGradientColors([
+          colors[0].toUpperCase(),
+          colors[1].toUpperCase(),
+          colors[2].toUpperCase(),
+        ]);
+      }
+
+      if (isHexColor(config.splash_message_color)) {
+        setMessageColor(config.splash_message_color.toUpperCase());
+      }
+
+      if (
+        config.splash_font_type === "script" ||
+        config.splash_font_type === "system" ||
+        config.splash_font_type === "serif" ||
+        config.splash_font_type === "mono" ||
+        config.splash_font_type === "rounded"
+      ) {
+        setSplashFontType(config.splash_font_type);
+      }
+    };
+
+    const loadBranding = async () => {
+      const cachedConfig = await getCachedPublicAppConfig();
+      applySplashBranding(cachedConfig);
+
+      const remoteConfig = await fetchPublicAppConfig();
+      applySplashBranding(remoteConfig);
+    };
+
+    loadBranding();
   }, []);
 
   useEffect(() => {
@@ -236,7 +300,17 @@ export default function SplashScreen({ onLoadComplete }: SplashScreenProps) {
   const [useSystemFont, setUseSystemFont] = React.useState(false);
 
   React.useEffect(() => {
-    if (!fontsLoaded) {
+    if (splashFontType !== "script") {
+      setUseSystemFont(true);
+      return;
+    }
+    if (fontsLoaded) {
+      setUseSystemFont(false);
+    }
+  }, [splashFontType, fontsLoaded]);
+
+  React.useEffect(() => {
+    if (!fontsLoaded && splashFontType === "script") {
       // Fallback a fuente del sistema después de 1 segundo
       const timer = setTimeout(() => {
         console.log("[Splash] Font timeout, using system font");
@@ -245,19 +319,21 @@ export default function SplashScreen({ onLoadComplete }: SplashScreenProps) {
 
       return () => clearTimeout(timer);
     }
-  }, [fontsLoaded]);
+  }, [fontsLoaded, splashFontType]);
 
   // Si la fuente no carga y no ha pasado el timeout, mostrar nada aún
-  if (!fontsLoaded && !useSystemFont) {
+  if (!fontsLoaded && splashFontType === "script" && !useSystemFont) {
     return null;
   }
 
   // Paso actual
   const currentStep = LOADING_STEPS[currentMessageIndex];
+  const currentStepColor =
+    currentStep.icon === "check" ? "#00FF88" : messageColor;
 
   return (
     <LinearGradient
-      colors={GRADIENT_COLORS}
+      colors={gradientColors}
       start={GRADIENT_START}
       end={GRADIENT_END}
       style={styles.container}
@@ -283,14 +359,20 @@ export default function SplashScreen({ onLoadComplete }: SplashScreenProps) {
           ]}
         >
           <Text
-            style={[styles.logo, useSystemFont && styles.logoSystem]}
+            style={[
+              styles.logo,
+              splashFontType === "script" && !useSystemFont
+                ? styles.logoScript
+                : getSystemLogoStyle(splashFontType),
+              { color: messageColor },
+            ]}
             numberOfLines={1}
             adjustsFontSizeToFit={true}
             minimumFontScale={0.7}
             allowFontScaling={false}
             maxFontSizeMultiplier={1}
           >
-            brigada Digital
+            {appDisplayName}
           </Text>
         </Animated.View>
 
@@ -304,17 +386,17 @@ export default function SplashScreen({ onLoadComplete }: SplashScreenProps) {
             },
           ]}
         >
-          <StatusIcon icon={currentStep.icon} color={currentStep.color} />
+          <StatusIcon icon={currentStep.icon} color={currentStepColor} />
         </Animated.View>
 
         {/* Spinner (3 dots mejorado) */}
         <View style={styles.spinnerContainer}>
-          <ImprovedDotSpinner color={currentStep.color} />
+          <ImprovedDotSpinner color={currentStepColor} />
         </View>
 
         {/* Mensaje dinámico con fuente pro */}
         <View style={styles.messageContainer}>
-          <Text style={[styles.message, { color: currentStep.color }]}>
+          <Text style={[styles.message, { color: currentStepColor }]}>
             {currentStep.text}
           </Text>
 
@@ -336,7 +418,7 @@ export default function SplashScreen({ onLoadComplete }: SplashScreenProps) {
                 width: `${
                   ((currentMessageIndex + 1) / LOADING_STEPS.length) * 100
                 }%`,
-                backgroundColor: currentStep.color,
+                backgroundColor: currentStepColor,
               },
             ]}
           />
@@ -542,7 +624,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   logo: {
-    fontFamily: "Pacifico",
     fontSize: 42,
     color: "#FFFFFF",
     letterSpacing: 0.5,
@@ -557,14 +638,8 @@ const styles = StyleSheet.create({
       includeFontPadding: false,
     }),
   },
-  logoSystem: {
-    fontFamily: Platform.select({
-      ios: "Avenir-Heavy",
-      android: "sans-serif-medium",
-      default: "System",
-    }),
-    fontWeight: "700",
-    fontStyle: "italic",
+  logoScript: {
+    fontFamily: "Pacifico",
   },
   iconContainer: {
     marginBottom: 32,
@@ -703,4 +778,55 @@ const styles = StyleSheet.create({
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isHexColor(value: string | null | undefined): value is string {
+  return typeof value === "string" && /^#[0-9A-Fa-f]{6}$/.test(value.trim());
+}
+
+function getSystemLogoStyle(
+  fontType: "script" | "system" | "serif" | "mono" | "rounded",
+) {
+  if (fontType === "serif") {
+    return {
+      fontFamily: Platform.select({
+        ios: "Times New Roman",
+        android: "serif",
+        default: "serif",
+      }),
+      fontWeight: "700" as const,
+    };
+  }
+
+  if (fontType === "mono") {
+    return {
+      fontFamily: Platform.select({
+        ios: "Courier",
+        android: "monospace",
+        default: "monospace",
+      }),
+      fontWeight: "700" as const,
+    };
+  }
+
+  if (fontType === "rounded") {
+    return {
+      fontFamily: Platform.select({
+        ios: "Arial Rounded MT Bold",
+        android: "sans-serif",
+        default: "System",
+      }),
+      fontWeight: "700" as const,
+      letterSpacing: 0.8,
+    };
+  }
+
+  return {
+    fontFamily: Platform.select({
+      ios: "Avenir-Heavy",
+      android: "sans-serif-medium",
+      default: "System",
+    }),
+    fontWeight: "700" as const,
+  };
 }
