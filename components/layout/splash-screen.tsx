@@ -14,14 +14,14 @@
  * @see docs/SCREEN_FLOW_UX.md - Sección "Splash + Loading"
  */
 
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import NetInfo from "@react-native-community/netinfo";
-import { useFonts } from "expo-font";
-import { LinearGradient } from "expo-linear-gradient";
 import {
   fetchPublicAppConfig,
   getCachedPublicAppConfig,
 } from "@/lib/api/app-config";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import NetInfo from "@react-native-community/netinfo";
+import { useFonts } from "expo-font";
+import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useState } from "react";
 import {
   Animated,
@@ -94,9 +94,9 @@ export default function SplashScreen({ onLoadComplete }: SplashScreenProps) {
   const [isOnline, setIsOnline] = useState(true);
   const [connectionType, setConnectionType] = useState<string>("wifi");
   const [appDisplayName, setAppDisplayName] = useState("brigada Digital");
-  const [gradientColors, setGradientColors] = useState<[string, string, string]>([
-    ...DEFAULT_GRADIENT_COLORS,
-  ]);
+  const [gradientColors, setGradientColors] = useState<
+    [string, string, string]
+  >([...DEFAULT_GRADIENT_COLORS]);
   const [messageColor, setMessageColor] = useState(DEFAULT_MESSAGE_COLOR);
   const [splashFontType, setSplashFontType] = useState<
     "script" | "system" | "serif" | "mono" | "rounded"

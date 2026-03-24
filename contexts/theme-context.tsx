@@ -72,7 +72,9 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         fetchPublicAppConfig(),
       ]);
 
-      const cachedConfig = !remoteConfig ? await getCachedPublicAppConfig() : null;
+      const cachedConfig = !remoteConfig
+        ? await getCachedPublicAppConfig()
+        : null;
       const effectiveRemoteConfig = remoteConfig ?? cachedConfig;
 
       const userCanOverride =
@@ -89,7 +91,9 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
             effectiveRemoteConfig.default_theme_mode,
           )
         ) {
-          setThemeModeState(effectiveRemoteConfig.default_theme_mode as ThemeMode);
+          setThemeModeState(
+            effectiveRemoteConfig.default_theme_mode as ThemeMode,
+          );
         }
 
         if (
@@ -114,7 +118,9 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
           effectiveRemoteConfig.default_theme_mode,
         )
       ) {
-        setThemeModeState(effectiveRemoteConfig.default_theme_mode as ThemeMode);
+        setThemeModeState(
+          effectiveRemoteConfig.default_theme_mode as ThemeMode,
+        );
       } else if (savedMode && ["light", "dark", "auto"].includes(savedMode)) {
         setThemeModeState(savedMode as ThemeMode);
       }
