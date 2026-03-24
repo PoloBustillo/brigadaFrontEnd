@@ -204,6 +204,7 @@ export default function FillSurveyScreen() {
       }
     >
   >({});
+  const submitLockRef = useRef(false);
 
   // ── Offline draft management (via hook) ────────────────────────────────────
   const {
@@ -379,8 +380,14 @@ export default function FillSurveyScreen() {
 
   // ── Submission ─────────────────────────────────────────────────────────────
   const handleSubmit = async () => {
+    if (submitLockRef.current || submitLoading) {
+      return;
+    }
+    submitLockRef.current = true;
+
     const versionId = Number(params.versionId ?? 0);
     if (!versionId) {
+      submitLockRef.current = false;
       Alert.alert("Error", "No se pudo identificar la encuesta.");
       return;
     }
@@ -416,6 +423,7 @@ export default function FillSurveyScreen() {
       });
 
     if (rawAnswers.length === 0) {
+      submitLockRef.current = false;
       Alert.alert(
         "Sin respuestas",
         "Por favor responde al menos una pregunta.",
@@ -485,6 +493,7 @@ export default function FillSurveyScreen() {
       Alert.alert("No se pudo enviar", msg, [{ text: "OK" }]);
     } finally {
       setSubmitLoading(false);
+      submitLockRef.current = false;
     }
   };
 

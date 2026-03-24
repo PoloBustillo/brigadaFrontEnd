@@ -364,7 +364,27 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
         retryCount: 0,
         status: "pending",
       };
-      setPendingItems((prev) => [...prev, newItem]);
+      setPendingItems((prev) => {
+        const exists = prev.some(
+          (existing) =>
+            existing.id === newItem.id && existing.type === newItem.type,
+        );
+
+        if (exists) {
+          return prev.map((existing) =>
+            existing.id === newItem.id && existing.type === newItem.type
+              ? {
+                  ...existing,
+                  status: "pending",
+                  error: undefined,
+                  lastAttempt: undefined,
+                }
+              : existing,
+          );
+        }
+
+        return [...prev, newItem];
+      });
 
       // REGLA 6: Intentar sincronizar inmediatamente si hay conexión
       if (isOnline) {

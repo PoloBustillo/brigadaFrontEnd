@@ -48,6 +48,40 @@ export class SyncRepository {
 
     const payloadJson = JSON.stringify(params.payload);
 
+    // Evitar duplicados activos para la misma entidad/operación.
+    // Si ya existe un item pending/processing/failed, se reactiva y actualiza.
+    const existing = await connection.getFirstAsync<{
+      queue_id: string;
+      status: SyncQueueRecord["status"];
+    }>(
+      `SELECT queue_id, status
+       FROM sync_queue
+       WHERE operation_type = ?
+         AND entity_type = ?
+         AND entity_id = ?
+         AND status IN ('pending', 'processing', 'failed')
+       ORDER BY created_at DESC
+       LIMIT 1`,
+      [params.operation_type, params.entity_type, params.entity_id],
+    );
+
+    if (existing) {
+      await connection.runAsync(
+        `UPDATE sync_queue
+         SET payload_json = ?,
+             priority = ?,
+             status = 'pending',
+             next_retry_at = NULL,
+             last_error = NULL,
+             updated_at = datetime('now')
+         WHERE queue_id = ?`,
+        [payloadJson, params.priority ?? 5, existing.queue_id],
+      );
+
+      console.log("♻️ Reused existing sync queue item:", existing.queue_id);
+      return;
+    }
+
     await connection.runAsync(
       `INSERT INTO sync_queue (
         queue_id, operation_type, entity_type, entity_id,
@@ -75,7 +109,11 @@ export class SyncRepository {
 
     const result = await connection.getAllAsync<SyncQueueRecord>(
       `SELECT * FROM sync_queue 
-       WHERE status = 'pending' 
+       WHERE status = 'pending'
+         AND (
+           next_retry_at IS NULL
+           OR datetime(next_retry_at) <= datetime('now')
+         )
        ORDER BY priority ASC, created_at ASC 
        LIMIT ?`,
       [limit],
