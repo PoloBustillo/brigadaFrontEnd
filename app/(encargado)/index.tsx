@@ -18,6 +18,7 @@ import {
   getMyCreatedAssignments,
   getMyTeam,
 } from "@/lib/api/assignments";
+import { getAdminSurveys } from "@/lib/api/admin";
 import { getCached, setCached } from "@/lib/api/memory-cache";
 import { Ionicons } from "@expo/vector-icons";
 import NetInfo from "@react-native-community/netinfo";
@@ -218,11 +219,12 @@ export default function EncargadoHome() {
   const fetchDashboardData = async (silent = false) => {
     setFetchError(false);
     try {
-      const [membersResult, assignmentsResult, responsesResult] =
+      const [membersResult, assignmentsResult, responsesResult, surveysResult] =
         await Promise.allSettled([
           getMyTeam(),
           getMyCreatedAssignments(),
           getAllTeamResponses(),
+          getAdminSurveys(),
         ]);
 
       // Team members are critical — if this fails, mark error
@@ -264,16 +266,21 @@ export default function EncargadoHome() {
         assignmentsResult.status === "fulfilled" ? assignmentsResult.value : [];
       const responses =
         responsesResult.status === "fulfilled" ? responsesResult.value : [];
+      const surveys = surveysResult.status === "fulfilled" ? surveysResult.value : [];
 
       // If secondary data failed, show a soft banner
       if (
         assignmentsResult.status === "rejected" ||
-        responsesResult.status === "rejected"
+        responsesResult.status === "rejected" ||
+        surveysResult.status === "rejected"
       ) {
         setFetchError(true);
       }
 
-      const uniqueSurveyIds = new Set(assignments.map((a) => a.survey_id));
+      const uniqueSurveyIds =
+        surveys.length > 0
+          ? new Set(surveys.map((s) => s.id))
+          : new Set(assignments.map((a) => a.survey_id));
       const assignmentsWithResponses = assignments.filter(
         (a) => a.response_count > 0,
       ).length;

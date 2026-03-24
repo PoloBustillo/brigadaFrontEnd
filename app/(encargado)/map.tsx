@@ -5,6 +5,7 @@
 
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
+import { ScreenHeader } from "@/components/shared";
 import { colors } from "@/constants/colors";
 import { spacing } from "@/constants/spacing";
 import { useUserRole } from "@/contexts/auth-context";
@@ -148,12 +149,10 @@ export default function MapScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <View style={styles.header}>
-        <ThemedText style={styles.title}>Ubicaciones del Equipo</ThemedText>
-        <ThemedText style={styles.subtitle}>
-          Últimas encuestas completadas por tu equipo
-        </ThemedText>
-      </View>
+      <ScreenHeader
+        title="Ubicaciones del Equipo"
+        subtitle="Últimas encuestas completadas por tu equipo"
+      />
 
       {loading ? (
         <View style={styles.loadingContainer}>
@@ -207,23 +206,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
-  },
-  header: {
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    backgroundColor: colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: colors.text,
-    marginBottom: spacing.xs,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: colors.textSecondary,
   },
   loadingContainer: {
     flex: 1,

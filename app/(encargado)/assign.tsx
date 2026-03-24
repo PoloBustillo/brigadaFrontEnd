@@ -1,5 +1,6 @@
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
+import { ScreenHeader } from "@/components/shared";
 import { colors } from "@/constants/colors";
 import { spacing } from "@/constants/spacing";
 import { getAdminSurveys } from "@/lib/api/admin";
@@ -7,11 +8,14 @@ import {
   BrigadistaForAssignment,
   createAssignment,
   getAvailableBrigadistas,
+  getSurveyAssignments,
   inviteBrigadista,
+  updateAssignment,
   WhitelistCreatePayload,
 } from "@/lib/api/assignments";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { useFocusEffect, usePreventRemove } from "@react-navigation/native";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -71,6 +75,15 @@ export default function AssignBrigadistasScreen() {
   const [selectedBrigadistas, setSelectedBrigadistas] = useState<
     BrigadistaSelection[]
   >([]);
+  const [selectedSurveyForBrigadistas, setSelectedSurveyForBrigadistas] =
+    useState<number | null>(null);
+  const [hasManualSelectionChange, setHasManualSelectionChange] =
+    useState(false);
+  const [assignedUserIdsBySurvey, setAssignedUserIdsBySurvey] = useState<
+    Record<number, number[]>
+  >({});
+  const [assignmentIdBySurveyAndUser, setAssignmentIdBySurveyAndUser] =
+    useState<Record<number, Record<number, number>>>({});
 
   // Invite form (for invite mode)
   const [inviteForm, setInviteForm] = useState<InviteFormData>({
@@ -82,9 +95,69 @@ export default function AssignBrigadistasScreen() {
   // Creating assignment/invite
   const [creating, setCreating] = useState(false);
 
+  const resetFlowState = useCallback(() => {
+    setMode("assign");
+    setStep("select-survey");
+    setSelectedSurvey(null);
+    setSelectedBrigadistas([]);
+    setSelectedSurveyForBrigadistas(null);
+    setHasManualSelectionChange(false);
+    setSearchText("");
+    setInviteForm({ email: "", full_name: "", phone: "" });
+  }, []);
+
+  const applyAssignedSelection = useCallback(
+    (surveyId: number, preserveManualSelection = false) => {
+      const assignedIds = new Set(assignedUserIdsBySurvey[surveyId] ?? []);
+      if (!preserveManualSelection) {
+        // Existing assignments are displayed as checked+locked,
+        // but only manual checks are considered for new assignments.
+        setSelectedBrigadistas([]);
+      } else {
+        setSelectedBrigadistas((current) =>
+          current.filter((b) => !assignedIds.has(b.id)),
+        );
+      }
+
+      setSelectedSurveyForBrigadistas(surveyId);
+    },
+    [assignedUserIdsBySurvey],
+  );
+
+  const handleInternalBack = useCallback(() => {
+    if (step === "select-brigadista") {
+      setStep("select-survey");
+      return true;
+    }
+
+    if (step === "confirm") {
+      if (mode === "assign") {
+        setStep("select-brigadista");
+      } else {
+        setStep("select-survey");
+        setInviteForm({ email: "", full_name: "", phone: "" });
+      }
+      return true;
+    }
+
+    return false;
+  }, [mode, step]);
+
+  usePreventRemove(step !== "select-survey", () => {
+    handleInternalBack();
+  });
+
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        resetFlowState();
+      };
+    }, [resetFlowState]),
+  );
+
   // Load available surveys
   useEffect(() => {
-    const loadSurveys = async () => {
+    const loadInitialData = async () => {
       try {
         setSurveysLoading(true);
         const data = await getAdminSurveys();
@@ -101,8 +174,68 @@ export default function AssignBrigadistasScreen() {
         setSurveysLoading(false);
       }
     };
-    loadSurveys();
+    loadInitialData();
   }, []);
+
+  const loadAssignedForSurvey = useCallback(async (surveyId: number) => {
+    try {
+      const assignments = await getSurveyAssignments(surveyId, "active", 0, 200);
+      const userIds = Array.from(new Set(assignments.map((a) => a.user_id)));
+      const byUser: Record<number, number> = {};
+      assignments.forEach((a) => {
+        byUser[a.user_id] = a.id;
+      });
+      setAssignedUserIdsBySurvey((current) => ({
+        ...current,
+        [surveyId]: userIds,
+      }));
+      setAssignmentIdBySurveyAndUser((current) => ({
+        ...current,
+        [surveyId]: byUser,
+      }));
+    } catch (err) {
+      console.error("Error loading survey assignments:", err);
+    }
+  }, []);
+
+  const handleUnassignBrigadista = async (userId: number) => {
+    if (!selectedSurvey) return;
+
+    const surveyId = selectedSurvey.id;
+    const assignmentId = assignmentIdBySurveyAndUser[surveyId]?.[userId];
+    if (!assignmentId) {
+      Alert.alert("Error", "No se encontró la asignación a desactivar");
+      return;
+    }
+
+    try {
+      setCreating(true);
+      await updateAssignment(assignmentId, { status: "inactive" });
+
+      setAssignedUserIdsBySurvey((current) => {
+        const next = { ...current };
+        next[surveyId] = (next[surveyId] ?? []).filter((id) => id !== userId);
+        return next;
+      });
+
+      setAssignmentIdBySurveyAndUser((current) => {
+        const next = { ...current };
+        const byUser = { ...(next[surveyId] ?? {}) };
+        delete byUser[userId];
+        next[surveyId] = byUser;
+        return next;
+      });
+
+      setSelectedBrigadistas((current) => current.filter((b) => b.id !== userId));
+      
+      Alert.alert("Éxito", "Brigadista desactivado");
+    } catch (err) {
+      console.error("Error unassigning brigadista:", err);
+      Alert.alert("Error", "No se pudo desactivar");
+    } finally {
+      setCreating(false);
+    }
+  };
 
   // Load surveysas when step changes to select-brigadista
   useEffect(() => {
@@ -150,7 +283,43 @@ export default function AssignBrigadistasScreen() {
         return [...current, brigadista];
       }
     });
+    setHasManualSelectionChange(true);
+    setSelectedSurveyForBrigadistas(selectedSurvey?.id ?? null);
   };
+
+  useEffect(() => {
+    if (
+      mode !== "assign" ||
+      step !== "select-brigadista" ||
+      !selectedSurvey ||
+      brigadistas.length === 0
+    ) {
+      return;
+    }
+
+    if (selectedSurveyForBrigadistas !== selectedSurvey.id) {
+      return;
+    }
+
+    applyAssignedSelection(selectedSurvey.id, hasManualSelectionChange);
+  }, [
+    assignedUserIdsBySurvey,
+    applyAssignedSelection,
+    brigadistas.length,
+    hasManualSelectionChange,
+    mode,
+    selectedSurvey,
+    selectedSurveyForBrigadistas,
+    step,
+  ]);
+
+  useEffect(() => {
+    if (mode !== "assign" || step !== "select-brigadista" || !selectedSurvey) {
+      return;
+    }
+
+    loadAssignedForSurvey(selectedSurvey.id);
+  }, [loadAssignedForSurvey, mode, selectedSurvey, step]);
 
   const handleConfirmAssignments = async () => {
     if (!selectedSurvey) return;
@@ -166,17 +335,113 @@ export default function AssignBrigadistasScreen() {
 
     try {
       setCreating(true);
-      const promises = selectedBrigadistas.map((b) =>
+      // Refresh real assignments before creating to avoid stale-state 409 conflicts.
+      const latestAssignments = await getSurveyAssignments(
+        selectedSurvey.id,
+        "active",
+        0,
+        200,
+      );
+      const alreadyAssigned = new Set(latestAssignments.map((a) => a.user_id));
+      const brigadistasToAssign = selectedBrigadistas.filter(
+        (b) => !alreadyAssigned.has(b.id),
+      );
+
+      if (brigadistasToAssign.length === 0) {
+        Alert.alert(
+          "Sin cambios",
+          "Todos los brigadistas seleccionados ya están asignados a esta encuesta.",
+        );
+        setCreating(false);
+        return;
+      }
+
+      const promises = brigadistasToAssign.map((b) =>
         createAssignment({
           user_id: b.id,
           survey_id: selectedSurvey.id,
         }),
       );
-      await Promise.all(promises);
+      const results = await Promise.allSettled(promises);
+      console.log(`[DEBUG] Promise.allSettled results:`, results.map((r, idx) => ({
+        index: idx,
+        status: r.status,
+        reason: r.status === 'rejected' ? ((r as any).reason?.message || (r as any).reason?.toString()) : 'fulfilled'
+      })));
+
+      const conflictIndexes = results
+        .map((r, idx) => ({ r, idx }))
+        .filter(({ r, idx }) => {
+          if (r.status !== "rejected") return false;
+          const axiosStatus = (r.reason as any)?.response?.status;
+          const isConflict = axiosStatus === 409;
+          if (isConflict) {
+            console.log(`[DEBUG] Found conflict at index ${idx}: ${axiosStatus}`);
+          }
+          return isConflict;
+        })
+        .map(({ idx }) => idx);
+
+      let reactivatedCount = 0;
+      if (conflictIndexes.length > 0) {
+        console.log(`[DEBUG] Got ${conflictIndexes.length} conflicts, fetching inactive assignments to reactivate`);
+        const inactiveAssignments = await getSurveyAssignments(
+          selectedSurvey.id,
+          "inactive",
+          0,
+          200,
+        );
+        console.log(`[DEBUG] Found ${inactiveAssignments.length} inactive assignments:`, inactiveAssignments.map(a => ({ id: a.id, user_id: a.user_id })));
+        const inactiveByUser = new Map(
+          inactiveAssignments.map((a) => [a.user_id, a.id]),
+        );
+
+        for (const idx of conflictIndexes) {
+          const userId = brigadistasToAssign[idx]?.id;
+          if (!userId) {
+            console.log(`[DEBUG] No userId for index ${idx}`);
+            continue;
+          }
+          const inactiveAssignmentId = inactiveByUser.get(userId);
+          if (!inactiveAssignmentId) {
+            console.log(`[DEBUG] No inactive assignment found for user ${userId} - backend should have reactivated it!`);
+            continue;
+          }
+
+          try {
+            console.log(`[DEBUG] Reactivating assignment ${inactiveAssignmentId} for user ${userId}`);
+            await updateAssignment(inactiveAssignmentId, { status: "active" });
+            reactivatedCount += 1;
+            console.log(`[DEBUG] Successfully reactivated`);
+          } catch (e) {
+            console.error(`[DEBUG] Failed to reactivate assignment ${inactiveAssignmentId}:`, e);
+            // leave as failure; handled by summary below
+          }
+        }
+      }
+
+      const createdCount = results.filter((r) => r.status === "fulfilled").length;
+      const conflictCount = conflictIndexes.length;
+      const unresolvedConflicts = conflictCount - reactivatedCount;
+      const failedCount = results.length - createdCount - conflictCount + unresolvedConflicts;
+
+      if (failedCount > 0) {
+        throw new Error("assignment_partial_failure");
+      }
+
+      setAssignedUserIdsBySurvey((current) => {
+        const next = { ...current };
+        const currentIds = new Set(next[selectedSurvey.id] ?? []);
+        brigadistasToAssign.forEach((b) => currentIds.add(b.id));
+        next[selectedSurvey.id] = Array.from(currentIds);
+        return next;
+      });
 
       Alert.alert(
-        "Éxito",
-        `Se asignaron ${selectedBrigadistas.length} brigadista(s) a la encuesta`,
+        conflictCount > 0 || reactivatedCount > 0 ? "Actualizado" : "Éxito",
+        conflictCount > 0 || reactivatedCount > 0
+          ? `Se asignaron ${createdCount} brigadista(s) y se reactivaron ${reactivatedCount}. ${Math.max(unresolvedConflicts, 0)} conflicto(s).`
+          : `Se asignaron ${createdCount} brigadista(s) a la encuesta`,
         [
           {
             text: "OK",
@@ -296,14 +561,10 @@ export default function AssignBrigadistasScreen() {
           </TouchableOpacity>
         </View>
 
-        <View style={styles.header}>
-          <ThemedText style={styles.title}>
-            {mode === "assign" ? "Asignar Encuesta" : "Invitar Brigadista"}
-          </ThemedText>
-          <ThemedText style={styles.subtitle}>
-            Paso 1: Selecciona una encuesta
-          </ThemedText>
-        </View>
+        <ScreenHeader
+          title={mode === "assign" ? "Asignar Encuesta" : "Invitar Brigadista"}
+          subtitle="Paso 1: Selecciona una encuesta"
+        />
 
         {surveysLoading ? (
           <View style={styles.centerContent}>
@@ -329,7 +590,14 @@ export default function AssignBrigadistasScreen() {
                 onPress={() => {
                   setSelectedSurvey(item);
                   if (mode === "assign") {
-                    setSelectedBrigadistas([]);
+                    if (selectedSurveyForBrigadistas !== item.id) {
+                      setSelectedBrigadistas([]);
+                      setHasManualSelectionChange(false);
+                      setSelectedSurveyForBrigadistas(item.id);
+                    }
+                    if (selectedSurveyForBrigadistas !== item.id) {
+                      applyAssignedSelection(item.id, false);
+                    }
                     setStep("select-brigadista");
                   } else {
                     // For invite, go directly to submit
@@ -372,19 +640,11 @@ export default function AssignBrigadistasScreen() {
   if (step === "select-brigadista") {
     return (
       <ThemedView style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity
-            onPress={() => setStep("select-survey")}
-            style={styles.backButton}
-          >
-            <Ionicons name="chevron-back" size={24} color={colors.primary} />
-            <ThemedText style={styles.backText}>Atrás</ThemedText>
-          </TouchableOpacity>
-          <ThemedText style={styles.title}>Seleccionar Brigadistas</ThemedText>
-          <ThemedText style={styles.subtitle}>
-            Paso 2: Selecciona quiénes recibirán: {selectedSurvey?.title}
-          </ThemedText>
-        </View>
+        <ScreenHeader
+          title="Seleccionar Brigadistas"
+          subtitle={`Paso 2: Selecciona quiénes recibirán: ${selectedSurvey?.title ?? ""}`}
+          onBackPress={handleInternalBack}
+        />
 
         <View style={styles.searchContainer}>
           <Ionicons
@@ -407,7 +667,6 @@ export default function AssignBrigadistasScreen() {
             <TouchableOpacity
               onPress={() => {
                 setSearchText("");
-                setBrigadistas([]);
               }}
             >
               <Ionicons name="close" size={20} color={colors.textSecondary} />
@@ -437,20 +696,43 @@ export default function AssignBrigadistasScreen() {
               <TouchableOpacity
                 style={[
                   styles.brigadistaCard,
-                  selectedBrigadistas.some((b) => b.id === item.id) &&
+                  (selectedBrigadistas.some((b) => b.id === item.id) ||
+                    (selectedSurvey
+                      ? (assignedUserIdsBySurvey[selectedSurvey.id] ?? []).includes(
+                          item.id,
+                        )
+                      : false)) &&
                     styles.brigadistaCardSelected,
                 ]}
-                onPress={() => handleToggleBrigadista(item)}
+                onPress={() => {
+                  const isAlreadyAssigned = selectedSurvey
+                    ? (assignedUserIdsBySurvey[selectedSurvey.id] ?? []).includes(
+                        item.id,
+                      )
+                    : false;
+                  if (isAlreadyAssigned) return;
+                  handleToggleBrigadista(item);
+                }}
               >
                 <View style={styles.checkboxContainer}>
                   <View
                     style={[
                       styles.checkbox,
-                      selectedBrigadistas.some((b) => b.id === item.id) &&
+                      (selectedBrigadistas.some((b) => b.id === item.id) ||
+                        (selectedSurvey
+                          ? (assignedUserIdsBySurvey[selectedSurvey.id] ?? []).includes(
+                              item.id,
+                            )
+                          : false)) &&
                         styles.checkboxSelected,
                     ]}
                   >
-                    {selectedBrigadistas.some((b) => b.id === item.id) && (
+                    {(selectedBrigadistas.some((b) => b.id === item.id) ||
+                      (selectedSurvey
+                        ? (assignedUserIdsBySurvey[selectedSurvey.id] ?? []).includes(
+                            item.id,
+                          )
+                        : false)) && (
                       <Ionicons name="checkmark" size={16} color="#fff" />
                     )}
                   </View>
@@ -462,6 +744,23 @@ export default function AssignBrigadistasScreen() {
                   <ThemedText style={styles.brigadistaEmail}>
                     {item.email}
                   </ThemedText>
+                  {selectedSurvey &&
+                  (assignedUserIdsBySurvey[selectedSurvey.id] ?? []).includes(
+                    item.id,
+                  ) ? (
+                    <View style={styles.assignedActions}>
+                      <ThemedText style={styles.assignedBadge}>Ya asignado</ThemedText>
+                      <TouchableOpacity
+                        onPress={() => handleUnassignBrigadista(item.id)}
+                        disabled={creating}
+                        style={styles.unassignButton}
+                      >
+                        <ThemedText style={styles.unassignButtonText}>
+                          Desactivar
+                        </ThemedText>
+                      </TouchableOpacity>
+                    </View>
+                  ) : null}
                 </View>
               </TouchableOpacity>
             )}
@@ -476,7 +775,6 @@ export default function AssignBrigadistasScreen() {
               selectedBrigadistas.length === 0 && styles.buttonDisabled,
             ]}
             onPress={() => {
-              setSelectedBrigadistas([]);
               setStep("select-survey");
             }}
           >
@@ -493,7 +791,9 @@ export default function AssignBrigadistasScreen() {
             disabled={selectedBrigadistas.length === 0}
             onPress={handleConfirmAssignments}
           >
-            <ThemedText style={styles.confirmButtonText}>Siguiente</ThemedText>
+            <ThemedText style={styles.confirmButtonText}>
+              Revisar Asignación ({selectedBrigadistas.length})
+            </ThemedText>
           </TouchableOpacity>
         </View>
       </ThemedView>
@@ -505,12 +805,10 @@ export default function AssignBrigadistasScreen() {
     if (mode === "assign") {
       return (
         <ThemedView style={styles.container}>
-          <View style={styles.header}>
-            <ThemedText style={styles.title}>Confirmar Asignación</ThemedText>
-            <ThemedText style={styles.subtitle}>
-              Paso 3: Revisa antes de completar
-            </ThemedText>
-          </View>
+          <ScreenHeader
+            title="Confirmar Asignación"
+            subtitle="Paso 3: Revisa antes de completar"
+          />
 
           <View style={styles.confirmContent}>
             <View style={styles.confirmSection}>
@@ -579,22 +877,11 @@ export default function AssignBrigadistasScreen() {
       // Invite mode - show form
       return (
         <ThemedView style={styles.container}>
-          <View style={styles.header}>
-            <TouchableOpacity
-              onPress={() => {
-                setStep("select-survey");
-                setInviteForm({ email: "", full_name: "", phone: "" });
-              }}
-              style={styles.backButton}
-            >
-              <Ionicons name="chevron-back" size={24} color={colors.primary} />
-              <ThemedText style={styles.backText}>Atrás</ThemedText>
-            </TouchableOpacity>
-            <ThemedText style={styles.title}>Invitar Brigadista</ThemedText>
-            <ThemedText style={styles.subtitle}>
-              Encuesta: {selectedSurvey?.title}
-            </ThemedText>
-          </View>
+          <ScreenHeader
+            title="Invitar Brigadista"
+            subtitle={`Encuesta: ${selectedSurvey?.title ?? ""}`}
+            onBackPress={handleInternalBack}
+          />
 
           <ScrollView
             style={styles.scrollContent}
@@ -699,33 +986,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
-  },
-  header: {
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    backgroundColor: colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  backButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: spacing.sm,
-  },
-  backText: {
-    fontSize: 16,
-    color: colors.primary,
-    marginLeft: spacing.xs,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: colors.text,
-    marginBottom: spacing.xs,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: colors.textSecondary,
   },
   centerContent: {
     flex: 1,
@@ -851,6 +1111,30 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.textSecondary,
     marginTop: spacing.xs,
+  },
+  assignedBadge: {
+    marginTop: spacing.xs,
+    fontSize: 12,
+    color: colors.success,
+    fontWeight: "600",
+  },
+  assignedActions: {
+    marginTop: spacing.xs,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  unassignButton: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: colors.warning,
+  },
+  unassignButtonText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: colors.warning,
   },
   confirmContent: {
     flex: 1,

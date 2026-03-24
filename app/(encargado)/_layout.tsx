@@ -108,6 +108,7 @@ export default function EncargadoLayout() {
           name="assign"
           options={{
             href: null, // Hidden route - accessed via modal/navigation
+            tabBarStyle: { display: "none" },
           }}
         />
       </Tabs>

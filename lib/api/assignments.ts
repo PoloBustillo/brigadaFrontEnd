@@ -154,6 +154,18 @@ export interface AssignmentCreatePayload {
   notes?: string;
 }
 
+export interface AssignmentResponse {
+  id: number;
+  user_id: number;
+  survey_id: number;
+  assigned_by: number | null;
+  status: "active" | "inactive";
+  location: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string | null;
+}
+
 /**
  * POST /assignments — Create a new assignment
  * Assigns a survey to a brigadista (or encargado to another encargado)
@@ -168,6 +180,28 @@ export async function createAssignment(
         .post<AssignmentResponse>("/assignments", payload)
         .then((r) => r.data),
     (item) => `assigned survey_id=${item.survey_id} to user_id=${item.user_id}`,
+  );
+}
+
+/**
+ * GET /assignments/survey/{survey_id} — Real assignments for a survey
+ * Used to preselect brigadistas that are already assigned.
+ */
+export async function getSurveyAssignments(
+  surveyId: number,
+  status: "active" | "inactive" = "active",
+  skip = 0,
+  limit = 200,
+): Promise<AssignmentResponse[]> {
+  return timedCall(
+    `GET /assignments/survey/${surveyId}`,
+    () =>
+      apiClient
+        .get<AssignmentResponse[]>(`/assignments/survey/${surveyId}`, {
+          params: { status, skip, limit },
+        })
+        .then((r) => r.data),
+    (items) => `${items.length} items`,
   );
 }
 

@@ -4,6 +4,7 @@
  */
 
 import { useThemeColors } from "@/contexts/theme-context";
+import { ScreenHeader } from "@/components/shared";
 import { Ionicons } from "@expo/vector-icons";
 import * as Application from "expo-application";
 import { useRouter } from "expo-router";
@@ -146,16 +147,7 @@ export default function HelpScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
-      <View style={[styles.header, { borderBottomColor: colors.border }]}>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={styles.backButton}
-        >
-          <Ionicons name="arrow-back" size={24} color={colors.text} />
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Ayuda</Text>
-        <View style={{ width: 24 }} />
-      </View>
+      <ScreenHeader title="Ayuda" centerTitle onBackPress={() => router.back()} />
 
       <ScrollView
         style={styles.scrollView}
@@ -236,17 +228,6 @@ export default function HelpScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingTop: 56,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-  },
-  backButton: { padding: 4 },
-  headerTitle: { fontSize: 18, fontWeight: "700" },
   scrollView: { flex: 1 },
   scrollContent: { padding: 20, paddingBottom: 60 },
   section: { marginBottom: 28 },

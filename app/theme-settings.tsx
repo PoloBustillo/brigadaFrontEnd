@@ -4,6 +4,7 @@
  */
 
 import { ColorSchemeSelector } from "@/components/ui/color-scheme-selector";
+import { ScreenHeader } from "@/components/shared";
 import { useTheme, useThemeColors } from "@/contexts/theme-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -12,7 +13,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from "react-native";
 
@@ -30,18 +30,11 @@ export default function ThemeSettingsScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
-      <View style={[styles.header, { borderBottomColor: colors.border }]}>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={styles.backButton}
-        >
-          <Ionicons name="arrow-back" size={24} color={colors.text} />
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>
-          Personalización
-        </Text>
-        <View style={{ width: 24 }} />
-      </View>
+      <ScreenHeader
+        title="Personalización"
+        centerTitle
+        onBackPress={() => router.back()}
+      />
 
       <ScrollView
         style={styles.scrollView}
@@ -106,17 +99,6 @@ export default function ThemeSettingsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingTop: 56,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-  },
-  backButton: { padding: 4 },
-  headerTitle: { fontSize: 18, fontWeight: "700" },
   scrollView: { flex: 1 },
   scrollContent: { padding: 20, paddingBottom: 40 },
   section: { marginBottom: 32 },
