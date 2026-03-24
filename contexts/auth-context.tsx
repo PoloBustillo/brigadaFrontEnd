@@ -88,29 +88,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setPendingEmailState(storedPendingEmail);
       }
 
-      // Check if token exists and is valid
+      // Check if token exists and restore local session.
+      // If access token is expired, keep session so offline work can continue;
+      // API client will refresh automatically when connectivity is available.
       if (storedUser && storedToken) {
-        // Check if token is expired
-        if (isTokenExpired(storedToken)) {
-          console.log("⏰ JWT token expired, clearing session");
+        const parsedUser = JSON.parse(storedUser) as User;
+
+        // Verify user is still active
+        if (parsedUser.state === "DISABLED") {
+          console.log("❌ User is deactivated, clearing session");
           await clearSession();
         } else {
-          // Valid session, restore state
-          const parsedUser = JSON.parse(storedUser) as User;
-
-          // Verify user is still active
-          if (parsedUser.state === "DISABLED") {
-            console.log("❌ User is deactivated, clearing session");
-            await clearSession();
-          } else {
-            setUser(parsedUser);
-            setToken(storedToken);
+          if (isTokenExpired(storedToken)) {
             console.log(
-              "✅ Session restored:",
-              parsedUser.email,
-              parsedUser.role,
+              "⏰ Access token expired locally; keeping session for offline mode.",
             );
           }
+          setUser(parsedUser);
+          setToken(storedToken);
+          console.log("✅ Session restored:", parsedUser.email, parsedUser.role);
         }
       }
     } catch (error) {

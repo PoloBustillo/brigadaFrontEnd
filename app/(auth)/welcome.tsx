@@ -200,13 +200,30 @@ interface FeatureItemProps {
   icon: string;
   text: string;
   iconColor: string;
+  iconBackgroundColor: string;
+  iconBorderColor: string;
   textColor: string;
 }
 
-function FeatureItem({ icon, text, iconColor, textColor }: FeatureItemProps) {
+function FeatureItem({
+  icon,
+  text,
+  iconColor,
+  iconBackgroundColor,
+  iconBorderColor,
+  textColor,
+}: FeatureItemProps) {
   return (
     <View style={styles.featureItem}>
-      <View style={styles.featureIconContainer}>
+      <View
+        style={[
+          styles.featureIconContainer,
+          {
+            backgroundColor: iconBackgroundColor,
+            borderColor: iconBorderColor,
+          },
+        ]}
+      >
         <Ionicons name={icon as any} size={20} color={iconColor} />
       </View>
       <Text style={[styles.featureText, { color: textColor }]}>{text}</Text>
@@ -275,6 +292,12 @@ export default function WelcomeScreen() {
   ] as const;
 
   const decorativeColor = `${colors.background}99`; // background con 60% opacity
+  const featureIconColor =
+    theme === "dark" ? colors.primaryLight : colors.primaryDark;
+  const featureIconBackgroundColor =
+    theme === "dark" ? "rgba(18, 18, 18, 0.55)" : "rgba(255, 255, 255, 0.95)";
+  const featureIconBorderColor =
+    theme === "dark" ? "rgba(255, 255, 255, 0.25)" : "rgba(0, 0, 0, 0.08)";
 
   return (
     <View style={styles.container}>
@@ -335,33 +358,33 @@ export default function WelcomeScreen() {
               <FeatureItem
                 icon="clipboard-outline"
                 text="Digitaliza encuestas"
-                iconColor={
-                  theme === "dark" ? colors.primaryLight : colors.primary
-                }
+                iconColor={featureIconColor}
+                iconBackgroundColor={featureIconBackgroundColor}
+                iconBorderColor={featureIconBorderColor}
                 textColor={colors.background}
               />
               <FeatureItem
                 icon="checkmark-circle-outline"
                 text="Valida información"
-                iconColor={
-                  theme === "dark" ? colors.primaryLight : colors.primary
-                }
+                iconColor={featureIconColor}
+                iconBackgroundColor={featureIconBackgroundColor}
+                iconBorderColor={featureIconBorderColor}
                 textColor={colors.background}
               />
               <FeatureItem
                 icon="sync-outline"
                 text="Sincroniza en tiempo real"
-                iconColor={
-                  theme === "dark" ? colors.primaryLight : colors.primary
-                }
+                iconColor={featureIconColor}
+                iconBackgroundColor={featureIconBackgroundColor}
+                iconBorderColor={featureIconBorderColor}
                 textColor={colors.background}
               />
               <FeatureItem
                 icon="cloud-offline-outline"
                 text="Funciona sin internet"
-                iconColor={
-                  theme === "dark" ? colors.primaryLight : colors.primary
-                }
+                iconColor={featureIconColor}
+                iconBackgroundColor={featureIconBackgroundColor}
+                iconBorderColor={featureIconBorderColor}
                 textColor={colors.background}
               />
             </View>
@@ -510,10 +533,10 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "rgba(255, 255, 255, 0.95)",
     justifyContent: "center",
     alignItems: "center",
     marginRight: 14,
+    borderWidth: 1,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,

@@ -23,6 +23,7 @@ import { fileRepository } from "@/lib/db/repositories/file.repository";
 import {
   responseRepository,
   type CreateResponseParams,
+  type ResponseRecord,
 } from "@/lib/db/repositories/response.repository";
 import { syncRepository } from "@/lib/db/repositories/sync.repository";
 import { fileUploadService } from "@/lib/services/file-upload.service";
@@ -77,10 +78,117 @@ export interface TwoPhaseSubmitResult {
   error?: string;
 }
 
+interface ResponseLocationPayload {
+  latitude: number;
+  longitude: number;
+  accuracy: number | null;
+  timestamp: string | number;
+}
+
 // ── Service ───────────────────────────────────────────────────────────────────
 
 class OfflineSyncService {
   private initialized = false;
+
+  private resolveResponseLocation(
+    localResponse: ResponseRecord | null,
+    answers: SubmitResponseInput["answers"],
+    fallbackTimestamp: string,
+  ): ResponseLocationPayload | null {
+    if (
+      localResponse?.latitude != null &&
+      localResponse?.longitude != null &&
+      Number.isFinite(localResponse.latitude) &&
+      Number.isFinite(localResponse.longitude)
+    ) {
+      return {
+        latitude: localResponse.latitude,
+        longitude: localResponse.longitude,
+        accuracy:
+          localResponse.accuracy != null && Number.isFinite(localResponse.accuracy)
+            ? localResponse.accuracy
+            : null,
+        timestamp: localResponse.location_captured_at ?? fallbackTimestamp,
+      };
+    }
+
+    for (const answer of answers) {
+      const value = answer.answer_value;
+      if (!value || typeof value !== "object" || Array.isArray(value)) {
+        continue;
+      }
+
+      const maybeLat = (value as Record<string, unknown>).latitude;
+      const maybeLon = (value as Record<string, unknown>).longitude;
+      const latitude = Number(maybeLat);
+      const longitude = Number(maybeLon);
+      if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+        continue;
+      }
+
+      if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+        continue;
+      }
+
+      const maybeAccuracy = Number((value as Record<string, unknown>).accuracy);
+      const maybeTimestamp = (value as Record<string, unknown>).timestamp;
+
+      return {
+        latitude,
+        longitude,
+        accuracy: Number.isFinite(maybeAccuracy) ? maybeAccuracy : null,
+        timestamp:
+          typeof maybeTimestamp === "string" || typeof maybeTimestamp === "number"
+            ? maybeTimestamp
+            : fallbackTimestamp,
+      };
+    }
+
+    return null;
+  }
+
+  private buildCaptureMeta(
+    input: SubmitResponseInput,
+    completedAt: string,
+  ): Record<string, any> {
+    const computedDuration = Math.max(
+      0,
+      new Date(completedAt).getTime() - new Date(input.startedAt).getTime(),
+    );
+    const raw = input.captureMeta ?? {};
+    const totalAnswers = Number(raw.total_answers_submitted);
+    const totalVisible = Number(raw.total_questions_visible);
+    const duration = Number(raw.total_duration_ms);
+
+    return {
+      ...raw,
+      total_duration_ms:
+        Number.isFinite(duration) && duration >= 0 ? duration : computedDuration,
+      offline_mode:
+        typeof raw.offline_mode === "boolean" ? raw.offline_mode : true,
+      submitted_at:
+        typeof raw.submitted_at === "string" && raw.submitted_at.trim().length > 0
+          ? raw.submitted_at
+          : completedAt,
+      timezone:
+        typeof raw.timezone === "string" && raw.timezone.trim().length > 0
+          ? raw.timezone
+          : "unknown",
+      total_questions_visible:
+        Number.isFinite(totalVisible) && totalVisible >= 0
+          ? totalVisible
+          : input.answers.length,
+      total_answers_submitted:
+        Number.isFinite(totalAnswers) && totalAnswers > 0
+          ? totalAnswers
+          : input.answers.length,
+      app_capture_source:
+        typeof raw.app_capture_source === "string" &&
+        raw.app_capture_source.trim().length > 0
+          ? raw.app_capture_source
+          : "mobile_brigadista",
+    };
+  }
 
   /**
    * Ensure the database is ready
@@ -171,6 +279,14 @@ class OfflineSyncService {
     await this.initialize();
 
     const completedAt = new Date().toISOString();
+    const localResponse = await responseRepository.getResponseById(
+      input.responseId,
+    );
+    const resolvedLocation = this.resolveResponseLocation(
+      localResponse,
+      input.answers,
+      completedAt,
+    );
 
     // Step A: Mark as completed locally
     try {
@@ -180,9 +296,16 @@ class OfflineSyncService {
       // Continue anyway — the response was already saved as draft
     }
 
-    const localResponse = await responseRepository.getResponseById(
-      input.responseId,
-    );
+    const captureMeta = this.buildCaptureMeta(input, completedAt);
+    if (!resolvedLocation) {
+      captureMeta.missing_location = true;
+      captureMeta.missing_required_fields = [
+        ...(Array.isArray(captureMeta.missing_required_fields)
+          ? captureMeta.missing_required_fields
+          : []),
+        "location",
+      ];
+    }
 
     // Step B: Build API payload
     const apiPayload: SurveyResponseCreate = {
@@ -190,31 +313,13 @@ class OfflineSyncService {
       version_id: input.versionId,
       started_at: input.startedAt,
       completed_at: completedAt,
-      location:
-        localResponse?.latitude != null && localResponse?.longitude != null
-          ? {
-              latitude: localResponse.latitude,
-              longitude: localResponse.longitude,
-              accuracy: localResponse.accuracy,
-              timestamp: localResponse.location_captured_at,
-            }
-          : undefined,
-      device_info: localResponse
-        ? {
-            platform: localResponse.device_platform,
-            os_version: localResponse.device_os_version,
-            app_version: localResponse.device_app_version,
-          }
-        : undefined,
-      capture_meta: {
-        total_duration_ms: Math.max(
-          0,
-          new Date(completedAt).getTime() - new Date(input.startedAt).getTime(),
-        ),
-        offline_mode: true,
-        submitted_at: completedAt,
-        ...input.captureMeta,
+      location: resolvedLocation ?? undefined,
+      device_info: {
+        platform: localResponse?.device_platform ?? Platform.OS,
+        os_version: localResponse?.device_os_version ?? "unknown",
+        app_version: localResponse?.device_app_version ?? "unknown",
       },
+      capture_meta: captureMeta,
       answers: input.answers,
     };
 
@@ -278,37 +383,35 @@ class OfflineSyncService {
     const localResponse = await responseRepository.getResponseById(
       input.responseId,
     );
+    const resolvedLocation = this.resolveResponseLocation(
+      localResponse,
+      input.answers,
+      completedAt,
+    );
+
+    const captureMeta = this.buildCaptureMeta(input, completedAt);
+    if (!resolvedLocation) {
+      captureMeta.missing_location = true;
+      captureMeta.missing_required_fields = [
+        ...(Array.isArray(captureMeta.missing_required_fields)
+          ? captureMeta.missing_required_fields
+          : []),
+        "location",
+      ];
+    }
 
     const apiPayload: SurveyResponseCreate = {
       client_id: input.responseId,
       version_id: input.versionId,
       started_at: input.startedAt,
       completed_at: completedAt,
-      location:
-        localResponse?.latitude != null && localResponse?.longitude != null
-          ? {
-              latitude: localResponse.latitude,
-              longitude: localResponse.longitude,
-              accuracy: localResponse.accuracy,
-              timestamp: localResponse.location_captured_at,
-            }
-          : undefined,
-      device_info: localResponse
-        ? {
-            platform: localResponse.device_platform,
-            os_version: localResponse.device_os_version,
-            app_version: localResponse.device_app_version,
-          }
-        : undefined,
-      capture_meta: {
-        total_duration_ms: Math.max(
-          0,
-          new Date(completedAt).getTime() - new Date(input.startedAt).getTime(),
-        ),
-        offline_mode: true,
-        submitted_at: completedAt,
-        ...input.captureMeta,
+      location: resolvedLocation ?? undefined,
+      device_info: {
+        platform: localResponse?.device_platform ?? Platform.OS,
+        os_version: localResponse?.device_os_version ?? "unknown",
+        app_version: localResponse?.device_app_version ?? "unknown",
       },
+      capture_meta: captureMeta,
       answers: input.answers,
     };
 

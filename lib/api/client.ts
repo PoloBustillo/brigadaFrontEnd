@@ -205,10 +205,9 @@ async function attemptTokenRefresh(): Promise<string | null> {
     // Call backend refresh endpoint directly (bypass interceptors)
     const response = await axios.post(
       `${APP_CONFIG.api.baseUrl}/auth/refresh`,
-      {},
+      { refresh_token: currentRefresh },
       {
         headers: {
-          Authorization: `Bearer ${currentRefresh}`,
           "Content-Type": "application/json",
         },
         timeout: 15000,
@@ -224,10 +223,25 @@ async function attemptTokenRefresh(): Promise<string | null> {
     }
 
     return access_token;
-  } catch (error) {
-    console.log("Token refresh failed, clearing session");
-    await clearTokens();
-    sessionEvents.emit("session:expired");
+  } catch (error: any) {
+    const status = error?.response?.status;
+
+    // Network/downstream failure while offline: keep local session.
+    if (!error?.response) {
+      console.log("Refresh skipped: offline/unreachable. Keeping local session.");
+      return null;
+    }
+
+    // Refresh token is invalid/revoked: end session.
+    if (status === 401 || status === 403) {
+      console.log("Refresh rejected by server, clearing session");
+      await clearTokens();
+      sessionEvents.emit("session:expired");
+      return null;
+    }
+
+    // Transient server errors should not force logout.
+    console.log("Refresh failed with server error, keeping local session");
     return null;
   }
 }
@@ -249,9 +263,10 @@ apiClient.interceptors.request.use(
     let token = await getAccessToken();
 
     if (token && isTokenExpired(token)) {
-      // Token is about to expire — try a proactive refresh
+      // Token is about to expire — try a proactive refresh.
+      // If refresh cannot run due to connectivity, keep local token/session.
       const newToken = await attemptTokenRefresh();
-      token = newToken;
+      token = newToken ?? token;
     }
 
     if (token) {

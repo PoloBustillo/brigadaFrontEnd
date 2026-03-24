@@ -8,12 +8,16 @@ import { AppHeader, CMSNotice } from "@/components/shared";
 import { useThemeColors } from "@/contexts/theme-context";
 import { useTabBarHeight } from "@/hooks/use-tab-bar-height";
 import type { AssignmentDetail } from "@/lib/api/assignments";
-import { getMyCreatedAssignments } from "@/lib/api/assignments";
+import { getMyCreatedAssignments, updateAssignment } from "@/lib/api/assignments";
+import { getAdminSurveys } from "@/lib/api/admin";
 import { getCached, setCached } from "@/lib/api/memory-cache";
+import { getLatestSurveyVersion } from "@/lib/api/mobile";
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -27,6 +31,10 @@ interface SurveyGroup {
   title: string;
   brigadistasAssigned: number;
   totalResponses: number;
+  assignmentIds: number[];
+  activeAssignments: number;
+  hasPublishedVersion: boolean;
+  manageable: boolean;
   status: "active" | "inactive";
   createdAt: string;
 }
@@ -40,6 +48,10 @@ function groupBySurvey(assignments: AssignmentDetail[]): SurveyGroup[] {
         title: a.survey.title,
         brigadistasAssigned: 0,
         totalResponses: 0,
+        assignmentIds: [],
+        activeAssignments: 0,
+        hasPublishedVersion: false,
+        manageable: true,
         status: a.status,
         createdAt: a.created_at,
       });
@@ -47,12 +59,15 @@ function groupBySurvey(assignments: AssignmentDetail[]): SurveyGroup[] {
     const g = map.get(a.survey_id)!;
     g.brigadistasAssigned++;
     g.totalResponses += a.response_count;
+    g.assignmentIds.push(a.id);
+    if (a.status === "active") g.activeAssignments++;
     if (a.status === "active") g.status = "active";
   }
   return Array.from(map.values());
 }
 
 export default function EncargadoSurveys() {
+  const router = useRouter();
   const colors = useThemeColors();
   const { contentPadding } = useTabBarHeight();
   const initialSurveys = getCached<SurveyGroup[]>("encargado:surveys");
@@ -61,6 +76,7 @@ export default function EncargadoSurveys() {
   const [fetchError, setFetchError] = useState(false);
   const [hasLoadedOnce, setHasLoadedOnce] = useState(!!initialSurveys);
   const [refreshing, setRefreshing] = useState(false);
+  const [busySurveyId, setBusySurveyId] = useState<number | null>(null);
 
   const statusConfig = useMemo(
     () => ({
@@ -82,8 +98,46 @@ export default function EncargadoSurveys() {
     if (!silent) setIsLoading(true);
     setFetchError(false);
     try {
-      const data = await getMyCreatedAssignments();
-      const grouped = groupBySurvey(data);
+      const [adminSurveysResult, createdAssignmentsResult] =
+        await Promise.allSettled([getAdminSurveys(), getMyCreatedAssignments()]);
+
+      const createdAssignments =
+        createdAssignmentsResult.status === "fulfilled"
+          ? createdAssignmentsResult.value
+          : [];
+
+      const groupedAssignments = groupBySurvey(createdAssignments);
+      const groupedBySurveyId = new Map<number, SurveyGroup>(
+        groupedAssignments.map((g) => [g.surveyId, g]),
+      );
+
+      let grouped: SurveyGroup[] = groupedAssignments;
+
+      if (adminSurveysResult.status === "fulfilled") {
+        grouped = adminSurveysResult.value.map((survey) => {
+          const byAssignments = groupedBySurveyId.get(survey.id);
+          const versions = Array.isArray(survey.versions)
+            ? (survey.versions as Array<{ is_published?: boolean; created_at?: string }>)
+            : [];
+
+          return {
+            surveyId: survey.id,
+            title: survey.title,
+            brigadistasAssigned: byAssignments?.brigadistasAssigned ?? 0,
+            totalResponses: byAssignments?.totalResponses ?? 0,
+            assignmentIds: byAssignments?.assignmentIds ?? [],
+            activeAssignments: byAssignments?.activeAssignments ?? 0,
+            hasPublishedVersion: versions.some((v) => !!v?.is_published),
+            manageable: (byAssignments?.assignmentIds?.length ?? 0) > 0,
+            status: survey.is_active ? "active" : "inactive",
+            createdAt:
+              survey.created_at ??
+              byAssignments?.createdAt ??
+              new Date().toISOString(),
+          } as SurveyGroup;
+        });
+      }
+
       setSurveys(grouped);
       setHasLoadedOnce(true);
       setCached("encargado:surveys", grouped);
@@ -104,6 +158,61 @@ export default function EncargadoSurveys() {
     fetchSurveys();
   };
 
+  const handleStartSurvey = async (survey: SurveyGroup) => {
+    if (busySurveyId !== null) return;
+    if (survey.status !== "active") return;
+    if (!survey.hasPublishedVersion) {
+      Alert.alert(
+        "Encuesta no publicada",
+        `La encuesta \"${survey.title}\" aun no tiene una version publicada para llenado movil.`,
+      );
+      return;
+    }
+
+    setBusySurveyId(survey.surveyId);
+    try {
+      const latestVersion = await getLatestSurveyVersion(survey.surveyId);
+      if (!latestVersion) {
+        Alert.alert(
+          "Encuesta no disponible",
+          `No se encontro version publicada para \"${survey.title}\" o no tienes acceso desde este endpoint.`,
+        );
+        return;
+      }
+      router.push({
+        pathname: "/(encargado)/surveys/fill",
+        params: {
+          surveyId: String(survey.surveyId),
+          surveyTitle: survey.title,
+          versionId: String(latestVersion.id),
+          questionsJson: JSON.stringify(latestVersion.questions ?? []),
+        },
+      });
+    } catch {
+      setFetchError(true);
+    } finally {
+      setBusySurveyId(null);
+    }
+  };
+
+  const handleToggleStatus = async (survey: SurveyGroup) => {
+    if (busySurveyId !== null || survey.assignmentIds.length === 0) return;
+
+    const nextStatus = survey.status === "active" ? "inactive" : "active";
+    setBusySurveyId(survey.surveyId);
+    try {
+      await Promise.all(
+        survey.assignmentIds.map((assignmentId) =>
+          updateAssignment(assignmentId, { status: nextStatus }),
+        ),
+      );
+      await fetchSurveys(true);
+    } catch {
+      setFetchError(true);
+      setBusySurveyId(null);
+    }
+  };
+
   const totalResponses = useMemo(
     () => surveys.reduce((acc, s) => acc + s.totalResponses, 0),
     [surveys],
@@ -118,7 +227,7 @@ export default function EncargadoSurveys() {
       <AppHeader title="Mis Encuestas" />
 
       <View style={styles.noticeContainer}>
-        <CMSNotice message="Vista informativa. La configuración de encuestas se realiza en el CMS web." />
+        <CMSNotice message="Ves encuestas dentro de tu alcance. La configuración global se realiza en el CMS web." />
       </View>
 
       {fetchError && surveys.length > 0 && (
@@ -319,6 +428,29 @@ export default function EncargadoSurveys() {
                       </View>
                     </View>
 
+                    {!survey.hasPublishedVersion && (
+                      <View
+                        style={[
+                          styles.unpublishedBadge,
+                          { backgroundColor: colors.warning + "20" },
+                        ]}
+                      >
+                        <Ionicons
+                          name="alert-circle-outline"
+                          size={14}
+                          color={colors.warning}
+                        />
+                        <Text
+                          style={[
+                            styles.unpublishedText,
+                            { color: colors.warning },
+                          ]}
+                        >
+                          Sin version publicada
+                        </Text>
+                      </View>
+                    )}
+
                     {/* Footer */}
                     <View
                       style={[
@@ -344,11 +476,112 @@ export default function EncargadoSurveys() {
                           </Text>
                         </View>
                       </View>
-                      <Ionicons
-                        name="eye-outline"
-                        size={20}
-                        color={colors.textSecondary}
-                      />
+                      <View style={styles.actionsRow}>
+                        <TouchableOpacity
+                          style={[
+                            styles.actionButton,
+                            {
+                              backgroundColor:
+                                survey.status === "active" && survey.manageable
+                                  ? colors.warning + "20"
+                                  : survey.manageable
+                                    ? colors.success + "20"
+                                    : colors.border,
+                              opacity: survey.manageable ? 1 : 0.6,
+                            },
+                          ]}
+                          onPress={() => handleToggleStatus(survey)}
+                          disabled={
+                            busySurveyId === survey.surveyId || !survey.manageable
+                          }
+                        >
+                          <Ionicons
+                            name={
+                              survey.status === "active" && survey.manageable
+                                ? "pause-circle-outline"
+                                : survey.manageable
+                                  ? "play-circle-outline"
+                                  : "lock-closed-outline"
+                            }
+                            size={16}
+                            color={
+                              survey.status === "active" && survey.manageable
+                                ? colors.warning
+                                : survey.manageable
+                                  ? colors.success
+                                  : colors.textSecondary
+                            }
+                          />
+                          <Text
+                            style={[
+                              styles.actionButtonText,
+                              {
+                                color:
+                                  survey.status === "active" && survey.manageable
+                                    ? colors.warning
+                                    : survey.manageable
+                                      ? colors.success
+                                      : colors.textSecondary,
+                              },
+                            ]}
+                          >
+                            {survey.manageable
+                              ? survey.status === "active"
+                                ? "Desactivar"
+                                : "Activar"
+                              : "Sin gestion"}
+                          </Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          style={[
+                            styles.actionButton,
+                            {
+                              backgroundColor:
+                                survey.status === "active" &&
+                                survey.hasPublishedVersion
+                                  ? colors.primary + "20"
+                                  : colors.border,
+                              opacity:
+                                survey.status === "active" &&
+                                survey.hasPublishedVersion
+                                  ? 1
+                                  : 0.6,
+                            },
+                          ]}
+                          onPress={() => handleStartSurvey(survey)}
+                          disabled={
+                            survey.status !== "active" ||
+                            !survey.hasPublishedVersion ||
+                            busySurveyId === survey.surveyId
+                          }
+                        >
+                          <Ionicons
+                            name="create-outline"
+                            size={16}
+                            color={
+                              survey.status === "active" &&
+                              survey.hasPublishedVersion
+                                ? colors.primary
+                                : colors.textSecondary
+                            }
+                          />
+                          <Text
+                            style={[
+                              styles.actionButtonText,
+                              {
+                                color:
+                                  survey.status === "active" &&
+                                  survey.hasPublishedVersion
+                                    ? colors.primary
+                                    : colors.textSecondary,
+                              },
+                            ]}
+                          >
+                            Llenar
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
                     </View>
                   </View>
                 );
@@ -495,6 +728,20 @@ const styles = StyleSheet.create({
   progressFill: {
     height: "100%",
   },
+  unpublishedBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    gap: 6,
+    borderRadius: 10,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    marginBottom: 10,
+  },
+  unpublishedText: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
   cardFooter: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -504,6 +751,22 @@ const styles = StyleSheet.create({
   },
   footerInfo: {
     flex: 1,
+  },
+  actionsRow: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  actionButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    borderRadius: 10,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+  },
+  actionButtonText: {
+    fontSize: 12,
+    fontWeight: "600",
   },
   footerItem: {
     flexDirection: "row",

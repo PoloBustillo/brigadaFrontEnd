@@ -88,6 +88,13 @@ export default function EncargadoLayout() {
             href: null, // Hidden route (informational only if opened)
           }}
         />
+        <Tabs.Screen
+          name="surveys/fill"
+          options={{
+            href: null,
+            tabBarStyle: { display: "none" },
+          }}
+        />
       </Tabs>
     </ProtectedRoute>
   );

@@ -1,9 +1,12 @@
 import { Tabs } from "expo-router";
 import React from "react";
+import { View } from "react-native";
 
 import { ProtectedRoute } from "@/components/auth";
 import { HapticTab } from "@/components/haptic-tab";
 import { CustomTabBar } from "@/components/ui/custom-tab-bar";
+import { OfflineBanner } from "@/components/ui/offline-banner";
+import { useSync } from "@/contexts/sync-context";
 import { Ionicons } from "@expo/vector-icons";
 
 /**
@@ -12,19 +15,24 @@ import { Ionicons } from "@expo/vector-icons";
  * Tabs: Home, My Surveys, My Responses
  */
 export default function BrigadistaLayout() {
+  const { isOnline } = useSync();
+
   return (
     <ProtectedRoute allowedRoles={["BRIGADISTA"]}>
-      <Tabs
-        tabBar={(props) => <CustomTabBar {...props} />}
-        screenOptions={{
-          headerShown: false,
-          tabBarButton: HapticTab,
-        }}
-      >
+      <View style={{ flex: 1 }}>
+        <OfflineBanner compact={false} showIfOnline={true} />
+        <Tabs
+          tabBar={(props) => <CustomTabBar {...props} />}
+          screenOptions={{
+            headerShown: false,
+            tabBarButton: HapticTab,
+          }}
+        >
         <Tabs.Screen
           name="index"
           options={{
             title: "Inicio",
+            href: isOnline ? undefined : null,
             tabBarIcon: ({ color }) => (
               <Ionicons name="home" size={24} color={color} />
             ),
@@ -43,6 +51,7 @@ export default function BrigadistaLayout() {
           name="responses/index"
           options={{
             title: "Respuestas",
+            href: isOnline ? undefined : null,
             tabBarIcon: ({ color }) => (
               <Ionicons name="checkmark-circle" size={24} color={color} />
             ),
@@ -91,7 +100,8 @@ export default function BrigadistaLayout() {
             href: null, // Not available yet
           }}
         />
-      </Tabs>
+        </Tabs>
+      </View>
     </ProtectedRoute>
   );
 }

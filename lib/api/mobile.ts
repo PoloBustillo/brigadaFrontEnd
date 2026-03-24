@@ -105,6 +105,26 @@ export async function getAssignedSurveys(
   );
 }
 
+/**
+ * GET /mobile/surveys/{surveyId}/latest
+ * Returns the latest published version for a survey.
+ */
+export async function getLatestSurveyVersion(
+  surveyId: number,
+): Promise<SurveyVersionResponse | null> {
+  try {
+    const response = await apiClient.get<SurveyVersionResponse>(
+      `/mobile/surveys/${surveyId}/latest`,
+    );
+    return response.data;
+  } catch (error: any) {
+    if (error?.response?.status === 404) {
+      return null;
+    }
+    throw error;
+  }
+}
+
 // ─── Submit ───────────────────────────────────────────────────────────────────
 
 export interface QuestionAnswerCreate {

@@ -5,6 +5,7 @@
  */
 
 import { getAssignedSurveys } from "@/lib/api/mobile";
+import { cacheRepository } from "@/lib/db/repositories/cache.repository";
 import { useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 
@@ -125,6 +126,8 @@ function mapApiSurvey(
 
 export function useMysurveys() {
   const router = useRouter();
+  const CACHE_KEY = "my_surveys_active";
+  const CACHE_TTL = 30 * 60 * 1000; // 30 min
 
   const [surveys, setSurveys] = useState<MySurvey[]>([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -138,12 +141,33 @@ export function useMysurveys() {
 
   const fetchSurveys = async () => {
     setFetchError(false);
+
+    let hasRenderableData = false;
+
+    // 1) Render cached assignments immediately when available
+    try {
+      const cached = await cacheRepository.get<MySurvey[]>(CACHE_KEY, true);
+      if (cached && cached.length > 0) {
+        hasRenderableData = true;
+        setSurveys(cached);
+        setIsLoading(false);
+      }
+    } catch {
+      // Ignore cache read errors
+    }
+
+    // 2) Revalidate from API when possible
     try {
       const data = await getAssignedSurveys("active");
-      setSurveys(data.map(mapApiSurvey));
+      const mapped = data.map(mapApiSurvey);
+      hasRenderableData = mapped.length > 0;
+      setSurveys(mapped);
+      await cacheRepository.set(CACHE_KEY, mapped, CACHE_TTL);
     } catch (err) {
       console.error("Error fetching assigned surveys:", err);
-      setFetchError(true);
+      if (!hasRenderableData) {
+        setFetchError(true);
+      }
     } finally {
       setIsLoading(false);
     }

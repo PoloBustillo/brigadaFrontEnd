@@ -30,6 +30,12 @@ export interface AssignmentDetail {
   updated_at: string | null;
 }
 
+export interface AssignmentUpdatePayload {
+  status?: "active" | "inactive";
+  location?: string | null;
+  notes?: string | null;
+}
+
 /** Matches GET /assignments/my-team */
 export type TeamMember = UserMini;
 
@@ -63,6 +69,21 @@ export async function getMyCreatedAssignments(
         .get<AssignmentDetail[]>("/assignments/by-me", { params })
         .then((r) => r.data),
     (items) => `${items.length} items`,
+  );
+}
+
+/** PATCH /assignments/{id} — update assignment status/location/notes */
+export async function updateAssignment(
+  assignmentId: number,
+  payload: AssignmentUpdatePayload,
+): Promise<AssignmentDetail> {
+  return timedCall(
+    `PATCH /assignments/${assignmentId}`,
+    () =>
+      apiClient
+        .patch<AssignmentDetail>(`/assignments/${assignmentId}`, payload)
+        .then((r) => r.data),
+    (item) => `assignment ${item.id}`,
   );
 }
 
