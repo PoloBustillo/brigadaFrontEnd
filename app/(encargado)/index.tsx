@@ -13,7 +13,7 @@ import { ThemeToggleIcon } from "@/components/ui/theme-toggle";
 import { useAuth } from "@/contexts/auth-context";
 import { useThemeColors } from "@/contexts/theme-context";
 import { useTabBarHeight } from "@/hooks/use-tab-bar-height";
-import { getAdminSurveys } from "@/lib/api/admin";
+import { getAdminAssignments } from "@/lib/api/admin";
 import {
   getAllTeamResponses,
   getMyCreatedAssignments,
@@ -43,6 +43,7 @@ interface TeamMemberCardProps {
   email: string;
   surveysCompleted: number;
   surveysTotal: number;
+  responsesCount: number;
   lastActive: string;
   status: "active" | "idle" | "offline";
 }
@@ -52,6 +53,7 @@ function TeamMemberCard({
   email,
   surveysCompleted,
   surveysTotal,
+  responsesCount,
   lastActive,
   status,
 }: TeamMemberCardProps) {
@@ -132,6 +134,9 @@ function TeamMemberCard({
           <Text style={[styles.progressText, { color: colors.textSecondary }]}>
             {surveysCompleted} de {surveysTotal} encuestas
           </Text>
+          <Text style={[styles.progressText, { color: colors.textSecondary }]}>
+            {responsesCount} envios
+          </Text>
           <View
             style={[styles.progressBar, { backgroundColor: colors.border }]}
           >
@@ -205,6 +210,10 @@ export default function EncargadoHome() {
     initialDashboard?.teamMembers ?? [],
   );
 
+  const isEncargadoRole = (role?: string | null) =>
+    (role ?? "").toLowerCase() === "encargado";
+  const toId = (value: unknown) => Number(value);
+
   const formatLastActive = (isoDate: string | null) => {
     if (!isoDate) return "Sin actividad reciente";
     const date = new Date(isoDate);
@@ -217,14 +226,18 @@ export default function EncargadoHome() {
   };
 
   const fetchDashboardData = async (silent = false) => {
+    if (!user?.id) {
+      return;
+    }
+
     setFetchError(false);
     try {
-      const [membersResult, assignmentsResult, responsesResult, surveysResult] =
+      const [membersResult, assignmentsResult, responsesResult, createdAssignmentsResult] =
         await Promise.allSettled([
           getMyTeam(),
-          getMyCreatedAssignments(),
+          getAdminAssignments(),
           getAllTeamResponses(),
-          getAdminSurveys(),
+          getMyCreatedAssignments(),
         ]);
 
       // Team members are critical — if this fails, mark error
@@ -266,28 +279,98 @@ export default function EncargadoHome() {
         assignmentsResult.status === "fulfilled" ? assignmentsResult.value : [];
       const responses =
         responsesResult.status === "fulfilled" ? responsesResult.value : [];
-      const surveys =
-        surveysResult.status === "fulfilled" ? surveysResult.value : [];
+      const createdAssignments =
+        createdAssignmentsResult.status === "fulfilled"
+          ? createdAssignmentsResult.value
+          : [];
+
+      const managedSurveyIdsActive = new Set(
+        assignments
+          .filter(
+            (assignment) =>
+              toId(assignment.user_id) === toId(user?.id) &&
+              isEncargadoRole(assignment.user?.role) &&
+              assignment.status === "active",
+          )
+          .map((assignment) => assignment.survey_id),
+      );
+
+      const managedSurveyIds =
+        managedSurveyIdsActive.size > 0
+          ? managedSurveyIdsActive
+          : new Set(
+              assignments
+                .filter(
+                  (assignment) =>
+                    toId(assignment.user_id) === toId(user?.id) &&
+                    isEncargadoRole(assignment.user?.role),
+                )
+                .map((assignment) => assignment.survey_id),
+            );
+
+      const managedSurveyIdsByAssigner = new Set(
+        assignments
+          .filter((assignment) => toId(assignment.assigned_by) === toId(user?.id))
+          .map((assignment) => assignment.survey_id),
+      );
+
+      const managedSurveyIdsByCreator = new Set(
+        createdAssignments.map((assignment) => assignment.survey_id),
+      );
+
+      const managerScopeSurveyIds = new Set<number>([
+        ...managedSurveyIds,
+        ...managedSurveyIdsByAssigner,
+        ...managedSurveyIdsByCreator,
+      ]);
+      if (managerScopeSurveyIds.size === 0) {
+        responses.forEach((response) => {
+          if (typeof response.survey_id === "number") {
+            managerScopeSurveyIds.add(response.survey_id);
+          }
+        });
+      }
+
+      const scopedAssignments =
+        managerScopeSurveyIds.size > 0
+          ? assignments.filter((assignment) =>
+              managerScopeSurveyIds.has(assignment.survey_id),
+            )
+          : createdAssignments;
 
       // If secondary data failed, show a soft banner
       if (
         assignmentsResult.status === "rejected" ||
         responsesResult.status === "rejected" ||
-        surveysResult.status === "rejected"
+        createdAssignmentsResult.status === "rejected"
       ) {
         setFetchError(true);
       }
 
-      const uniqueSurveyIds =
-        surveys.length > 0
-          ? new Set(surveys.map((s) => s.id))
-          : new Set(assignments.map((a) => a.survey_id));
-      const assignmentsWithResponses = assignments.filter(
+      const uniqueSurveyIds = new Set(
+        scopedAssignments.map((a) => a.survey_id),
+      );
+      const totalResponsesFromTeamResponses = responses.filter(
+        (response) =>
+          typeof response.survey_id === "number" &&
+          managerScopeSurveyIds.has(response.survey_id),
+      ).length;
+      const totalResponsesFromAssignments = scopedAssignments.reduce(
+        (acc, assignment) => acc + assignment.response_count,
+        0,
+      );
+      const totalResponses =
+        responsesResult.status === "fulfilled"
+          ? totalResponsesFromTeamResponses
+          : totalResponsesFromAssignments;
+      const assignmentsWithResponses = scopedAssignments.filter(
         (a) => a.response_count > 0,
       ).length;
       const completionRate =
-        assignments.length > 0
-          ? Math.round((assignmentsWithResponses / assignments.length) * 100)
+        scopedAssignments.length > 0
+          ? Math.round(
+              (assignmentsWithResponses / scopedAssignments.length) * 100,
+            )
           : 0;
 
       const computedStats: StatCardProps[] = [
@@ -305,7 +388,7 @@ export default function EncargadoHome() {
         },
         {
           icon: "clipboard",
-          value: responses.length,
+          value: totalResponses,
           label: "Respuestas",
           color: colors.info,
         },
@@ -319,7 +402,7 @@ export default function EncargadoHome() {
       setStats(computedStats);
 
       const mappedMembers: TeamMemberCardProps[] = members.map((member) => {
-        const memberAssignments = assignments.filter(
+        const memberAssignments = scopedAssignments.filter(
           (a) => a.user_id === member.id,
         );
         const surveysAssigned = new Set(
@@ -337,6 +420,17 @@ export default function EncargadoHome() {
             .sort()
             .reverse()[0] ?? null;
 
+        const memberSubmissions = responses.filter(
+          (r) =>
+            r.user_id === member.id &&
+            typeof r.survey_id === "number" &&
+            managerScopeSurveyIds.has(r.survey_id),
+        ).length;
+        const responsesByAssignments = memberAssignments.reduce(
+          (acc, assignment) => acc + Number(assignment.response_count || 0),
+          0,
+        );
+
         const hasActive = memberAssignments.some((a) => a.status === "active");
         const status: TeamMemberCardProps["status"] = hasActive
           ? "active"
@@ -350,6 +444,7 @@ export default function EncargadoHome() {
           email: member.email,
           surveysCompleted: surveysWithResponses,
           surveysTotal: Math.max(surveysAssigned, 1),
+          responsesCount: Math.max(memberSubmissions, responsesByAssignments),
           lastActive: formatLastActive(latestResponseDate),
           status,
         };
@@ -408,8 +503,9 @@ export default function EncargadoHome() {
   }, []);
 
   useEffect(() => {
+    if (!user?.id) return;
     fetchDashboardData(!!initialDashboard);
-  }, []);
+  }, [user?.id]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -555,7 +651,9 @@ export default function EncargadoHome() {
           }}
         >
           <Ionicons name="person-add" size={20} color={colors.onPrimary} />
-          <Text style={[styles.quickActionText, { color: colors.onPrimary }]}>Asignar</Text>
+          <Text style={[styles.quickActionText, { color: colors.onPrimary }]}>
+            Asignar
+          </Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[

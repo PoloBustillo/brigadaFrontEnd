@@ -304,7 +304,7 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const unsubscribe = NetInfo.addEventListener((state: NetInfoState) => {
       const online =
-        state.isConnected === true && state.isInternetReachable === true;
+        state.isConnected === true && state.isInternetReachable !== false;
       const wasOffline = !isOnline;
       setIsOnline(online);
 

@@ -5,12 +5,17 @@
  */
 
 import { AppHeader } from "@/components/shared";
+import { useAuth } from "@/contexts/auth-context";
 import { useThemeColors } from "@/contexts/theme-context";
 import { useTabBarHeight } from "@/hooks/use-tab-bar-height";
+import { getAdminAssignments } from "@/lib/api/admin";
 import { getCached, setCached } from "@/lib/api/memory-cache";
-import { getMyCreatedAssignments, getMyTeam } from "@/lib/api/assignments";
+import {
+  getAllTeamResponses,
+  getMyCreatedAssignments,
+  getMyTeam,
+} from "@/lib/api/assignments";
 import { Ionicons } from "@expo/vector-icons";
-import * as Haptics from "expo-haptics";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -18,7 +23,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from "react-native";
 
@@ -32,6 +36,7 @@ interface TeamMemberDisplay {
 }
 
 export default function EncargadoTeam() {
+  const { user } = useAuth();
   const colors = useThemeColors();
   const { contentPadding } = useTabBarHeight();
   const initialMembers = getCached<TeamMemberDisplay[]>("encargado:team");
@@ -40,6 +45,12 @@ export default function EncargadoTeam() {
   const [fetchError, setFetchError] = useState(false);
   const [hasLoadedOnce, setHasLoadedOnce] = useState(!!initialMembers);
   const [refreshing, setRefreshing] = useState(false);
+
+  const isEncargadoRole = (role?: string | null) =>
+    (role ?? "").toLowerCase() === "encargado";
+  const toId = (value: unknown) => Number(value);
+  const isActiveStatus = (status?: string | null) =>
+    (status ?? "").toLowerCase() === "active";
 
   const statusConfig = {
     active: {
@@ -57,11 +68,22 @@ export default function EncargadoTeam() {
   const fetchTeam = async (silent = false) => {
     if (!silent) setIsLoading(true);
     setFetchError(false);
+
+    if (!user?.id) {
+      setTeamMembers([]);
+      setIsLoading(false);
+      setRefreshing(false);
+      return;
+    }
+
     try {
-      const [membersResult, assignmentsResult] = await Promise.allSettled([
-        getMyTeam(),
-        getMyCreatedAssignments(),
-      ]);
+      const [membersResult, assignmentsResult, createdAssignmentsResult, responsesResult] =
+        await Promise.allSettled([
+          getMyTeam(),
+          getAdminAssignments(),
+          getMyCreatedAssignments(),
+          getAllTeamResponses(),
+        ]);
 
       // Team list is critical — if this fails, mark error
       if (membersResult.status === "rejected") {
@@ -72,19 +94,98 @@ export default function EncargadoTeam() {
       const members = membersResult.value;
       const assignments =
         assignmentsResult.status === "fulfilled" ? assignmentsResult.value : [];
+      const createdAssignments =
+        createdAssignmentsResult.status === "fulfilled"
+          ? createdAssignmentsResult.value
+          : [];
+      const responses =
+        responsesResult.status === "fulfilled" ? responsesResult.value : [];
 
-      if (assignmentsResult.status === "rejected") {
-        setFetchError(true);
+      // Do not mark the whole screen as offline when optional metric sources fail.
+      // Only membersResult (handled above) is critical for connection state.
+
+      const managedSurveyIdsActive = new Set(
+        assignments
+          .filter(
+            (assignment) =>
+              toId(assignment.user_id) === toId(user.id) &&
+              isEncargadoRole(assignment.user?.role) &&
+              isActiveStatus(assignment.status),
+          )
+          .map((assignment) => assignment.survey_id),
+      );
+
+      const managedSurveyIds =
+        managedSurveyIdsActive.size > 0
+          ? managedSurveyIdsActive
+          : new Set(
+              assignments
+                .filter(
+                  (assignment) =>
+                    toId(assignment.user_id) === toId(user.id) &&
+                    isEncargadoRole(assignment.user?.role),
+                )
+                .map((assignment) => assignment.survey_id),
+            );
+
+      const managedSurveyIdsByAssigner = new Set(
+        assignments
+          .filter((assignment) => toId(assignment.assigned_by) === toId(user.id))
+          .map((assignment) => assignment.survey_id),
+      );
+
+      const managedSurveyIdsByCreator = new Set(
+        createdAssignments.map((assignment) => assignment.survey_id),
+      );
+
+      const managerScopeSurveyIds = new Set<number>([
+        ...managedSurveyIds,
+        ...managedSurveyIdsByAssigner,
+        ...managedSurveyIdsByCreator,
+      ]);
+      if (managerScopeSurveyIds.size === 0) {
+        responses.forEach((response) => {
+          if (typeof response.survey_id === "number") {
+            managerScopeSurveyIds.add(response.survey_id);
+          }
+        });
       }
+
+      const scopedAssignments =
+        managerScopeSurveyIds.size > 0
+          ? assignments.filter((assignment) =>
+              managerScopeSurveyIds.has(assignment.survey_id),
+            )
+          : createdAssignments;
+
+      const responsesByUser = responses.reduce<Map<number, number>>((acc, r) => {
+        if (
+          typeof r.survey_id === "number" &&
+          managerScopeSurveyIds.has(r.survey_id)
+        ) {
+          acc.set(r.user_id, (acc.get(r.user_id) ?? 0) + 1);
+        }
+        return acc;
+      }, new Map<number, number>());
+
       const display: TeamMemberDisplay[] = members.map((m) => {
-        const userAssignments = assignments.filter((a) => a.user_id === m.id);
-        const uniqueSurveys = new Set(userAssignments.map((a) => a.survey_id))
-          .size;
-        const totalResponses = userAssignments.reduce(
-          (acc, a) => acc + a.response_count,
+        const userAssignments = scopedAssignments.filter(
+          (a: any) => toId(a.user_id) === toId(m.id),
+        );
+        const uniqueSurveys = new Set(
+          userAssignments.map((a: any) => a.survey_id),
+        ).size;
+        const totalResponsesFromAssignments = userAssignments.reduce(
+          (acc: number, a: any) => acc + a.response_count,
           0,
         );
-        const hasActive = userAssignments.some((a) => a.status === "active");
+        const totalResponses = Math.max(
+          totalResponsesFromAssignments,
+          responsesByUser.get(toId(m.id)) ?? 0,
+        );
+        const hasActive = userAssignments.some((a: any) =>
+          isActiveStatus(a.status),
+        );
         return {
           id: m.id,
           name: m.full_name,
@@ -107,16 +208,11 @@ export default function EncargadoTeam() {
 
   useEffect(() => {
     fetchTeam(!!initialMembers);
-  }, []);
+  }, [user?.id]);
 
   const onRefresh = () => {
     setRefreshing(true);
     fetchTeam();
-  };
-
-  const handleMemberPress = (member: TeamMemberDisplay) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    console.log("View member:", member.id);
   };
 
   const totalResponses = teamMembers.reduce(
@@ -130,11 +226,11 @@ export default function EncargadoTeam() {
       <AppHeader title="Mi Equipo" />
 
       {fetchError && teamMembers.length > 0 && (
-        <TouchableOpacity style={styles.errorBanner} onPress={() => fetchTeam()}>
+        <View style={styles.errorBanner}>
           <Text style={styles.errorBannerText}>
-            No se pudo actualizar. Toca para reintentar.
+            No se pudo actualizar. Desliza para reintentar.
           </Text>
-        </TouchableOpacity>
+        </View>
       )}
 
       {isLoading ? (
@@ -202,10 +298,8 @@ export default function EncargadoTeam() {
           <View style={styles.listContainer}>
             {teamMembers.length === 0 ? (
               fetchError && !hasLoadedOnce ? (
-                <TouchableOpacity
+                <View
                   style={styles.emptyState}
-                  onPress={() => fetchTeam()}
-                  activeOpacity={0.7}
                 >
                   <Ionicons
                     name="cloud-offline-outline"
@@ -216,9 +310,9 @@ export default function EncargadoTeam() {
                     Sin conexión
                   </Text>
                   <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>
-                    No se pudo cargar el equipo. Toca para reintentar.
+                    No se pudo cargar el equipo. Desliza para reintentar.
                   </Text>
-                </TouchableOpacity>
+                </View>
               ) : (
                 <View style={styles.emptyState}>
                   <Ionicons
@@ -240,7 +334,7 @@ export default function EncargadoTeam() {
                   statusConfig[member.status] ?? statusConfig.inactive;
 
                 return (
-                  <TouchableOpacity
+                  <View
                     key={member.id}
                     style={[
                       styles.memberCard,
@@ -249,8 +343,6 @@ export default function EncargadoTeam() {
                         borderColor: colors.border,
                       },
                     ]}
-                    onPress={() => handleMemberPress(member)}
-                    activeOpacity={0.7}
                   >
                     {/* Header */}
                     <View style={styles.cardHeader}>
@@ -358,13 +450,8 @@ export default function EncargadoTeam() {
                           {config.label}
                         </Text>
                       </View>
-                      <Ionicons
-                        name="chevron-forward"
-                        size={20}
-                        color={colors.textSecondary}
-                      />
                     </View>
-                  </TouchableOpacity>
+                  </View>
                 );
               })
             )}

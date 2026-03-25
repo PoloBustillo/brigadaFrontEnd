@@ -72,6 +72,25 @@ export async function getMyCreatedAssignments(
   );
 }
 
+/** GET /assignments/user/{user_id} — assignments for a specific user */
+export async function getUserAssignments(
+  userId: number,
+  status?: "active" | "inactive",
+  skip = 0,
+  limit = 200,
+): Promise<AssignmentDetail[]> {
+  const params: Record<string, string | number> = { skip, limit };
+  if (status) params.status = status;
+  return timedCall(
+    `GET /assignments/user/${userId}`,
+    () =>
+      apiClient
+        .get<AssignmentDetail[]>(`/assignments/user/${userId}`, { params })
+        .then((r) => r.data),
+    (items) => `${items.length} items`,
+  );
+}
+
 /** PATCH /assignments/{id} — update assignment status/location/notes */
 export async function updateAssignment(
   assignmentId: number,

@@ -6,7 +6,11 @@
 import { AppHeader, CMSNotice } from "@/components/shared";
 import { useThemeColors } from "@/contexts/theme-context";
 import { useTabBarHeight } from "@/hooks/use-tab-bar-height";
-import { getTeamResponses, type TeamResponse } from "@/lib/api/assignments";
+import {
+  getAllTeamResponses,
+  getTeamResponses,
+  type TeamResponse,
+} from "@/lib/api/assignments";
 import { Ionicons } from "@expo/vector-icons";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -21,11 +25,25 @@ import {
 
 const PAGE_SIZE = 20;
 
+type ResponseStats = {
+  totalSubmissions: number;
+  totalAnswers: number;
+  uniqueMembers: number;
+  averageAnswersPerSubmission: number;
+};
+
+const EMPTY_STATS: ResponseStats = {
+  totalSubmissions: 0,
+  totalAnswers: 0,
+  uniqueMembers: 0,
+  averageAnswersPerSubmission: 0,
+};
+
 export default function EncargadoResponses() {
   const colors = useThemeColors();
   const { contentPadding } = useTabBarHeight();
   const [responses, setResponses] = useState<TeamResponse[]>([]);
-  const [total, setTotal] = useState(0);
+  const [stats, setStats] = useState<ResponseStats>(EMPTY_STATS);
   const [isLoading, setIsLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [fetchError, setFetchError] = useState(false);
@@ -39,8 +57,26 @@ export default function EncargadoResponses() {
         setResponses((prev) => [...prev, ...res.items]);
       } else {
         setResponses(res.items);
+        setStats((prev) => {
+          if (prev.totalSubmissions > 0) return prev;
+          const fallbackAnswers = res.items.reduce(
+            (sum, response) => sum + Number(response.answer_count || 0),
+            0,
+          );
+          const fallbackSubmissions =
+            typeof res.total === "number" ? res.total : res.items.length;
+          return {
+            totalSubmissions: fallbackSubmissions,
+            totalAnswers: fallbackAnswers,
+            uniqueMembers: new Set(res.items.map((response) => response.user_id))
+              .size,
+            averageAnswersPerSubmission:
+              fallbackSubmissions > 0
+                ? fallbackAnswers / fallbackSubmissions
+                : 0,
+          };
+        });
       }
-      setTotal(res.total);
       hasMore.current = res.has_more;
       setFetchError(false);
     } catch {
@@ -48,13 +84,38 @@ export default function EncargadoResponses() {
     }
   }, []);
 
-  useEffect(() => {
-    fetchPage(0, false).finally(() => setIsLoading(false));
+  const fetchStats = useCallback(async () => {
+    try {
+      const all = await getAllTeamResponses();
+      const totalSubmissions = all.length;
+      const totalAnswers = all.reduce(
+        (sum, response) => sum + Number(response.answer_count || 0),
+        0,
+      );
+      const uniqueMembers = new Set(all.map((response) => response.user_id))
+        .size;
+
+      setStats({
+        totalSubmissions,
+        totalAnswers,
+        uniqueMembers,
+        averageAnswersPerSubmission:
+          totalSubmissions > 0 ? totalAnswers / totalSubmissions : 0,
+      });
+    } catch {
+      // Keep previous stats if global stats request fails.
+    }
   }, []);
+
+  useEffect(() => {
+    Promise.all([fetchPage(0, false), fetchStats()]).finally(() =>
+      setIsLoading(false),
+    );
+  }, [fetchPage, fetchStats]);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await fetchPage(0, false);
+    await Promise.all([fetchPage(0, false), fetchStats()]);
     setRefreshing(false);
   };
 
@@ -92,7 +153,7 @@ export default function EncargadoResponses() {
       <View style={styles.noticeContainer}>
         <CMSNotice message="Vista informativa. El análisis avanzado se realiza en el CMS web." />
       </View>
-      <View style={styles.statsRow}>
+      <View style={styles.statsGrid}>
         <View
           style={[
             styles.statCard,
@@ -101,10 +162,24 @@ export default function EncargadoResponses() {
         >
           <Ionicons name="chatbox" size={22} color={colors.primary} />
           <Text style={[styles.statValue, { color: colors.text }]}>
-            {total}
+            {stats.totalSubmissions}
           </Text>
           <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-            Total
+            Envios
+          </Text>
+        </View>
+        <View
+          style={[
+            styles.statCard,
+            { backgroundColor: colors.surface, borderColor: colors.border },
+          ]}
+        >
+          <Ionicons name="list" size={22} color={colors.info} />
+          <Text style={[styles.statValue, { color: colors.text }]}>
+            {stats.totalAnswers}
+          </Text>
+          <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
+            Preguntas
           </Text>
         </View>
         <View
@@ -114,11 +189,29 @@ export default function EncargadoResponses() {
           ]}
         >
           <Ionicons name="people" size={22} color={colors.success} />
-          <Text style={[styles.statValue, { color: colors.text }]}>
-            {new Set(responses.map((r) => r.user_id)).size}
+          <Text style={[styles.statValue, { color: colors.text }]}> 
+            {stats.uniqueMembers}
           </Text>
           <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
             Brigadistas
+          </Text>
+        </View>
+        <View
+          style={[
+            styles.statCard,
+            { backgroundColor: colors.surface, borderColor: colors.border },
+          ]}
+        >
+          <Ionicons
+            name="analytics"
+            size={22}
+            color={colors.textSecondary}
+          />
+          <Text style={[styles.statValue, { color: colors.text }]}> 
+            {stats.averageAnswersPerSubmission.toFixed(1)}
+          </Text>
+          <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
+            Preguntas/envio
           </Text>
         </View>
       </View>
@@ -211,7 +304,11 @@ export default function EncargadoResponses() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <AppHeader
         title="Respuestas del Equipo"
-        subtitle={total > 0 ? `${total} total` : undefined}
+        subtitle={
+          stats.totalSubmissions > 0
+            ? `${stats.totalSubmissions} envios`
+            : undefined
+        }
       />
 
       {fetchError && responses.length === 0 && !isLoading && (
@@ -219,7 +316,9 @@ export default function EncargadoResponses() {
           style={[styles.errorBanner, { backgroundColor: colors.error + "15" }]}
           onPress={() => {
             setIsLoading(true);
-            fetchPage(0, false).finally(() => setIsLoading(false));
+            Promise.all([fetchPage(0, false), fetchStats()]).finally(() =>
+              setIsLoading(false),
+            );
           }}
         >
           <Ionicons
@@ -304,9 +403,15 @@ const styles = StyleSheet.create({
   errorText: { fontSize: 13, fontWeight: "600" },
 
   /* Stats */
-  statsRow: { flexDirection: "row", gap: 10, marginBottom: 12 },
+  statsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+    marginBottom: 12,
+  },
   statCard: {
-    flex: 1,
+    flexBasis: "48%",
+    flexGrow: 1,
     padding: 14,
     borderRadius: 12,
     borderWidth: 1,
