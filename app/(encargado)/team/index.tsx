@@ -8,9 +8,7 @@ import { AppHeader } from "@/components/shared";
 import { useAuth } from "@/contexts/auth-context";
 import { useThemeColors } from "@/contexts/theme-context";
 import { useTabBarHeight } from "@/hooks/use-tab-bar-height";
-import {
-  getMyTeamSummary,
-} from "@/lib/api/assignments";
+import { getMyTeamSummary } from "@/lib/api/assignments";
 import { getCached, setCached } from "@/lib/api/memory-cache";
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
@@ -71,14 +69,16 @@ export default function EncargadoTeam() {
 
     try {
       const summary = await getMyTeamSummary();
-      const display: TeamMemberDisplay[] = summary.team_members.map((member) => ({
-        id: member.id,
-        name: member.full_name,
-        email: member.email,
-        surveysAssigned: member.surveys_assigned,
-        responsesCompleted: member.submissions_count,
-        status: member.status === "active" ? "active" : "inactive",
-      }));
+      const display: TeamMemberDisplay[] = summary.team_members.map(
+        (member) => ({
+          id: member.id,
+          name: member.full_name,
+          email: member.email,
+          surveysAssigned: member.surveys_assigned,
+          responsesCompleted: member.submissions_count,
+          status: member.status === "active" ? "active" : "inactive",
+        }),
+      );
       setTeamMembers(display);
       setHasLoadedOnce(true);
       setCached("encargado:team", display);

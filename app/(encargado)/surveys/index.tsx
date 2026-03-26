@@ -8,9 +8,7 @@ import { AppHeader, CMSNotice } from "@/components/shared";
 import { useAuth } from "@/contexts/auth-context";
 import { useThemeColors } from "@/contexts/theme-context";
 import { useTabBarHeight } from "@/hooks/use-tab-bar-height";
-import {
-  getMyTeamSummary,
-} from "@/lib/api/assignments";
+import { getMyTeamSummary } from "@/lib/api/assignments";
 import { getCached, setCached } from "@/lib/api/memory-cache";
 import { getLatestSurveyVersion } from "@/lib/api/mobile";
 import { Ionicons } from "@expo/vector-icons";
