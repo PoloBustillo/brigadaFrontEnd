@@ -8,11 +8,8 @@ import { AppHeader, CMSNotice } from "@/components/shared";
 import { useAuth } from "@/contexts/auth-context";
 import { useThemeColors } from "@/contexts/theme-context";
 import { useTabBarHeight } from "@/hooks/use-tab-bar-height";
-import { getAdminAssignments, getAdminSurveys } from "@/lib/api/admin";
-import type { AssignmentDetail } from "@/lib/api/assignments";
 import {
-  getAllTeamResponses,
-  getMyCreatedAssignments,
+  getMyTeamSummary,
 } from "@/lib/api/assignments";
 import { getCached, setCached } from "@/lib/api/memory-cache";
 import { getLatestSurveyVersion } from "@/lib/api/mobile";
@@ -35,71 +32,10 @@ interface SurveyGroup {
   title: string;
   brigadistasAssigned: number;
   totalResponses: number;
-  assignmentIds: number[];
   activeAssignments: number;
   hasPublishedVersion: boolean;
   status: "active" | "inactive";
   createdAt: string;
-}
-
-type AssignmentLike = Pick<
-  AssignmentDetail,
-  | "id"
-  | "user_id"
-  | "user"
-  | "survey_id"
-  | "survey"
-  | "status"
-  | "response_count"
-  | "created_at"
->;
-
-function groupBySurvey(
-  assignments: AssignmentLike[],
-): SurveyGroup[] {
-  const map = new Map<number, SurveyGroup>();
-  const allUsersBySurvey = new Map<number, Set<number>>();
-  const activeUsersBySurvey = new Map<number, Set<number>>();
-
-  for (const a of assignments) {
-    if (!map.has(a.survey_id)) {
-      map.set(a.survey_id, {
-        surveyId: a.survey_id,
-        title: a.survey.title,
-        brigadistasAssigned: 0,
-        totalResponses: 0,
-        assignmentIds: [],
-        activeAssignments: 0,
-        hasPublishedVersion: false,
-        status: a.status,
-        createdAt: a.created_at,
-      });
-      allUsersBySurvey.set(a.survey_id, new Set<number>());
-      activeUsersBySurvey.set(a.survey_id, new Set<number>());
-    }
-    const g = map.get(a.survey_id)!;
-    allUsersBySurvey.get(a.survey_id)?.add(a.user_id);
-    if (a.status === "active") {
-      activeUsersBySurvey.get(a.survey_id)?.add(a.user_id);
-    }
-
-    g.totalResponses += a.response_count;
-    g.assignmentIds.push(a.id);
-    if (a.status === "active") g.activeAssignments++;
-    if (a.status === "active") g.status = "active";
-  }
-
-  return Array.from(map.values()).map((group) => {
-    const activeCount = activeUsersBySurvey.get(group.surveyId)?.size ?? 0;
-    const allCount = allUsersBySurvey.get(group.surveyId)?.size ?? 0;
-
-    return {
-      ...group,
-      // Prefer active brigadistas. If none are active, keep total unique users.
-      brigadistasAssigned: activeCount > 0 ? activeCount : allCount,
-      status: group.activeAssignments > 0 ? "active" : "inactive",
-    };
-  });
 }
 
 export default function EncargadoSurveys() {
@@ -114,10 +50,6 @@ export default function EncargadoSurveys() {
   const [hasLoadedOnce, setHasLoadedOnce] = useState(!!initialSurveys);
   const [refreshing, setRefreshing] = useState(false);
   const [busySurveyId, setBusySurveyId] = useState<number | null>(null);
-
-  const isEncargadoRole = (role?: string | null) =>
-    (role ?? "").toLowerCase() === "encargado";
-  const toId = (value: unknown) => Number(value);
 
   const statusConfig = useMemo(
     () => ({
@@ -147,128 +79,17 @@ export default function EncargadoSurveys() {
     }
 
     try {
-      const [
-        adminSurveysResult,
-        visibleAssignmentsResult,
-        createdAssignmentsResult,
-        responsesResult,
-      ] =
-        await Promise.allSettled([
-          getAdminSurveys(),
-          getAdminAssignments(),
-          getMyCreatedAssignments(),
-          getAllTeamResponses(),
-        ]);
-
-      const allAssignments =
-        visibleAssignmentsResult.status === "fulfilled"
-          ? visibleAssignmentsResult.value
-          : [];
-      const createdAssignments =
-        createdAssignmentsResult.status === "fulfilled"
-          ? createdAssignmentsResult.value
-          : [];
-      const teamResponses =
-        responsesResult.status === "fulfilled" ? responsesResult.value : [];
-
-      const managedSurveyIdsActive = new Set(
-        allAssignments
-          .filter(
-            (assignment) =>
-              toId(assignment.user_id) === toId(user.id) &&
-              isEncargadoRole(assignment.user?.role) &&
-              assignment.status === "active",
-          )
-          .map((assignment) => assignment.survey_id),
-      );
-
-      // Fallback: if user has no active encargado assignment, include any survey
-      // where they are assigned as encargado regardless of status.
-      const managedSurveyIds =
-        managedSurveyIdsActive.size > 0
-          ? managedSurveyIdsActive
-          : new Set(
-              allAssignments
-                .filter(
-                  (assignment) =>
-                    toId(assignment.user_id) === toId(user.id) &&
-                    isEncargadoRole(assignment.user?.role),
-                )
-                .map((assignment) => assignment.survey_id),
-            );
-
-      const managedSurveyIdsByAssigner = new Set(
-        allAssignments
-          .filter((assignment) => toId(assignment.assigned_by) === toId(user.id))
-          .map((assignment) => assignment.survey_id),
-      );
-
-      const managedSurveyIdsByCreator = new Set(
-        createdAssignments.map((assignment) => assignment.survey_id),
-      );
-
-      const managerScopeSurveyIds = new Set<number>([
-        ...managedSurveyIds,
-        ...managedSurveyIdsByAssigner,
-        ...managedSurveyIdsByCreator,
-      ]);
-
-      const scopedAssignments: AssignmentLike[] =
-        managerScopeSurveyIds.size > 0
-          ? (allAssignments.filter((a) =>
-              managerScopeSurveyIds.has(a.survey_id),
-            ) as AssignmentLike[])
-          : (createdAssignments as AssignmentLike[]);
-
-      if (visibleAssignmentsResult.status === "rejected") {
-        setFetchError(true);
-      }
-      if (responsesResult.status === "rejected") {
-        setFetchError(true);
-      }
-
-      const groupedAssignments = groupBySurvey(scopedAssignments);
-      const responseCountBySurvey = teamResponses.reduce<Record<number, number>>(
-        (acc, response) => {
-          if (typeof response.survey_id === "number") {
-            acc[response.survey_id] = (acc[response.survey_id] ?? 0) + 1;
-          }
-          return acc;
-        },
-        {},
-      );
-
-      // Only show surveys that are actually assigned to this encargado.
-      let grouped: SurveyGroup[] = groupedAssignments;
-
-      if (adminSurveysResult.status === "fulfilled") {
-        const adminSurveyById = new Map(
-          adminSurveysResult.value.map((survey) => [survey.id, survey]),
-        );
-
-        grouped = groupedAssignments.map((assignmentGroup) => {
-          const adminSurvey = adminSurveyById.get(assignmentGroup.surveyId);
-          const versions = Array.isArray(adminSurvey?.versions)
-            ? (adminSurvey.versions as Array<{
-                is_published?: boolean;
-                created_at?: string;
-              }>)
-            : [];
-
-          return {
-            ...assignmentGroup,
-            title: adminSurvey?.title ?? assignmentGroup.title,
-            totalResponses:
-              responseCountBySurvey[assignmentGroup.surveyId] ??
-              assignmentGroup.totalResponses,
-            hasPublishedVersion: versions.some((v) => !!v?.is_published),
-            createdAt:
-              adminSurvey?.created_at ??
-              assignmentGroup.createdAt ??
-              new Date().toISOString(),
-          };
-        });
-      }
+      const summary = await getMyTeamSummary();
+      const grouped: SurveyGroup[] = summary.surveys.map((survey) => ({
+        surveyId: survey.survey_id,
+        title: survey.title,
+        brigadistasAssigned: survey.brigadistas_assigned,
+        totalResponses: survey.submissions_count,
+        activeAssignments: survey.active_assignments,
+        hasPublishedVersion: survey.has_published_version,
+        status: survey.status,
+        createdAt: survey.created_at,
+      }));
 
       setSurveys(grouped);
       setHasLoadedOnce(true);

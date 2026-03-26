@@ -124,6 +124,58 @@ export interface PaginatedTeamResponse {
   has_more: boolean;
 }
 
+export interface EncargadoTeamSummaryStats {
+  team_members: number;
+  active_members: number;
+  surveys: number;
+  submissions: number;
+  assignments_with_submissions: number;
+  completion_rate: number;
+}
+
+export interface EncargadoTeamSummaryMember {
+  id: number;
+  full_name: string;
+  email: string;
+  surveys_assigned: number;
+  surveys_with_submissions: number;
+  submissions_count: number;
+  assignment_responses: number;
+  last_completed_at: string | null;
+  status: "active" | "idle" | "offline";
+}
+
+export interface EncargadoTeamSummarySurvey {
+  survey_id: number;
+  title: string;
+  brigadistas_assigned: number;
+  active_assignments: number;
+  submissions_count: number;
+  assignment_responses: number;
+  has_published_version: boolean;
+  status: "active" | "inactive";
+  created_at: string;
+}
+
+export interface EncargadoTeamSummary {
+  stats: EncargadoTeamSummaryStats;
+  team_members: EncargadoTeamSummaryMember[];
+  surveys: EncargadoTeamSummarySurvey[];
+}
+
+/** GET /assignments/my-team-summary — single source of truth for encargado mobile views */
+export async function getMyTeamSummary(): Promise<EncargadoTeamSummary> {
+  return timedCall(
+    "GET /assignments/my-team-summary",
+    () =>
+      apiClient
+        .get<EncargadoTeamSummary>("/assignments/my-team-summary")
+        .then((r) => r.data),
+    (summary) =>
+      `${summary.stats.team_members} members, ${summary.stats.surveys} surveys`,
+  );
+}
+
 /** GET /assignments/my-team-responses — responses from team members (paginated) */
 export async function getTeamResponses(
   skip = 0,

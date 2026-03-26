@@ -8,13 +8,10 @@ import { AppHeader } from "@/components/shared";
 import { useAuth } from "@/contexts/auth-context";
 import { useThemeColors } from "@/contexts/theme-context";
 import { useTabBarHeight } from "@/hooks/use-tab-bar-height";
-import { getAdminAssignments } from "@/lib/api/admin";
-import { getCached, setCached } from "@/lib/api/memory-cache";
 import {
-  getAllTeamResponses,
-  getMyCreatedAssignments,
-  getMyTeam,
+  getMyTeamSummary,
 } from "@/lib/api/assignments";
+import { getCached, setCached } from "@/lib/api/memory-cache";
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
 import {
@@ -40,17 +37,13 @@ export default function EncargadoTeam() {
   const colors = useThemeColors();
   const { contentPadding } = useTabBarHeight();
   const initialMembers = getCached<TeamMemberDisplay[]>("encargado:team");
-  const [teamMembers, setTeamMembers] = useState<TeamMemberDisplay[]>(initialMembers ?? []);
+  const [teamMembers, setTeamMembers] = useState<TeamMemberDisplay[]>(
+    initialMembers ?? [],
+  );
   const [isLoading, setIsLoading] = useState(!initialMembers);
   const [fetchError, setFetchError] = useState(false);
   const [hasLoadedOnce, setHasLoadedOnce] = useState(!!initialMembers);
   const [refreshing, setRefreshing] = useState(false);
-
-  const isEncargadoRole = (role?: string | null) =>
-    (role ?? "").toLowerCase() === "encargado";
-  const toId = (value: unknown) => Number(value);
-  const isActiveStatus = (status?: string | null) =>
-    (status ?? "").toLowerCase() === "active";
 
   const statusConfig = {
     active: {
@@ -77,124 +70,15 @@ export default function EncargadoTeam() {
     }
 
     try {
-      const [membersResult, assignmentsResult, createdAssignmentsResult, responsesResult] =
-        await Promise.allSettled([
-          getMyTeam(),
-          getAdminAssignments(),
-          getMyCreatedAssignments(),
-          getAllTeamResponses(),
-        ]);
-
-      // Team list is critical — if this fails, mark error
-      if (membersResult.status === "rejected") {
-        setFetchError(true);
-        return;
-      }
-
-      const members = membersResult.value;
-      const assignments =
-        assignmentsResult.status === "fulfilled" ? assignmentsResult.value : [];
-      const createdAssignments =
-        createdAssignmentsResult.status === "fulfilled"
-          ? createdAssignmentsResult.value
-          : [];
-      const responses =
-        responsesResult.status === "fulfilled" ? responsesResult.value : [];
-
-      // Do not mark the whole screen as offline when optional metric sources fail.
-      // Only membersResult (handled above) is critical for connection state.
-
-      const managedSurveyIdsActive = new Set(
-        assignments
-          .filter(
-            (assignment) =>
-              toId(assignment.user_id) === toId(user.id) &&
-              isEncargadoRole(assignment.user?.role) &&
-              isActiveStatus(assignment.status),
-          )
-          .map((assignment) => assignment.survey_id),
-      );
-
-      const managedSurveyIds =
-        managedSurveyIdsActive.size > 0
-          ? managedSurveyIdsActive
-          : new Set(
-              assignments
-                .filter(
-                  (assignment) =>
-                    toId(assignment.user_id) === toId(user.id) &&
-                    isEncargadoRole(assignment.user?.role),
-                )
-                .map((assignment) => assignment.survey_id),
-            );
-
-      const managedSurveyIdsByAssigner = new Set(
-        assignments
-          .filter((assignment) => toId(assignment.assigned_by) === toId(user.id))
-          .map((assignment) => assignment.survey_id),
-      );
-
-      const managedSurveyIdsByCreator = new Set(
-        createdAssignments.map((assignment) => assignment.survey_id),
-      );
-
-      const managerScopeSurveyIds = new Set<number>([
-        ...managedSurveyIds,
-        ...managedSurveyIdsByAssigner,
-        ...managedSurveyIdsByCreator,
-      ]);
-      if (managerScopeSurveyIds.size === 0) {
-        responses.forEach((response) => {
-          if (typeof response.survey_id === "number") {
-            managerScopeSurveyIds.add(response.survey_id);
-          }
-        });
-      }
-
-      const scopedAssignments =
-        managerScopeSurveyIds.size > 0
-          ? assignments.filter((assignment) =>
-              managerScopeSurveyIds.has(assignment.survey_id),
-            )
-          : createdAssignments;
-
-      const responsesByUser = responses.reduce<Map<number, number>>((acc, r) => {
-        if (
-          typeof r.survey_id === "number" &&
-          managerScopeSurveyIds.has(r.survey_id)
-        ) {
-          acc.set(r.user_id, (acc.get(r.user_id) ?? 0) + 1);
-        }
-        return acc;
-      }, new Map<number, number>());
-
-      const display: TeamMemberDisplay[] = members.map((m) => {
-        const userAssignments = scopedAssignments.filter(
-          (a: any) => toId(a.user_id) === toId(m.id),
-        );
-        const uniqueSurveys = new Set(
-          userAssignments.map((a: any) => a.survey_id),
-        ).size;
-        const totalResponsesFromAssignments = userAssignments.reduce(
-          (acc: number, a: any) => acc + a.response_count,
-          0,
-        );
-        const totalResponses = Math.max(
-          totalResponsesFromAssignments,
-          responsesByUser.get(toId(m.id)) ?? 0,
-        );
-        const hasActive = userAssignments.some((a: any) =>
-          isActiveStatus(a.status),
-        );
-        return {
-          id: m.id,
-          name: m.full_name,
-          email: m.email,
-          surveysAssigned: uniqueSurveys,
-          responsesCompleted: totalResponses,
-          status: hasActive ? "active" : "inactive",
-        };
-      });
+      const summary = await getMyTeamSummary();
+      const display: TeamMemberDisplay[] = summary.team_members.map((member) => ({
+        id: member.id,
+        name: member.full_name,
+        email: member.email,
+        surveysAssigned: member.surveys_assigned,
+        responsesCompleted: member.submissions_count,
+        status: member.status === "active" ? "active" : "inactive",
+      }));
       setTeamMembers(display);
       setHasLoadedOnce(true);
       setCached("encargado:team", display);
@@ -239,7 +123,10 @@ export default function EncargadoTeam() {
         </View>
       ) : (
         <ScrollView
-          contentContainerStyle={[styles.content, { paddingBottom: contentPadding }]}
+          contentContainerStyle={[
+            styles.content,
+            { paddingBottom: contentPadding },
+          ]}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
@@ -289,7 +176,7 @@ export default function EncargadoTeam() {
                 {totalResponses}
               </Text>
               <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-                Respuestas
+                Envios
               </Text>
             </View>
           </View>
@@ -298,9 +185,7 @@ export default function EncargadoTeam() {
           <View style={styles.listContainer}>
             {teamMembers.length === 0 ? (
               fetchError && !hasLoadedOnce ? (
-                <View
-                  style={styles.emptyState}
-                >
+                <View style={styles.emptyState}>
                   <Ionicons
                     name="cloud-offline-outline"
                     size={64}
@@ -309,7 +194,12 @@ export default function EncargadoTeam() {
                   <Text style={[styles.emptyText, { color: colors.error }]}>
                     Sin conexión
                   </Text>
-                  <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>
+                  <Text
+                    style={[
+                      styles.emptySubtext,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
                     No se pudo cargar el equipo. Desliza para reintentar.
                   </Text>
                 </View>
@@ -323,7 +213,12 @@ export default function EncargadoTeam() {
                   <Text style={[styles.emptyText, { color: colors.text }]}>
                     Equipo sin miembros
                   </Text>
-                  <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>
+                  <Text
+                    style={[
+                      styles.emptySubtext,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
                     Los brigadistas asignados a tu equipo aparecerán aquí
                   </Text>
                 </View>
@@ -421,7 +316,7 @@ export default function EncargadoTeam() {
                             { color: colors.textSecondary },
                           ]}
                         >
-                          {member.responsesCompleted} completadas
+                          {member.responsesCompleted} envios
                         </Text>
                       </View>
                     </View>

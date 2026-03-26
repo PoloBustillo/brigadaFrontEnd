@@ -68,8 +68,9 @@ export default function EncargadoResponses() {
           return {
             totalSubmissions: fallbackSubmissions,
             totalAnswers: fallbackAnswers,
-            uniqueMembers: new Set(res.items.map((response) => response.user_id))
-              .size,
+            uniqueMembers: new Set(
+              res.items.map((response) => response.user_id),
+            ).size,
             averageAnswersPerSubmission:
               fallbackSubmissions > 0
                 ? fallbackAnswers / fallbackSubmissions
@@ -189,7 +190,7 @@ export default function EncargadoResponses() {
           ]}
         >
           <Ionicons name="people" size={22} color={colors.success} />
-          <Text style={[styles.statValue, { color: colors.text }]}> 
+          <Text style={[styles.statValue, { color: colors.text }]}>
             {stats.uniqueMembers}
           </Text>
           <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
@@ -202,12 +203,8 @@ export default function EncargadoResponses() {
             { backgroundColor: colors.surface, borderColor: colors.border },
           ]}
         >
-          <Ionicons
-            name="analytics"
-            size={22}
-            color={colors.textSecondary}
-          />
-          <Text style={[styles.statValue, { color: colors.text }]}> 
+          <Ionicons name="analytics" size={22} color={colors.textSecondary} />
+          <Text style={[styles.statValue, { color: colors.text }]}>
             {stats.averageAnswersPerSubmission.toFixed(1)}
           </Text>
           <Text style={[styles.statLabel, { color: colors.textSecondary }]}>

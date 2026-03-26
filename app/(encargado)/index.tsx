@@ -13,12 +13,7 @@ import { ThemeToggleIcon } from "@/components/ui/theme-toggle";
 import { useAuth } from "@/contexts/auth-context";
 import { useThemeColors } from "@/contexts/theme-context";
 import { useTabBarHeight } from "@/hooks/use-tab-bar-height";
-import { getAdminAssignments } from "@/lib/api/admin";
-import {
-  getAllTeamResponses,
-  getMyCreatedAssignments,
-  getMyTeam,
-} from "@/lib/api/assignments";
+import { getMyTeamSummary } from "@/lib/api/assignments";
 import { getCached, setCached } from "@/lib/api/memory-cache";
 import { Ionicons } from "@expo/vector-icons";
 import NetInfo from "@react-native-community/netinfo";
@@ -210,10 +205,6 @@ export default function EncargadoHome() {
     initialDashboard?.teamMembers ?? [],
   );
 
-  const isEncargadoRole = (role?: string | null) =>
-    (role ?? "").toLowerCase() === "encargado";
-  const toId = (value: unknown) => Number(value);
-
   const formatLastActive = (isoDate: string | null) => {
     if (!isoDate) return "Sin actividad reciente";
     const date = new Date(isoDate);
@@ -232,223 +223,48 @@ export default function EncargadoHome() {
 
     setFetchError(false);
     try {
-      const [membersResult, assignmentsResult, responsesResult, createdAssignmentsResult] =
-        await Promise.allSettled([
-          getMyTeam(),
-          getAdminAssignments(),
-          getAllTeamResponses(),
-          getMyCreatedAssignments(),
-        ]);
-
-      // Team members are critical — if this fails, mark error
-      if (membersResult.status === "rejected") {
-        setFetchError(true);
-        if (!silent) {
-          setStats([
-            {
-              icon: "people",
-              value: 0,
-              label: "Mi Equipo",
-              color: colors.primary,
-            },
-            {
-              icon: "document-text",
-              value: 0,
-              label: "Mis Encuestas",
-              color: colors.success,
-            },
-            {
-              icon: "clipboard",
-              value: 0,
-              label: "Respuestas",
-              color: colors.info,
-            },
-            {
-              icon: "trending-up",
-              value: "0%",
-              label: "Completado",
-              color: colors.warning,
-            },
-          ]);
-        }
-        return;
-      }
-
-      const members = membersResult.value;
-      const assignments =
-        assignmentsResult.status === "fulfilled" ? assignmentsResult.value : [];
-      const responses =
-        responsesResult.status === "fulfilled" ? responsesResult.value : [];
-      const createdAssignments =
-        createdAssignmentsResult.status === "fulfilled"
-          ? createdAssignmentsResult.value
-          : [];
-
-      const managedSurveyIdsActive = new Set(
-        assignments
-          .filter(
-            (assignment) =>
-              toId(assignment.user_id) === toId(user?.id) &&
-              isEncargadoRole(assignment.user?.role) &&
-              assignment.status === "active",
-          )
-          .map((assignment) => assignment.survey_id),
-      );
-
-      const managedSurveyIds =
-        managedSurveyIdsActive.size > 0
-          ? managedSurveyIdsActive
-          : new Set(
-              assignments
-                .filter(
-                  (assignment) =>
-                    toId(assignment.user_id) === toId(user?.id) &&
-                    isEncargadoRole(assignment.user?.role),
-                )
-                .map((assignment) => assignment.survey_id),
-            );
-
-      const managedSurveyIdsByAssigner = new Set(
-        assignments
-          .filter((assignment) => toId(assignment.assigned_by) === toId(user?.id))
-          .map((assignment) => assignment.survey_id),
-      );
-
-      const managedSurveyIdsByCreator = new Set(
-        createdAssignments.map((assignment) => assignment.survey_id),
-      );
-
-      const managerScopeSurveyIds = new Set<number>([
-        ...managedSurveyIds,
-        ...managedSurveyIdsByAssigner,
-        ...managedSurveyIdsByCreator,
-      ]);
-      if (managerScopeSurveyIds.size === 0) {
-        responses.forEach((response) => {
-          if (typeof response.survey_id === "number") {
-            managerScopeSurveyIds.add(response.survey_id);
-          }
-        });
-      }
-
-      const scopedAssignments =
-        managerScopeSurveyIds.size > 0
-          ? assignments.filter((assignment) =>
-              managerScopeSurveyIds.has(assignment.survey_id),
-            )
-          : createdAssignments;
-
-      // If secondary data failed, show a soft banner
-      if (
-        assignmentsResult.status === "rejected" ||
-        responsesResult.status === "rejected" ||
-        createdAssignmentsResult.status === "rejected"
-      ) {
-        setFetchError(true);
-      }
-
-      const uniqueSurveyIds = new Set(
-        scopedAssignments.map((a) => a.survey_id),
-      );
-      const totalResponsesFromTeamResponses = responses.filter(
-        (response) =>
-          typeof response.survey_id === "number" &&
-          managerScopeSurveyIds.has(response.survey_id),
-      ).length;
-      const totalResponsesFromAssignments = scopedAssignments.reduce(
-        (acc, assignment) => acc + assignment.response_count,
-        0,
-      );
-      const totalResponses =
-        responsesResult.status === "fulfilled"
-          ? totalResponsesFromTeamResponses
-          : totalResponsesFromAssignments;
-      const assignmentsWithResponses = scopedAssignments.filter(
-        (a) => a.response_count > 0,
-      ).length;
-      const completionRate =
-        scopedAssignments.length > 0
-          ? Math.round(
-              (assignmentsWithResponses / scopedAssignments.length) * 100,
-            )
-          : 0;
+      const summary = await getMyTeamSummary();
 
       const computedStats: StatCardProps[] = [
         {
           icon: "people",
-          value: members.length,
+          value: summary.stats.team_members,
           label: "Mi Equipo",
           color: colors.primary,
         },
         {
           icon: "document-text",
-          value: uniqueSurveyIds.size,
+          value: summary.stats.surveys,
           label: "Mis Encuestas",
           color: colors.success,
         },
         {
           icon: "clipboard",
-          value: totalResponses,
+          value: summary.stats.submissions,
           label: "Respuestas",
           color: colors.info,
         },
         {
           icon: "trending-up",
-          value: `${completionRate}%`,
+          value: `${summary.stats.completion_rate}%`,
           label: "Completado",
           color: colors.warning,
         },
       ];
       setStats(computedStats);
 
-      const mappedMembers: TeamMemberCardProps[] = members.map((member) => {
-        const memberAssignments = scopedAssignments.filter(
-          (a) => a.user_id === member.id,
-        );
-        const surveysAssigned = new Set(
-          memberAssignments.map((a) => a.survey_id),
-        ).size;
-        const surveysWithResponses = new Set(
-          memberAssignments
-            .filter((a) => a.response_count > 0)
-            .map((a) => a.survey_id),
-        ).size;
-        const latestResponseDate =
-          responses
-            .filter((r) => r.user_id === member.id && r.completed_at)
-            .map((r) => r.completed_at as string)
-            .sort()
-            .reverse()[0] ?? null;
-
-        const memberSubmissions = responses.filter(
-          (r) =>
-            r.user_id === member.id &&
-            typeof r.survey_id === "number" &&
-            managerScopeSurveyIds.has(r.survey_id),
-        ).length;
-        const responsesByAssignments = memberAssignments.reduce(
-          (acc, assignment) => acc + Number(assignment.response_count || 0),
-          0,
-        );
-
-        const hasActive = memberAssignments.some((a) => a.status === "active");
-        const status: TeamMemberCardProps["status"] = hasActive
-          ? "active"
-          : memberAssignments.length > 0
-            ? "idle"
-            : "offline";
-
-        return {
+      const mappedMembers: TeamMemberCardProps[] = summary.team_members.map(
+        (member) => ({
           id: member.id,
           name: member.full_name,
           email: member.email,
-          surveysCompleted: surveysWithResponses,
-          surveysTotal: Math.max(surveysAssigned, 1),
-          responsesCount: Math.max(memberSubmissions, responsesByAssignments),
-          lastActive: formatLastActive(latestResponseDate),
-          status,
-        };
-      });
+          surveysCompleted: member.surveys_with_submissions,
+          surveysTotal: Math.max(member.surveys_assigned, 1),
+          responsesCount: member.submissions_count,
+          lastActive: formatLastActive(member.last_completed_at),
+          status: member.status,
+        }),
+      );
 
       setTeamMembers(mappedMembers);
       setHasLoadedOnce(true);
