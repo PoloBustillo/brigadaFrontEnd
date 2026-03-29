@@ -1,10 +1,14 @@
 /**
  * Protected Route Component
- * Handles role-based route protection and automatic redirects
- * Rules 6-8: Role-based permissions
+ * Handles permission/capability-based route protection and redirects.
  */
 
 import { useAuth } from "@/contexts/auth-context";
+import {
+  canAccessMobileRouteGroup,
+  getPrimaryMobileRouteGroup,
+} from "@/lib/auth/capabilities";
+import { hasAnyPermissionForUser, Permission } from "@/lib/auth/permissions";
 import type { UserRole } from "@/types/user";
 import { useRouter, useSegments } from "expo-router";
 import { useEffect } from "react";
@@ -13,37 +17,34 @@ import { ActivityIndicator, StyleSheet, View } from "react-native";
 interface ProtectedRouteProps {
   children: React.ReactNode;
   allowedRoles?: UserRole[];
+  allowedPermissions?: Permission[];
   requireAuth?: boolean;
 }
 
 export function ProtectedRoute({
   children,
   allowedRoles,
+  allowedPermissions,
   requireAuth = true,
 }: ProtectedRouteProps) {
   const { user, loading } = useAuth();
   const router = useRouter();
   const segments = useSegments();
 
-  const navigateToUserRole = (role: UserRole) => {
-    switch (role) {
-      case "ADMIN":
-        router.replace("/(admin)/" as any);
-        break;
-      case "ENCARGADO":
-        router.replace("/(encargado)/" as any);
-        break;
-      case "BRIGADISTA":
-        router.replace("/(brigadista)/" as any);
-        break;
+  const navigateToUserHome = () => {
+    if (!user) {
+      router.replace("/(auth)/welcome" as any);
+      return;
     }
+    const routeGroup = getPrimaryMobileRouteGroup(user);
+    router.replace(`/${routeGroup}/` as any);
   };
 
   useEffect(() => {
     if (loading) return;
 
     const inAuthGroup = segments[0] === "(auth)";
-    const inRoleGroup = ["(admin)", "(encargado)", "(brigadista)"].includes(
+    const inRoleGroup = ["(encargado)", "(brigadista)"].includes(
       segments[0] as string,
     );
 
@@ -59,30 +60,40 @@ export function ProtectedRoute({
     // Authenticated but in auth screens
     if (user && inAuthGroup) {
       console.log("✅ User logged in, redirecting from auth to dashboard");
-      navigateToUserRole(user.role);
+      navigateToUserHome();
       return;
     }
 
-    // Check role permissions for protected routes
+    // Backward compatibility while old role-based screens are being removed.
     if (allowedRoles && !allowedRoles.includes(user.role)) {
       console.log(
         `⛔ Access denied: User role ${user.role} not in allowed roles`,
         allowedRoles,
       );
-      navigateToUserRole(user.role);
+      navigateToUserHome();
       return;
     }
 
-    // Check if user is in wrong role group
+    if (
+      allowedPermissions &&
+      !hasAnyPermissionForUser(user, allowedPermissions)
+    ) {
+      console.log(
+        `⛔ Access denied: User ${user.email} lacks required permissions`,
+        allowedPermissions,
+      );
+      navigateToUserHome();
+      return;
+    }
+
+    // Check if user is in a route group outside their effective capabilities.
     if (inRoleGroup) {
       const currentRoleGroup = segments[0];
-      const expectedGroup = `(${user.role.toLowerCase()})`;
-
-      if (currentRoleGroup !== expectedGroup) {
+      if (!canAccessMobileRouteGroup(user, String(currentRoleGroup))) {
         console.log(
-          `🔀 User in wrong role group. Current: ${currentRoleGroup}, Expected: ${expectedGroup}`,
+          `🔀 User in inaccessible group. Current: ${currentRoleGroup}`,
         );
-        navigateToUserRole(user.role);
+        navigateToUserHome();
         return;
       }
     }

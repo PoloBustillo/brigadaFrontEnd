@@ -58,7 +58,7 @@ export function useFillSurvey({
 
     (async () => {
       try {
-        const userId = user?.id ? String(user.id) : "anonymous";
+        const userId = user?.id ? String(user.id) : "unknown-user";
         const sid = surveyId || versionId || "unknown";
 
         const drafts = await offlineSyncService.getDraftResponses(userId);

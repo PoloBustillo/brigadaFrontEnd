@@ -4,10 +4,15 @@
  */
 
 import { useAuth } from "@/contexts/auth-context";
+import { getPrimaryMobileRouteGroup } from "@/lib/auth/capabilities";
 import type { UserRole } from "@/types/user";
 import { useRouter, useSegments } from "expo-router";
 import { useEffect } from "react";
-import { hasAnyPermission, hasPermission, Permission } from "./permissions";
+import {
+  hasAnyPermissionForUser,
+  hasPermissionForUser,
+  Permission,
+} from "./permissions";
 
 /**
  * Hook to protect routes - redirects if not authenticated
@@ -21,12 +26,9 @@ export function useProtectedRoute() {
     if (loading) return;
 
     const inAuthGroup = segments[0] === "(auth)";
-    const inProtectedGroup = [
-      "(admin)",
-      "(encargado)",
-      "(brigadista)",
-      "(tabs)",
-    ].includes(segments[0] as string);
+    const inProtectedGroup = ["(encargado)", "(brigadista)", "(tabs)"].includes(
+      segments[0] as string,
+    );
 
     if (!isAuthenticated && inProtectedGroup) {
       // Redirect to login if trying to access protected route
@@ -35,7 +37,7 @@ export function useProtectedRoute() {
     } else if (isAuthenticated && inAuthGroup) {
       // Redirect to home if authenticated user tries to access auth screens
       console.log("Already authenticated, redirecting to home");
-      redirectToRoleHome(user!.role, router);
+      redirectToRoleHome(user!, router);
     }
   }, [isAuthenticated, loading, segments]);
 }
@@ -43,21 +45,12 @@ export function useProtectedRoute() {
 /**
  * Redirect user to their role-specific home screen
  */
-export function redirectToRoleHome(role: UserRole, router: any) {
-  switch (role) {
-    case "ADMIN":
-      router.replace("/(admin)");
-      break;
-    case "ENCARGADO":
-      router.replace("/(encargado)");
-      break;
-    case "BRIGADISTA":
-      router.replace("/(brigadista)");
-      break;
-    default:
-      console.warn("Unknown role:", role);
-      router.replace("/(tabs)");
-  }
+export function redirectToRoleHome(
+  user: { role: UserRole; permissions?: string[] },
+  router: any,
+) {
+  const routeGroup = getPrimaryMobileRouteGroup(user);
+  router.replace(`/${routeGroup}`);
 }
 
 /**
@@ -99,7 +92,7 @@ export function useRequirePermission(requiredPermission: Permission) {
       return;
     }
 
-    if (!hasPermission(user.role, requiredPermission)) {
+    if (!hasPermissionForUser(user, requiredPermission)) {
       console.log(
         `User role ${user.role} doesn't have permission:`,
         requiredPermission,
@@ -124,7 +117,7 @@ export function useRequireAnyPermission(permissions: Permission[]) {
       return;
     }
 
-    if (!hasAnyPermission(user.role, permissions)) {
+    if (!hasAnyPermissionForUser(user, permissions)) {
       console.log(
         `User role ${user.role} doesn't have any of permissions:`,
         permissions,
@@ -140,7 +133,7 @@ export function useRequireAnyPermission(permissions: Permission[]) {
 export function useHasPermission(permission: Permission): boolean {
   const { user } = useAuth();
   if (!user) return false;
-  return hasPermission(user.role, permission);
+  return hasPermissionForUser(user, permission);
 }
 
 /**
@@ -149,7 +142,7 @@ export function useHasPermission(permission: Permission): boolean {
 export function useHasAnyPermission(permissions: Permission[]): boolean {
   const { user } = useAuth();
   if (!user) return false;
-  return hasAnyPermission(user.role, permissions);
+  return hasAnyPermissionForUser(user, permissions);
 }
 
 /**

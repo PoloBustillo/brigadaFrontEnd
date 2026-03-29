@@ -13,6 +13,7 @@ import { useEffect, useMemo, useState } from "react";
 
 export interface MySurvey {
   id: number;
+  surveyId: number;
   title: string;
   description: string;
   encargadoName: string;
@@ -104,6 +105,7 @@ function mapApiSurvey(
 ): MySurvey {
   return {
     id: raw.assignment_id,
+    surveyId: raw.survey_id,
     title: raw.survey_title,
     description: raw.survey_description ?? "",
     encargadoName: "",
@@ -113,6 +115,8 @@ function mapApiSurvey(
     totalTarget: 1,
     status: raw.assignment_status === "active" ? "ACTIVE" : "COMPLETED",
     assignedAt: raw.assigned_at,
+    startDate: raw.starts_at ?? undefined,
+    deadline: raw.ends_at ?? undefined,
     versionId: raw.latest_version?.id ?? 0,
     questionsJson: JSON.stringify(
       (raw.latest_version?.questions ?? [])

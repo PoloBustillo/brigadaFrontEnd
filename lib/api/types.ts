@@ -19,6 +19,8 @@ export interface LoginResponse {
     telefono: string | null;
     activo: boolean;
     created_at: string;
+    role_template?: string | null;
+    permissions?: string[];
   };
 }
 
@@ -29,7 +31,10 @@ export interface UserResponse {
   full_name: string;
   phone?: string | null;
   avatar_url?: string | null;
-  role: UserRole;
+  role?: UserRole | string;
+  rol?: string;
+  role_template?: string | null;
+  permissions?: string[];
   is_active: boolean;
   created_at: string;
   updated_at?: string;

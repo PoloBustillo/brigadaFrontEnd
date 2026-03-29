@@ -3,7 +3,7 @@
  * Permissions system for enforcing access control
  */
 
-import type { UserRole } from "@/types/user";
+import type { User, UserRole } from "@/types/user";
 
 /**
  * Permission definitions for each feature/action
@@ -13,6 +13,7 @@ export enum Permission {
   CREATE_SURVEY = "create_survey",
   EDIT_SURVEY = "edit_survey",
   DELETE_SURVEY = "delete_survey",
+  VIEW_SURVEYS = "view_surveys",
   VIEW_ALL_SURVEYS = "view_all_surveys",
   PUBLISH_SURVEY = "publish_survey",
 
@@ -33,6 +34,7 @@ export enum Permission {
   VIEW_OWN_RESPONSES = "view_own_responses",
   VIEW_ALL_RESPONSES = "view_all_responses",
   VIEW_ASSIGNED_RESPONSES = "view_assigned_responses",
+  VIEW_NOTIFICATIONS = "view_notifications",
 
   // Profile
   EDIT_OWN_PROFILE = "edit_own_profile",
@@ -92,6 +94,43 @@ const rolePermissions: Record<UserRole, Permission[]> = {
 export function hasPermission(role: UserRole, permission: Permission): boolean {
   const permissions = rolePermissions[role];
   return permissions ? permissions.includes(permission) : false;
+}
+
+/**
+ * Get effective permissions for a user.
+ * If backend-provided permissions are present, use them first.
+ */
+export function getUserPermissions(
+  user: Pick<User, "role" | "permissions">,
+): string[] {
+  if (Array.isArray(user.permissions) && user.permissions.length > 0) {
+    return user.permissions;
+  }
+
+  return getPermissions(user.role);
+}
+
+/**
+ * Check if user has a specific permission.
+ */
+export function hasPermissionForUser(
+  user: Pick<User, "role" | "permissions">,
+  permission: Permission,
+): boolean {
+  return getUserPermissions(user).includes(permission);
+}
+
+/**
+ * Check if user has any of the requested permissions.
+ */
+export function hasAnyPermissionForUser(
+  user: Pick<User, "role" | "permissions">,
+  permissions: Permission[],
+): boolean {
+  const effectivePermissions = getUserPermissions(user);
+  return permissions.some((permission) =>
+    effectivePermissions.includes(permission),
+  );
 }
 
 /**

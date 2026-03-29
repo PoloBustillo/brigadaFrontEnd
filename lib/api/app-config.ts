@@ -14,6 +14,7 @@ export interface PublicAppConfig {
   splash_gradient_end: string;
   splash_message_color: string;
   splash_font_type: "script" | "system" | "serif" | "mono" | "rounded";
+  bottom_bar_survey_ids: number[];
   created_at: string;
   updated_at: string | null;
 }

@@ -14,10 +14,11 @@ import { ButtonEnhanced } from "@/components/ui/button-enhanced";
 import { InputEnhanced } from "@/components/ui/input-enhanced";
 import { ThemeToggleIcon } from "@/components/ui/theme-toggle";
 import { toastManager } from "@/components/ui/toast-enhanced";
-import { translateError } from "@/utils/translate-error";
 import { useAuth } from "@/contexts/auth-context";
 import { useThemeColors } from "@/contexts/theme-context";
 import { completeActivation } from "@/lib/api";
+import { getPrimaryMobileRouteGroup } from "@/lib/auth/capabilities";
+import { translateError } from "@/utils/translate-error";
 import { Ionicons } from "@expo/vector-icons";
 import NetInfo from "@react-native-community/netinfo";
 import * as Haptics from "expo-haptics";
@@ -229,14 +230,7 @@ export default function CreatePasswordScreen() {
       // redirect back to the welcome/login flow.
       const activatedUser = await login(email.trim(), password);
 
-      // login() returns a User with UPPERCASE role ("ADMIN", "ENCARGADO", "BRIGADISTA")
-      const roleRoutes: Record<string, string> = {
-        ADMIN: "/(admin)/",
-        ENCARGADO: "/(encargado)/",
-        BRIGADISTA: "/(brigadista)/",
-      };
-      const destination =
-        roleRoutes[activatedUser.role] ?? "/(auth)/login-enhanced";
+      const destination = `/${getPrimaryMobileRouteGroup(activatedUser)}/`;
 
       setTimeout(() => {
         router.replace(destination as any);
@@ -247,7 +241,11 @@ export default function CreatePasswordScreen() {
       // post-activation login step (account was created but auto-login failed).
       // In that case, guide the user to log in manually.
       const msg: string = err?.message ?? "";
-      if (msg.includes("login") || msg.includes("contraseña") || msg.includes("password")) {
+      if (
+        msg.includes("login") ||
+        msg.includes("contraseña") ||
+        msg.includes("password")
+      ) {
         toastManager.success("¡Cuenta creada! Por favor inicia sesión.");
         setTimeout(() => router.replace("/(auth)/login-enhanced" as any), 1000);
       } else {

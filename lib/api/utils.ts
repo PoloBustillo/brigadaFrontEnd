@@ -51,13 +51,19 @@ export function getApiErrorMessage(error: any, fallback: string): string {
  * Used by getCurrentUser, updateProfile and uploadAvatar.
  */
 export function mapUser(profile: UserResponse): User {
+  const effectiveRole = (profile.rol ?? profile.role ?? "BRIGADISTA") as string;
+
   return {
     id: profile.id,
     email: profile.email,
     name: profile.full_name,
     phone: profile.phone,
     avatar_url: profile.avatar_url,
-    role: (profile.role as string).toUpperCase() as User["role"],
+    role: effectiveRole.toUpperCase() as User["role"],
+    role_template: profile.role_template ?? null,
+    permissions: Array.isArray(profile.permissions)
+      ? profile.permissions
+      : undefined,
     state: profile.is_active ? "ACTIVE" : "DISABLED",
     created_at: new Date(profile.created_at).getTime(),
     updated_at: profile.updated_at

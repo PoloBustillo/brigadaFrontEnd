@@ -4,6 +4,7 @@ import React from "react";
 import { ProtectedRoute } from "@/components/auth";
 import { HapticTab } from "@/components/haptic-tab";
 import { CustomTabBar } from "@/components/ui/custom-tab-bar";
+import { Permission } from "@/lib/auth/permissions";
 import { Ionicons } from "@expo/vector-icons";
 
 /**
@@ -14,7 +15,14 @@ import { Ionicons } from "@expo/vector-icons";
  */
 export default function EncargadoLayout() {
   return (
-    <ProtectedRoute allowedRoles={["ENCARGADO"]}>
+    <ProtectedRoute
+      allowedPermissions={[
+        Permission.VIEW_ALL_SURVEYS,
+        Permission.CREATE_ASSIGNMENT,
+        Permission.VIEW_ASSIGNED_RESPONSES,
+        Permission.VIEW_ALL_RESPONSES,
+      ]}
+    >
       <Tabs
         tabBar={(props) => <CustomTabBar {...props} />}
         screenOptions={{

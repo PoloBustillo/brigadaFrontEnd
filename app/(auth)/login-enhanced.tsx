@@ -15,7 +15,7 @@ import { InputEnhanced } from "@/components/ui/input-enhanced";
 import { ThemeToggleIcon } from "@/components/ui/theme-toggle";
 import { useAuth } from "@/contexts/auth-context";
 import { useThemeColors } from "@/contexts/theme-context";
-import type { UserRole } from "@/types/user";
+import { getPrimaryMobileRouteGroup } from "@/lib/auth/capabilities";
 import { getErrorMessage } from "@/utils/translate-error";
 import { Ionicons } from "@expo/vector-icons";
 import NetInfo from "@react-native-community/netinfo";
@@ -141,20 +141,11 @@ export default function LoginScreen() {
     }
   };
 
-  const navigateByRole = (role: UserRole) => {
-    switch (role) {
-      case "ADMIN":
-        router.replace("/(admin)");
-        break;
-      case "ENCARGADO":
-        router.replace("/(encargado)");
-        break;
-      case "BRIGADISTA":
-        router.replace("/(brigadista)");
-        break;
-      default:
-        router.replace("/(brigadista)");
-    }
+  const navigateByCapabilities = (
+    loggedUser: Awaited<ReturnType<typeof login>>,
+  ) => {
+    const destination = getPrimaryMobileRouteGroup(loggedUser);
+    router.replace(`/${destination}` as any);
   };
 
   const handleLogin = async () => {
@@ -207,8 +198,8 @@ export default function LoginScreen() {
         // Haptic feedback for success
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-        // Navigate based on role
-        navigateByRole(loggedUser.role);
+        // Navigate based on capabilities/permissions
+        navigateByCapabilities(loggedUser);
       }, 3); // 3 retry attempts
     } catch (error) {
       setErrorMessage(getErrorMessage(error));

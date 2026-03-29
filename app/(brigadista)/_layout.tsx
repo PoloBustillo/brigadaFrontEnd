@@ -7,6 +7,7 @@ import { HapticTab } from "@/components/haptic-tab";
 import { CustomTabBar } from "@/components/ui/custom-tab-bar";
 import { OfflineBanner } from "@/components/ui/offline-banner";
 import { useSync } from "@/contexts/sync-context";
+import { Permission } from "@/lib/auth/permissions";
 import { Ionicons } from "@expo/vector-icons";
 
 /**
@@ -18,10 +19,20 @@ export default function BrigadistaLayout() {
   const { isOnline } = useSync();
 
   return (
-    <ProtectedRoute allowedRoles={["BRIGADISTA"]}>
+    <ProtectedRoute
+      allowedPermissions={[
+        Permission.VIEW_SURVEYS,
+        Permission.SUBMIT_RESPONSE,
+        Permission.VIEW_OWN_RESPONSES,
+        Permission.VIEW_ASSIGNMENTS,
+        Permission.EDIT_OWN_PROFILE,
+        Permission.CHANGE_OWN_PASSWORD,
+      ]}
+    >
       <View style={{ flex: 1 }}>
         <OfflineBanner compact={false} showIfOnline={true} />
         <Tabs
+          initialRouteName="my-surveys"
           tabBar={(props) => <CustomTabBar {...props} />}
           screenOptions={{
             headerShown: false,
@@ -42,6 +53,7 @@ export default function BrigadistaLayout() {
             name="my-surveys"
             options={{
               title: "Mis Encuestas",
+              tabBarStyle: { display: "none" },
               tabBarIcon: ({ color }) => (
                 <Ionicons name="clipboard" size={24} color={color} />
               ),

@@ -27,7 +27,9 @@ import {
   useMysurveys,
 } from "@/hooks/use-my-surveys";
 import { useTabBarHeight } from "@/hooks/use-tab-bar-height";
+import { fetchPublicAppConfig } from "@/lib/api/app-config";
 import { Ionicons } from "@expo/vector-icons";
+import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   RefreshControl,
@@ -37,11 +39,14 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function BrigadistaSurveysScreen() {
   const colors = useThemeColors();
   const { contentPadding } = useTabBarHeight();
+  const insets = useSafeAreaInsets();
   const { isOnline, pendingItems, isSyncing } = useSync();
+  const [bottomBarSurveyIds, setBottomBarSurveyIds] = useState<number[]>([]);
 
   const {
     surveys,
@@ -58,6 +63,30 @@ export default function BrigadistaSurveysScreen() {
     canEditResponse,
     handleStartSurvey,
   } = useMysurveys();
+
+  useEffect(() => {
+    const loadBottomBarConfig = async () => {
+      const config = await fetchPublicAppConfig();
+      setBottomBarSurveyIds(config?.bottom_bar_survey_ids ?? []);
+    };
+
+    loadBottomBarConfig();
+  }, []);
+
+  const bottomBarSurveys = useMemo(() => {
+    const activeNow = surveysByTimeWindow.active;
+    if (activeNow.length === 0) return [];
+
+    if (bottomBarSurveyIds.length === 0) {
+      return activeNow.slice(0, 4);
+    }
+
+    const bySurveyId = new Map(activeNow.map((survey) => [survey.surveyId, survey]));
+    return bottomBarSurveyIds
+      .map((surveyId) => bySurveyId.get(surveyId))
+      .filter((survey): survey is (typeof activeNow)[number] => Boolean(survey))
+      .slice(0, 6);
+  }, [surveysByTimeWindow.active, bottomBarSurveyIds]);
 
   const calculateMyProgress = (responses: number, target: number): number => {
     if (target <= 0) return 0;
@@ -228,7 +257,7 @@ export default function BrigadistaSurveysScreen() {
         <ScrollView
           contentContainerStyle={[
             styles.content,
-            { paddingBottom: contentPadding },
+            { paddingBottom: contentPadding + 96 },
           ]}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
@@ -960,6 +989,49 @@ export default function BrigadistaSurveysScreen() {
           </View>
         </ScrollView>
       )}
+
+      {bottomBarSurveys.length > 0 && (
+        <View
+          style={[
+            styles.bottomSurveyBar,
+            {
+              backgroundColor: colors.surface,
+              borderTopColor: colors.border,
+              paddingBottom: Math.max(insets.bottom, 10),
+            },
+          ]}
+        >
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.bottomSurveyBarContent}
+          >
+            {bottomBarSurveys.map((survey) => (
+              <TouchableOpacity
+                key={`bottom-link-${survey.id}`}
+                style={[
+                  styles.bottomSurveyButton,
+                  { backgroundColor: colors.primary + "18" },
+                ]}
+                onPress={() => handleStartSurvey(survey, "active")}
+                activeOpacity={0.8}
+              >
+                <Ionicons
+                  name="clipboard-outline"
+                  size={14}
+                  color={colors.primary}
+                />
+                <Text
+                  numberOfLines={1}
+                  style={[styles.bottomSurveyButtonText, { color: colors.primary }]}
+                >
+                  {survey.title}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      )}
     </View>
   );
 }
@@ -1234,5 +1306,31 @@ const styles = StyleSheet.create({
   actionButtonText: {
     fontSize: 16,
     fontWeight: "600",
+  },
+  bottomSurveyBar: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderTopWidth: 1,
+    paddingTop: 10,
+  },
+  bottomSurveyBarContent: {
+    paddingHorizontal: 12,
+    gap: 8,
+  },
+  bottomSurveyButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    maxWidth: 220,
+  },
+  bottomSurveyButtonText: {
+    fontSize: 12,
+    fontWeight: "700",
+    maxWidth: 180,
   },
 });

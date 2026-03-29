@@ -17,6 +17,7 @@ import { AuthProvider, useAuth } from "@/contexts/auth-context";
 import { SyncProvider } from "@/contexts/sync-context";
 import { ThemeProvider as CustomThemeProvider } from "@/contexts/theme-context";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { getPrimaryMobileRouteGroup } from "@/lib/auth/capabilities";
 import { initializeDatabase } from "@/lib/db";
 
 // ─── Sentry ────────────────────────────────────────────────────────────────
@@ -201,20 +202,11 @@ function RootNavigator() {
 
   const hasSession = !!user;
 
-  // Determine initial route based on user role
+  // Determine initial route based on effective capabilities
   const getInitialRoute = () => {
     if (!hasSession) return "(auth)";
 
-    switch (user?.role) {
-      case "ADMIN":
-        return "(admin)";
-      case "ENCARGADO":
-        return "(encargado)";
-      case "BRIGADISTA":
-        return "(brigadista)";
-      default:
-        return "(auth)";
-    }
+    return getPrimaryMobileRouteGroup(user);
   };
 
   return (
@@ -228,8 +220,7 @@ function RootNavigator() {
       >
         {/* Auth screens */}
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-        {/* Role-based app screens */}
-        <Stack.Screen name="(admin)" options={{ headerShown: false }} />
+        {/* Capability-based app screens (survey-centric) */}
         <Stack.Screen name="(encargado)" options={{ headerShown: false }} />
         <Stack.Screen name="(brigadista)" options={{ headerShown: false }} />
         <Stack.Screen name="theme-settings" options={{ headerShown: false }} />

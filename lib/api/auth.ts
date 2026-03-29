@@ -75,6 +75,10 @@ export async function login(
       phone: apiUser.telefono,
       avatar_url: null,
       role: (apiUser.rol as string).toUpperCase() as User["role"],
+      role_template: apiUser.role_template ?? null,
+      permissions: Array.isArray(apiUser.permissions)
+        ? apiUser.permissions
+        : undefined,
       state: apiUser.activo ? "ACTIVE" : "DISABLED",
       created_at: new Date(apiUser.created_at).getTime(),
       updated_at: Date.now(),

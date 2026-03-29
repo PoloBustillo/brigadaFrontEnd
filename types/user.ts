@@ -14,6 +14,8 @@ export interface User {
   phone?: string | null;
   avatar_url?: string | null;
   role: UserRole;
+  role_template?: string | null;
+  permissions?: string[];
   state: UserState;
   created_at: number;
   updated_at: number;
