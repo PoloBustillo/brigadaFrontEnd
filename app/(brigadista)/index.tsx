@@ -15,6 +15,10 @@ import { useSync } from "@/contexts/sync-context";
 import { useThemeColors } from "@/contexts/theme-context";
 import { useTabBarHeight } from "@/hooks/use-tab-bar-height";
 import {
+  type BottomBarMenuItem,
+  fetchPublicAppConfig,
+} from "@/lib/api/app-config";
+import {
   getAssignedSurveys,
   type AssignedSurveyResponse,
 } from "@/lib/api/mobile";
@@ -36,6 +40,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface SurveyAssignmentCardProps {
   id: number;
@@ -209,6 +214,7 @@ function StatCard({ icon, value, label, color }: StatCardProps) {
 export default function BrigadistaHome() {
   const colors = useThemeColors();
   const { contentPadding } = useTabBarHeight();
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user, logout } = useAuth();
   const { isOnline, isSyncing, pendingCount, syncAll } = useSync();
@@ -221,6 +227,9 @@ export default function BrigadistaHome() {
   const [localSurveyProgress, setLocalSurveyProgress] = useState<
     Record<string, number>
   >({});
+  const [bottomBarMenuItems, setBottomBarMenuItems] = useState<
+    BottomBarMenuItem[]
+  >([]);
 
   const CACHE_KEY = "assignments_active";
   const CACHE_TTL = 30 * 60 * 1000; // 30 min
@@ -318,6 +327,27 @@ export default function BrigadistaHome() {
   useEffect(() => {
     fetchAssignments();
     loadLocalStats();
+  }, []);
+
+  useEffect(() => {
+    const loadBottomBarConfig = async () => {
+      const config = await fetchPublicAppConfig();
+      const configuredItems = config?.bottom_bar_menu_items ?? [];
+      if (configuredItems.length > 0) {
+        setBottomBarMenuItems(configuredItems);
+        return;
+      }
+
+      setBottomBarMenuItems(
+        (config?.bottom_bar_survey_ids ?? []).map((surveyId) => ({
+          survey_id: surveyId,
+          title: `Encuesta ${surveyId}`,
+          icon: "document-text-outline",
+        })),
+      );
+    };
+
+    loadBottomBarConfig();
   }, []);
 
   // Refresh local stats when syncing changes or assignments load
@@ -441,22 +471,66 @@ export default function BrigadistaHome() {
     },
   }));
 
-  return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      contentContainerStyle={[
-        styles.content,
-        { paddingBottom: contentPadding },
-      ]}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={onRefresh}
-          tintColor={colors.primary}
-          colors={[colors.primary]}
-        />
+  const matchedBottomBarAssignments = (() => {
+    if (bottomBarMenuItems.length === 0) return [];
+
+    const uniqueBySurvey = new Map<number, AssignedSurveyResponse>();
+    for (const assignment of assignments) {
+      if (!uniqueBySurvey.has(assignment.survey_id)) {
+        uniqueBySurvey.set(assignment.survey_id, assignment);
       }
-    >
+      if (!uniqueBySurvey.has(assignment.assignment_id)) {
+        uniqueBySurvey.set(assignment.assignment_id, assignment);
+      }
+    }
+
+    return bottomBarMenuItems
+      .map((menuItem) => {
+        const assignment = uniqueBySurvey.get(menuItem.survey_id);
+        if (!assignment) return null;
+        return {
+          key: menuItem.survey_id,
+          assignment,
+          title: menuItem.title || assignment.survey_title,
+          icon: menuItem.icon,
+        };
+      })
+      .filter(
+        (
+          item,
+        ): item is {
+          key: number;
+          assignment: AssignedSurveyResponse;
+          title: string;
+          icon: BottomBarMenuItem["icon"];
+        } => Boolean(item),
+      );
+  })();
+
+  const bottomBarAssignments = matchedBottomBarAssignments.slice(0, 6);
+
+  const unavailableBottomItemsCount = Math.max(
+    0,
+    bottomBarMenuItems.length - matchedBottomBarAssignments.length,
+  );
+
+  return (
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <ScrollView
+        style={[styles.container, { backgroundColor: colors.background }]}
+        contentContainerStyle={[
+          styles.content,
+          { paddingBottom: contentPadding + 96 },
+        ]}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
+        }
+      >
       {/* Loading overlay */}
       {isLoading && (
         <View style={styles.loadingOverlay}>
@@ -786,7 +860,79 @@ export default function BrigadistaHome() {
           </TouchableOpacity>
         </View>
       </View>
-    </ScrollView>
+      </ScrollView>
+
+      {bottomBarMenuItems.length > 0 && (
+        <View
+          style={[
+            styles.bottomSurveyBar,
+            {
+              backgroundColor: colors.surface,
+              borderTopColor: colors.border,
+              paddingBottom: Math.max(insets.bottom, 10),
+            },
+          ]}
+        >
+          {unavailableBottomItemsCount > 0 && (
+            <Text
+              style={[styles.bottomSurveyHintText, { color: colors.textSecondary }]}
+            >
+              {unavailableBottomItemsCount} acceso(s) no disponible(s) por asignación o falta de publicación
+            </Text>
+          )}
+          {bottomBarAssignments.length > 0 ? (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.bottomSurveyBarContent}
+            >
+              {bottomBarAssignments.map((item) => (
+                <TouchableOpacity
+                  key={`home-bottom-link-${item.key}`}
+                  style={[
+                    styles.bottomSurveyButton,
+                    {
+                      backgroundColor: colors.primary + "14",
+                      borderColor: colors.primary + "28",
+                    },
+                  ]}
+                  onPress={() => {
+                    if (!item.assignment.latest_version?.id) {
+                      router.push("/(brigadista)/my-surveys" as any);
+                      return;
+                    }
+                    router.push({
+                      pathname: "/(brigadista)/surveys/fill",
+                      params: {
+                        surveyId: String(item.assignment.survey_id),
+                        surveyTitle: item.assignment.survey_title,
+                        versionId: String(item.assignment.latest_version.id),
+                        questionsJson: JSON.stringify(
+                          item.assignment.latest_version.questions ?? [],
+                        ),
+                      },
+                    });
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name={item.icon} size={18} color={colors.primary} />
+                  <Text
+                    numberOfLines={1}
+                    style={[styles.bottomSurveyButtonText, { color: colors.primary }]}
+                  >
+                    {item.title}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          ) : (
+            <Text style={[styles.bottomSurveyHintText, { color: colors.textSecondary }]}> 
+              No hay accesos disponibles por asignación o falta de versión publicada
+            </Text>
+          )}
+        </View>
+      )}
+    </View>
   );
 }
 
@@ -1081,5 +1227,39 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "600",
     color: "#fff",
+  },
+  bottomSurveyBar: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderTopWidth: 1,
+    paddingTop: 14,
+  },
+  bottomSurveyBarContent: {
+    paddingHorizontal: 16,
+    gap: 12,
+  },
+  bottomSurveyHintText: {
+    fontSize: 12,
+    fontWeight: "500",
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+  },
+  bottomSurveyButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    maxWidth: 200,
+  },
+  bottomSurveyButtonText: {
+    fontSize: 14,
+    fontWeight: "700",
+    maxWidth: 170,
   },
 });

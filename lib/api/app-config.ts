@@ -2,6 +2,19 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { apiClient } from "@/lib/api/client";
 
+export type BottomBarMenuIcon =
+  | "document-text-outline"
+  | "clipboard-outline"
+  | "list-outline"
+  | "checkmark-circle-outline"
+  | "reader-outline";
+
+export interface BottomBarMenuItem {
+  survey_id: number;
+  title: string;
+  icon: BottomBarMenuIcon;
+}
+
 export interface PublicAppConfig {
   id: number;
   app_display_name: string;
@@ -15,6 +28,7 @@ export interface PublicAppConfig {
   splash_message_color: string;
   splash_font_type: "script" | "system" | "serif" | "mono" | "rounded";
   bottom_bar_survey_ids: number[];
+  bottom_bar_menu_items: BottomBarMenuItem[];
   created_at: string;
   updated_at: string | null;
 }

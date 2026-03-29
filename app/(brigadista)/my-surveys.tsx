@@ -27,7 +27,10 @@ import {
   useMysurveys,
 } from "@/hooks/use-my-surveys";
 import { useTabBarHeight } from "@/hooks/use-tab-bar-height";
-import { fetchPublicAppConfig } from "@/lib/api/app-config";
+import {
+  type BottomBarMenuItem,
+  fetchPublicAppConfig,
+} from "@/lib/api/app-config";
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -46,7 +49,9 @@ export default function BrigadistaSurveysScreen() {
   const { contentPadding } = useTabBarHeight();
   const insets = useSafeAreaInsets();
   const { isOnline, pendingItems, isSyncing } = useSync();
-  const [bottomBarSurveyIds, setBottomBarSurveyIds] = useState<number[]>([]);
+  const [bottomBarMenuItems, setBottomBarMenuItems] = useState<
+    BottomBarMenuItem[]
+  >([]);
 
   const {
     surveys,
@@ -67,26 +72,64 @@ export default function BrigadistaSurveysScreen() {
   useEffect(() => {
     const loadBottomBarConfig = async () => {
       const config = await fetchPublicAppConfig();
-      setBottomBarSurveyIds(config?.bottom_bar_survey_ids ?? []);
+      const configuredItems = config?.bottom_bar_menu_items ?? [];
+      if (configuredItems.length > 0) {
+        setBottomBarMenuItems(configuredItems);
+        return;
+      }
+
+      setBottomBarMenuItems(
+        (config?.bottom_bar_survey_ids ?? []).map((surveyId) => ({
+          survey_id: surveyId,
+          title: `Encuesta ${surveyId}`,
+          icon: "document-text-outline",
+        })),
+      );
     };
 
     loadBottomBarConfig();
   }, []);
 
-  const bottomBarSurveys = useMemo(() => {
-    const activeNow = surveysByTimeWindow.active;
-    if (activeNow.length === 0) return [];
+  const matchedBottomBarSurveys = useMemo(() => {
+    if (bottomBarMenuItems.length === 0) return [];
 
-    if (bottomBarSurveyIds.length === 0) {
-      return activeNow.slice(0, 4);
+    const bySurveyId = new Map<number, (typeof surveys)[number]>();
+    for (const survey of surveys) {
+      bySurveyId.set(survey.surveyId, survey);
+      bySurveyId.set(survey.id, survey);
     }
+    return bottomBarMenuItems
+      .map((menuItem) => {
+        const survey = bySurveyId.get(menuItem.survey_id);
+        if (!survey) return null;
+        return {
+          key: menuItem.survey_id,
+          survey,
+          title: menuItem.title || survey.title,
+          icon: menuItem.icon,
+        };
+      })
+      .filter(
+        (
+          item,
+        ): item is {
+          key: number;
+          survey: (typeof surveys)[number];
+          title: string;
+          icon: BottomBarMenuItem["icon"];
+        } => Boolean(item),
+      );
+  }, [surveys, bottomBarMenuItems]);
 
-    const bySurveyId = new Map(activeNow.map((survey) => [survey.surveyId, survey]));
-    return bottomBarSurveyIds
-      .map((surveyId) => bySurveyId.get(surveyId))
-      .filter((survey): survey is (typeof activeNow)[number] => Boolean(survey))
-      .slice(0, 6);
-  }, [surveysByTimeWindow.active, bottomBarSurveyIds]);
+  const bottomBarSurveys = useMemo(
+    () => matchedBottomBarSurveys.slice(0, 6),
+    [matchedBottomBarSurveys],
+  );
+
+  const unavailableBottomItemsCount = Math.max(
+    0,
+    bottomBarMenuItems.length - matchedBottomBarSurveys.length,
+  );
 
   const calculateMyProgress = (responses: number, target: number): number => {
     if (target <= 0) return 0;
@@ -990,7 +1033,7 @@ export default function BrigadistaSurveysScreen() {
         </ScrollView>
       )}
 
-      {bottomBarSurveys.length > 0 && (
+      {bottomBarMenuItems.length > 0 && (
         <View
           style={[
             styles.bottomSurveyBar,
@@ -1001,35 +1044,52 @@ export default function BrigadistaSurveysScreen() {
             },
           ]}
         >
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.bottomSurveyBarContent}
-          >
-            {bottomBarSurveys.map((survey) => (
-              <TouchableOpacity
-                key={`bottom-link-${survey.id}`}
-                style={[
-                  styles.bottomSurveyButton,
-                  { backgroundColor: colors.primary + "18" },
-                ]}
-                onPress={() => handleStartSurvey(survey, "active")}
-                activeOpacity={0.8}
-              >
-                <Ionicons
-                  name="clipboard-outline"
-                  size={14}
-                  color={colors.primary}
-                />
-                <Text
-                  numberOfLines={1}
-                  style={[styles.bottomSurveyButtonText, { color: colors.primary }]}
+          {unavailableBottomItemsCount > 0 && (
+            <Text
+              style={[styles.bottomSurveyHintText, { color: colors.textSecondary }]}
+            >
+              {unavailableBottomItemsCount} acceso(s) no disponible(s) por asignación o falta de publicación
+            </Text>
+          )}
+          {bottomBarSurveys.length > 0 ? (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.bottomSurveyBarContent}
+            >
+              {bottomBarSurveys.map((item) => (
+                <TouchableOpacity
+                  key={`bottom-link-${item.key}`}
+                  style={[
+                    styles.bottomSurveyButton,
+                    {
+                      backgroundColor: colors.primary + "14",
+                      borderColor: colors.primary + "28",
+                    },
+                  ]}
+                  onPress={() => {
+                    handleStartSurvey(item.survey, getTimeWindowStatus(item.survey));
+                  }}
+                  activeOpacity={0.8}
                 >
-                  {survey.title}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
+                  <Ionicons name={item.icon} size={18} color={colors.primary} />
+                  <Text
+                    numberOfLines={1}
+                    style={[
+                      styles.bottomSurveyButtonText,
+                      { color: colors.primary },
+                    ]}
+                  >
+                    {item.title}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          ) : (
+            <Text style={[styles.bottomSurveyHintText, { color: colors.textSecondary }]}> 
+              No hay accesos disponibles por asignación o falta de versión publicada
+            </Text>
+          )}
         </View>
       )}
     </View>
@@ -1313,24 +1373,32 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     borderTopWidth: 1,
-    paddingTop: 10,
+    paddingTop: 14,
   },
   bottomSurveyBarContent: {
-    paddingHorizontal: 12,
-    gap: 8,
+    paddingHorizontal: 16,
+    gap: 12,
+  },
+  bottomSurveyHintText: {
+    fontSize: 12,
+    fontWeight: "500",
+    paddingHorizontal: 16,
+    paddingBottom: 8,
   },
   bottomSurveyButton: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    justifyContent: "center",
+    gap: 8,
     borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    maxWidth: 220,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    maxWidth: 200,
   },
   bottomSurveyButtonText: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: "700",
-    maxWidth: 180,
+    maxWidth: 170,
   },
 });

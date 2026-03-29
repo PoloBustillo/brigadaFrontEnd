@@ -43,6 +43,7 @@ export default function BrigadistaLayout() {
             name="index"
             options={{
               title: "Inicio",
+              tabBarStyle: { display: "none" },
               href: isOnline ? undefined : null,
               tabBarIcon: ({ color }) => (
                 <Ionicons name="home" size={24} color={color} />
