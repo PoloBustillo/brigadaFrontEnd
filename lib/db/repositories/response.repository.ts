@@ -91,7 +91,8 @@ export class ResponseRepository {
       try {
         return await task();
       } catch (error) {
-        const shouldRetry = this.isDatabaseLocked(error) && attempt < maxAttempts;
+        const shouldRetry =
+          this.isDatabaseLocked(error) && attempt < maxAttempts;
         if (!shouldRetry) {
           throw error;
         }

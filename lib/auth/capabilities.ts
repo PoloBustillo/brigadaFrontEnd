@@ -2,11 +2,10 @@ import type { User } from "@/types/user";
 
 import {
   Permission,
-  getUserPermissions,
   hasAnyPermissionForUser,
 } from "./permissions";
 
-export type MobileRouteGroup = "(encargado)" | "(brigadista)";
+export type MobileRouteGroup = "(brigadista)";
 
 const SURVEY_OPERATOR_PERMISSIONS: Permission[] = [
   Permission.VIEW_SURVEYS,
@@ -18,36 +17,20 @@ const SURVEY_OPERATOR_PERMISSIONS: Permission[] = [
   Permission.VIEW_NOTIFICATIONS,
 ];
 
-const TEAM_SURVEY_PERMISSIONS: Permission[] = [
-  Permission.VIEW_ALL_SURVEYS,
-  Permission.CREATE_ASSIGNMENT,
-  Permission.EDIT_ASSIGNMENT,
-  Permission.DELETE_ASSIGNMENT,
-  Permission.VIEW_ASSIGNED_RESPONSES,
-  Permission.VIEW_ALL_RESPONSES,
+const MOBILE_APP_PERMISSIONS: Permission[] = [
+  ...SURVEY_OPERATOR_PERMISSIONS,
 ];
+
+export function canAccessMobileApp(
+  user: Pick<User, "role" | "permissions"> | null | undefined,
+): boolean {
+  if (!user) return false;
+  return hasAnyPermissionForUser(user, MOBILE_APP_PERMISSIONS);
+}
 
 export function getPrimaryMobileRouteGroup(
   user: Pick<User, "role" | "permissions"> | null | undefined,
 ): MobileRouteGroup {
-  if (!user) {
-    return "(brigadista)";
-  }
-
-  const permissions = getUserPermissions(user);
-
-  if (permissions.includes(Permission.SUBMIT_RESPONSE)) {
-    return "(brigadista)";
-  }
-
-  if (
-    TEAM_SURVEY_PERMISSIONS.some((permission) =>
-      permissions.includes(permission),
-    )
-  ) {
-    return "(encargado)";
-  }
-
   return "(brigadista)";
 }
 
@@ -57,10 +40,6 @@ export function canAccessMobileRouteGroup(
 ): boolean {
   if (group === "(brigadista)") {
     return hasAnyPermissionForUser(user, SURVEY_OPERATOR_PERMISSIONS);
-  }
-
-  if (group === "(encargado)") {
-    return hasAnyPermissionForUser(user, TEAM_SURVEY_PERMISSIONS);
   }
 
   return false;

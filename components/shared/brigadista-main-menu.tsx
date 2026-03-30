@@ -187,8 +187,12 @@ export function BrigadistaMainMenu({
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.headerBlock}>
-        <Text style={[styles.title, { color: colors.text }]}>Menu principal</Text>
-        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Accesos rapidos para organizar tu jornada</Text>
+        <Text style={[styles.title, { color: colors.text }]}>
+          Menu principal
+        </Text>
+        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+          Accesos rapidos para organizar tu jornada
+        </Text>
       </View>
 
       {/* Main Menu Grid */}
@@ -218,11 +222,7 @@ export function BrigadistaMainMenu({
                   { backgroundColor: colors.primary + "15" },
                 ]}
               >
-                <Ionicons
-                  name={item.icon}
-                  size={32}
-                  color={colors.primary}
-                />
+                <Ionicons name={item.icon} size={32} color={colors.primary} />
               </View>
               <Text
                 style={[styles.menuLabel, { color: colors.text }]}
@@ -271,7 +271,9 @@ export function BrigadistaMainMenu({
               <Text style={[styles.expandedMenuTitle, { color: colors.text }]}>
                 {item.label}
               </Text>
-              <Text style={[styles.expandedCount, { color: colors.textSecondary }]}>
+              <Text
+                style={[styles.expandedCount, { color: colors.textSecondary }]}
+              >
                 {item.subItems.length} accesos
               </Text>
             </View>
@@ -295,9 +297,7 @@ export function BrigadistaMainMenu({
                     size={20}
                     color={colors.primary}
                   />
-                  <Text
-                    style={[styles.subItemLabel, { color: colors.text }]}
-                  >
+                  <Text style={[styles.subItemLabel, { color: colors.text }]}>
                     {subItem.label}
                   </Text>
                   <Ionicons
@@ -309,7 +309,7 @@ export function BrigadistaMainMenu({
               ))}
             </View>
           </View>
-        ) : null
+        ) : null,
       )}
     </View>
   );

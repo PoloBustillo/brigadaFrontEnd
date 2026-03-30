@@ -101,7 +101,9 @@ const migration_v1_initial_schema: Migration = {
     db.execSync(`
       CREATE TABLE IF NOT EXISTS users (
         id TEXT PRIMARY KEY,
-        role TEXT NOT NULL CHECK(role IN ('admin', 'encargado', 'brigadista')),
+        role TEXT NOT NULL,
+        role_template TEXT,
+        permissions_json TEXT NOT NULL DEFAULT '[]',
         name TEXT NOT NULL,
         email TEXT NOT NULL UNIQUE,
         phone TEXT,

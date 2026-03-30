@@ -180,8 +180,7 @@ class DatabaseManager {
 
   private isDatabaseLockedError(error: unknown): boolean {
     if (!error) return false;
-    const message =
-      error instanceof Error ? error.message : String(error);
+    const message = error instanceof Error ? error.message : String(error);
     return /database is locked|database is busy|SQLITE_BUSY/i.test(message);
   }
 
@@ -217,7 +216,10 @@ class DatabaseManager {
     }
   }
 
-  private async applyPragmaBestEffort(sql: string, label: string): Promise<void> {
+  private async applyPragmaBestEffort(
+    sql: string,
+    label: string,
+  ): Promise<void> {
     try {
       await this.withDbLockRetry(() => this.db!.execAsync(sql), label);
     } catch (error) {
@@ -275,7 +277,10 @@ class DatabaseManager {
         this.drizzleDb = null;
 
         if (!shouldRetry) {
-          console.error("❌ Database (brigada.db) initialization failed:", error);
+          console.error(
+            "❌ Database (brigada.db) initialization failed:",
+            error,
+          );
           throw error;
         }
 
@@ -352,10 +357,7 @@ class DatabaseManager {
         () => this.db!.execAsync(`PRAGMA user_version = ${APP_DB_VERSION};`),
         "set user_version",
       );
-      await this.withDbLockRetry(
-        () => this.db!.execAsync("COMMIT;"),
-        "COMMIT",
-      );
+      await this.withDbLockRetry(() => this.db!.execAsync("COMMIT;"), "COMMIT");
 
       console.log(`✅ brigada.db migrated to v${APP_DB_VERSION}`);
     } catch (error) {

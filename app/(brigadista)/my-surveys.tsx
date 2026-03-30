@@ -30,6 +30,7 @@ import { useTabBarHeight } from "@/hooks/use-tab-bar-height";
 import {
   type BottomBarMenuItem,
   fetchPublicAppConfig,
+  resolveBottomBarMenuItems,
 } from "@/lib/api/app-config";
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useMemo, useState } from "react";
@@ -72,19 +73,7 @@ export default function BrigadistaSurveysScreen() {
   useEffect(() => {
     const loadBottomBarConfig = async () => {
       const config = await fetchPublicAppConfig();
-      const configuredItems = config?.bottom_bar_menu_items ?? [];
-      if (configuredItems.length > 0) {
-        setBottomBarMenuItems(configuredItems);
-        return;
-      }
-
-      setBottomBarMenuItems(
-        (config?.bottom_bar_survey_ids ?? []).map((surveyId) => ({
-          survey_id: surveyId,
-          title: `Encuesta ${surveyId}`,
-          icon: "document-text-outline",
-        })),
-      );
+      setBottomBarMenuItems(resolveBottomBarMenuItems(config));
     };
 
     loadBottomBarConfig();

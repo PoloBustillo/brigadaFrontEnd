@@ -17,7 +17,10 @@ import { AuthProvider, useAuth } from "@/contexts/auth-context";
 import { SyncProvider } from "@/contexts/sync-context";
 import { ThemeProvider as CustomThemeProvider } from "@/contexts/theme-context";
 import { useColorScheme } from "@/hooks/use-color-scheme";
-import { getPrimaryMobileRouteGroup } from "@/lib/auth/capabilities";
+import {
+  canAccessMobileApp,
+  getPrimaryMobileRouteGroup,
+} from "@/lib/auth/capabilities";
 import { db, initializeDatabase } from "@/lib/db";
 
 // ─── Sentry ────────────────────────────────────────────────────────────────
@@ -165,6 +168,16 @@ function RootNavigator() {
     if (!appReady || authLoading || !user) return;
 
     const inAuthGroup = segments[0] === "(auth)";
+
+    if (!canAccessMobileApp(user)) {
+      // Keep users in auth flow (activation/create-password) if they still
+      // don't have app access capability.
+      if (!inAuthGroup) {
+        router.replace("/(auth)/welcome" as any);
+      }
+      return;
+    }
+
     if (!inAuthGroup) return;
 
     const destination = getPrimaryMobileRouteGroup(user);
@@ -221,6 +234,10 @@ function RootNavigator() {
   const getInitialRoute = () => {
     if (!hasSession) return "(auth)";
 
+    if (!canAccessMobileApp(user)) {
+      return "(auth)";
+    }
+
     return getPrimaryMobileRouteGroup(user);
   };
 
@@ -236,7 +253,6 @@ function RootNavigator() {
         {/* Auth screens */}
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
         {/* Capability-based app screens (survey-centric) */}
-        <Stack.Screen name="(encargado)" options={{ headerShown: false }} />
         <Stack.Screen name="(brigadista)" options={{ headerShown: false }} />
         <Stack.Screen name="theme-settings" options={{ headerShown: false }} />
         <Stack.Screen name="help" options={{ headerShown: false }} />

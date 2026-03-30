@@ -7,6 +7,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { useSync } from "@/contexts/sync-context";
 import { useTheme, useThemeColors } from "@/contexts/theme-context";
 import { Ionicons } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
@@ -19,10 +20,9 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import * as Haptics from "expo-haptics";
 
 interface BrigadistaTopBarProps {
-  extraSurveys?: Array<{ id: number; title: string }>;
+  extraSurveys?: { id: number; title: string }[];
   onExtraSurveyPress?: (surveyId: number) => void;
 }
 
@@ -84,7 +84,11 @@ export function BrigadistaTopBar({
             <View
               style={[
                 styles.avatarCircle,
-                { backgroundColor: user?.avatar_url ? "transparent" : colors.primary + "20" },
+                {
+                  backgroundColor: user?.avatar_url
+                    ? "transparent"
+                    : colors.primary + "20",
+                },
               ]}
             >
               {user?.avatar_url ? (
@@ -132,12 +136,7 @@ export function BrigadistaTopBar({
                 color={colors.text}
               />
               {notificationCount > 0 && (
-                <View
-                  style={[
-                    styles.badge,
-                    { backgroundColor: colors.error },
-                  ]}
-                >
+                <View style={[styles.badge, { backgroundColor: colors.error }]}>
                   <Text style={styles.badgeText}>
                     {notificationCount > 9 ? "9+" : notificationCount}
                   </Text>

@@ -44,9 +44,7 @@ export function ProtectedRoute({
     if (loading) return;
 
     const inAuthGroup = segments[0] === "(auth)";
-    const inRoleGroup = ["(encargado)", "(brigadista)"].includes(
-      segments[0] as string,
-    );
+    const inRoleGroup = ["(brigadista)"].includes(segments[0] as string);
 
     // Not authenticated
     if (!user) {

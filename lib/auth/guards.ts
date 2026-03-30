@@ -26,7 +26,7 @@ export function useProtectedRoute() {
     if (loading) return;
 
     const inAuthGroup = segments[0] === "(auth)";
-    const inProtectedGroup = ["(encargado)", "(brigadista)", "(tabs)"].includes(
+    const inProtectedGroup = ["(brigadista)", "(tabs)"].includes(
       segments[0] as string,
     );
 

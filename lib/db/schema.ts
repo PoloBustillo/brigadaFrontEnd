@@ -8,7 +8,7 @@ import { integer, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 // ==================== VERSION CONTROL ====================
 
-export const CURRENT_DB_VERSION = 2;
+export const CURRENT_DB_VERSION = 3;
 export const DB_NAME = "brigada_digital.db";
 
 // ==================== CREATE TABLES ====================
@@ -24,7 +24,9 @@ export const CREATE_USERS_TABLE = `
     password_hash TEXT NOT NULL,
     full_name TEXT NOT NULL,
     phone TEXT,
-    role TEXT NOT NULL CHECK(role IN ('ADMIN', 'ENCARGADO', 'BRIGADISTA')),
+    role TEXT NOT NULL DEFAULT 'BRIGADISTA',
+    role_template TEXT,
+    permissions_json TEXT NOT NULL DEFAULT '[]',
     state TEXT NOT NULL CHECK(state IN ('INVITED', 'PENDING', 'ACTIVE', 'DISABLED')),
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -43,7 +45,7 @@ export const CREATE_INVITATIONS_TABLE = `
     id TEXT PRIMARY KEY NOT NULL,
     code TEXT UNIQUE NOT NULL,
     email TEXT NOT NULL,
-    role TEXT NOT NULL CHECK(role IN ('ADMIN', 'ENCARGADO', 'BRIGADISTA')),
+    role TEXT NOT NULL,
     status TEXT NOT NULL CHECK(status IN ('PENDING', 'ACTIVATED', 'EXPIRED', 'REVOKED')),
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     expires_at TEXT NOT NULL,
@@ -64,7 +66,7 @@ export const CREATE_WHITELIST_TABLE = `
     id TEXT PRIMARY KEY NOT NULL,
     user_id TEXT UNIQUE NOT NULL,
     email TEXT NOT NULL,
-    role TEXT NOT NULL CHECK(role IN ('ADMIN', 'ENCARGADO', 'BRIGADISTA')),
+    role TEXT NOT NULL,
     is_active INTEGER NOT NULL DEFAULT 1,
     last_sync_at TEXT NOT NULL,
     synced_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -362,7 +364,9 @@ export const users = sqliteTable("users", {
   passwordHash: text("password_hash").notNull(),
   fullName: text("full_name").notNull(),
   phone: text("phone"),
-  role: text("role", { enum: ["ADMIN", "ENCARGADO", "BRIGADISTA"] }).notNull(),
+  role: text("role").notNull(),
+  roleTemplate: text("role_template"),
+  permissionsJson: text("permissions_json").notNull().default("[]"),
   state: text("state", {
     enum: ["INVITED", "PENDING", "ACTIVE", "DISABLED"],
   }).notNull(),
@@ -812,6 +816,7 @@ export const SEED_DEFAULT_ADMIN = `
     password_hash,
     full_name,
     role,
+    permissions_json,
     state,
     created_at,
     updated_at
@@ -821,6 +826,7 @@ export const SEED_DEFAULT_ADMIN = `
     '$2b$10$rBV2G9h0Hs6uIXa8Nw0GjOxEYX8yq1xFQ2Zp0wYvZxHqE6K8L9E8K',
     'Administrador Sistema',
     'ADMIN',
+    '[]',
     'ACTIVE',
     datetime('now'),
     datetime('now')

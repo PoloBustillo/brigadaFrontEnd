@@ -83,7 +83,9 @@ const isDatabaseLockedError = (error: unknown): boolean => {
         : String(error);
 
   const normalized = message.toLowerCase();
-  return normalized.includes("database is locked") || normalized.includes("busy");
+  return (
+    normalized.includes("database is locked") || normalized.includes("busy")
+  );
 };
 
 const loadPendingOperationsWithRetry = async (

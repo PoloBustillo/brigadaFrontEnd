@@ -107,7 +107,7 @@ export function getUserPermissions(
     return user.permissions;
   }
 
-  return getPermissions(user.role);
+  return [];
 }
 
 /**

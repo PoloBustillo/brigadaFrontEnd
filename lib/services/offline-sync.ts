@@ -232,7 +232,7 @@ class OfflineSyncService {
       survey_version: input.surveyVersion,
       brigadista_user_id: input.userId,
       brigadista_name: input.userName,
-      brigadista_role: input.userRole ?? "brigadista",
+      brigadista_role: input.userRole ?? "BRIGADISTA",
       device_platform: Platform.OS as "android" | "ios" | "web",
       device_os_version: osVersion,
       device_app_version: appVersion,

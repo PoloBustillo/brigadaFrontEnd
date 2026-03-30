@@ -335,13 +335,9 @@ export default function BrigadistaProfileScreen() {
                 { backgroundColor: item.color + "20" },
               ]}
             >
-              <Ionicons
-                name={item.icon as any}
-                size={20}
-                color={item.color}
-              />
+              <Ionicons name={item.icon as any} size={20} color={item.color} />
             </View>
-            <Text style={[styles.bottomMenuLabel, { color: colors.text }]}> 
+            <Text style={[styles.bottomMenuLabel, { color: colors.text }]}>
               {item.label}
             </Text>
           </TouchableOpacity>

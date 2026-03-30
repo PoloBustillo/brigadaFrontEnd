@@ -48,6 +48,8 @@ export function useFillSurvey({
 
   const draftIdRef = useRef<string | null>(null);
   const saveFailCountRef = useRef(0);
+  const hasUserInteractedRef = useRef(false);
+  const pendingAnswersRef = useRef<Record<number, any>>({});
 
   // ── Create / resume draft on mount ─────────────────────────────────────────
   useEffect(() => {
@@ -59,6 +61,34 @@ export function useFillSurvey({
     (async () => {
       const sleep = (ms: number) =>
         new Promise((resolve) => setTimeout(resolve, ms));
+
+      const flushPendingAnswers = async () => {
+        if (!draftIdRef.current) return;
+
+        const pending = { ...pendingAnswersRef.current };
+        const entries = Object.entries(pending);
+        if (entries.length === 0) return;
+
+        for (const [questionId, value] of entries) {
+          try {
+            await offlineSyncService.saveAnswer({
+              responseId: draftIdRef.current,
+              questionId: Number(questionId),
+              value,
+            });
+            delete pendingAnswersRef.current[Number(questionId)];
+          } catch {
+            // Keep unsaved pending values for future attempts.
+          }
+        }
+      };
+
+      const isDbLockedError = (error: unknown) => {
+        const message = error instanceof Error ? error.message : String(error);
+        return /database is locked|database is busy|SQLITE_BUSY|finalizeAsync/i.test(
+          message,
+        );
+      };
 
       const initializeDraft = async () => {
         const userId = user?.id ? String(user.id) : "unknown-user";
@@ -77,7 +107,10 @@ export function useFillSurvey({
             for (const [key, val] of Object.entries(savedAnswers)) {
               numericAnswers[Number(key)] = val;
             }
-            if (Object.keys(numericAnswers).length > 0) {
+            if (
+              Object.keys(numericAnswers).length > 0 &&
+              !hasUserInteractedRef.current
+            ) {
               setAnswers(numericAnswers);
               const visibleWithAnswers = allQuestions.filter((q) =>
                 shouldShowQuestion(q, numericAnswers),
@@ -97,6 +130,7 @@ export function useFillSurvey({
           } catch {
             /* ignore JSON parse errors */
           }
+          await flushPendingAnswers();
           console.log("📋 Resumed draft:", existingDraft.response_id);
           return;
         }
@@ -109,20 +143,55 @@ export function useFillSurvey({
           userRole: user?.role ?? "BRIGADISTA",
         });
         draftIdRef.current = id;
+        await flushPendingAnswers();
         console.log("💾 Draft created:", id);
       };
 
-      try {
-        await initializeDraft();
-      } catch (err) {
-        await sleep(220);
-        try {
-          await initializeDraft();
-        } catch (secondErr) {
-          console.error("⚠️ Failed to create/resume local draft:", secondErr);
-        }
-      } finally {
+      let uiReleasedByTimeout = false;
+      const releaseUiTimer = setTimeout(() => {
+        uiReleasedByTimeout = true;
         setDraftLoading(false);
+        setShowSaveWarning(true);
+      }, 2200);
+
+      try {
+        const maxAttempts = 4;
+        let initialized = false;
+
+        for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+          try {
+            await initializeDraft();
+            initialized = true;
+            break;
+          } catch (err) {
+            const isLock = isDbLockedError(err);
+            const hasMore = attempt < maxAttempts;
+
+            if (!isLock || !hasMore) {
+              throw err;
+            }
+
+            const delayMs = Math.min(120 * Math.pow(2, attempt - 1), 900);
+            console.warn(
+              `⏳ SQLite locked while create/resume draft (attempt ${attempt}/${maxAttempts}). Retrying in ${delayMs}ms...`,
+            );
+            await sleep(delayMs);
+          }
+        }
+
+        if (!initialized) {
+          throw new Error("Could not initialize local draft after retries");
+        }
+
+        setShowSaveWarning(false);
+      } catch (err) {
+        console.error("⚠️ Failed to create/resume local draft:", err);
+        setShowSaveWarning(true);
+      } finally {
+        clearTimeout(releaseUiTimer);
+        if (!uiReleasedByTimeout) {
+          setDraftLoading(false);
+        }
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -146,6 +215,8 @@ export function useFillSurvey({
    * Fire-and-forget: tracks consecutive failures and raises showSaveWarning at ≥3.
    */
   const saveAnswer = useCallback((questionId: number, value: any) => {
+    hasUserInteractedRef.current = true;
+    pendingAnswersRef.current[questionId] = value;
     setAnswers((prev) => ({ ...prev, [questionId]: value }));
 
     if (!draftIdRef.current) return;
@@ -153,6 +224,7 @@ export function useFillSurvey({
     offlineSyncService
       .saveAnswer({ responseId: draftIdRef.current, questionId, value })
       .then(() => {
+        delete pendingAnswersRef.current[questionId];
         saveFailCountRef.current = 0;
         setShowSaveWarning(false);
       })

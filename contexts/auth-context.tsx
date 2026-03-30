@@ -5,6 +5,11 @@
  */
 
 import * as authAPI from "@/lib/api/auth";
+import {
+  clearUserPermissionSnapshot,
+  getUserPermissionSnapshot,
+  saveUserPermissionSnapshot,
+} from "@/lib/auth/permission-cache";
 import { clearTokens, getAccessToken, isTokenExpired } from "@/lib/api/client";
 import { clearAllCached } from "@/lib/api/memory-cache";
 import { sessionEvents } from "@/lib/session-events";
@@ -45,17 +50,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [pendingEmail, setPendingEmailState] = useState<string | null>(null);
 
+  const hydratePermissionsFromSnapshot = useCallback(async (candidate: User) => {
+    if (Array.isArray(candidate.permissions) && candidate.permissions.length > 0) {
+      void saveUserPermissionSnapshot(candidate).catch(() => {
+        // Keep login/session restore resilient if cache persistence fails.
+      });
+      return candidate;
+    }
+
+    const cachedPermissions = await getUserPermissionSnapshot(candidate.id);
+    if (!cachedPermissions || cachedPermissions.length === 0) {
+      return candidate;
+    }
+
+    return {
+      ...candidate,
+      permissions: cachedPermissions,
+    };
+  }, []);
+
   const clearSession = useCallback(async () => {
+    const currentUserId = user?.id;
     clearAllCached();
-    await Promise.all([
+    const tasks: Promise<unknown>[] = [
       AsyncStorage.removeItem(STORAGE_KEYS.USER),
       clearTokens(), // Clear JWT tokens from API client
       AsyncStorage.removeItem(STORAGE_KEYS.PENDING_EMAIL),
-    ]);
+    ];
+
+    if (currentUserId) {
+      tasks.push(clearUserPermissionSnapshot(currentUserId));
+    }
+
+    await Promise.all(tasks);
     setUser(null);
     setToken(null);
     setPendingEmailState(null);
-  }, [setUser, setToken, setPendingEmailState]);
+  }, [setUser, setToken, setPendingEmailState, user?.id]);
 
   const loadSession = async () => {
     // 🧪 MOCK SESSION - Uncomment to test without backend
@@ -93,9 +124,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // API client will refresh automatically when connectivity is available.
       if (storedUser && storedToken) {
         const parsedUser = JSON.parse(storedUser) as User;
+        const hydratedUser = await hydratePermissionsFromSnapshot(parsedUser);
 
         // Verify user is still active
-        if (parsedUser.state === "DISABLED") {
+        if (hydratedUser.state === "DISABLED") {
           console.log("❌ User is deactivated, clearing session");
           await clearSession();
         } else {
@@ -104,12 +136,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               "⏰ Access token expired locally; keeping session for offline mode.",
             );
           }
-          setUser(parsedUser);
+          setUser(hydratedUser);
           setToken(storedToken);
+          void saveUserPermissionSnapshot(hydratedUser).catch(() => {
+            // Ignore cache persistence errors during restore.
+          });
           console.log(
             "✅ Session restored:",
-            parsedUser.email,
-            parsedUser.role,
+            hydratedUser.email,
+            hydratedUser.role,
           );
         }
       }
@@ -157,6 +192,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(user);
       setToken(token);
 
+      void saveUserPermissionSnapshot(user).catch(() => {
+        // Ignore cache persistence errors to avoid blocking login.
+      });
+
       console.log("✅ Login successful:", user.email, "Role:", user.role);
 
       // Background-fetch full profile (avatar_url, etc.) from /users/me
@@ -166,6 +205,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (full.state === "DISABLED") return;
           await AsyncStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(full));
           setUser(full);
+          void saveUserPermissionSnapshot(full).catch(() => {
+            // Ignore cache persistence errors to keep profile refresh non-blocking.
+          });
           console.log("📸 Avatar loaded:", full.avatar_url ? "yes" : "none");
         })
         .catch(() => {
@@ -206,6 +248,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         JSON.stringify(updatedUser),
       );
       setUser(updatedUser);
+      void saveUserPermissionSnapshot(updatedUser).catch(() => {
+        // Ignore cache persistence errors to keep profile updates resilient.
+      });
       console.log("User updated:", updatedUser.email);
     } catch (error) {
       console.error("Error updating user:", error);

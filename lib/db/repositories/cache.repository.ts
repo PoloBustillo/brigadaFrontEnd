@@ -12,8 +12,11 @@ export class CacheRepository {
   private writeQueue: Promise<void> = Promise.resolve();
 
   private isDatabaseLocked(error: unknown): boolean {
-    if (!(error instanceof Error)) return false;
-    return /database is locked|finalizeAsync/i.test(error.message);
+    if (!error) return false;
+    const message = error instanceof Error ? error.message : String(error);
+    return /database is locked|database is busy|SQLITE_BUSY|finalizeAsync/i.test(
+      message,
+    );
   }
 
   private async sleep(ms: number): Promise<void> {
@@ -21,29 +24,31 @@ export class CacheRepository {
   }
 
   private enqueueWrite(task: () => Promise<void>): Promise<void> {
-    this.writeQueue = this.writeQueue
-      .then(task)
-      .catch(() => {
-        // Keep queue alive for subsequent operations.
-      });
+    this.writeQueue = this.writeQueue.then(task).catch(() => {
+      // Keep queue alive for subsequent operations.
+    });
     return this.writeQueue;
   }
 
-  private async runWithRetry(task: () => Promise<void>): Promise<void> {
+  private async runWithRetry<T>(task: () => Promise<T>): Promise<T> {
     const maxAttempts = 4;
 
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
       try {
-        await task();
-        return;
+        return await task();
       } catch (error) {
-        const shouldRetry = this.isDatabaseLocked(error) && attempt < maxAttempts;
+        const shouldRetry =
+          this.isDatabaseLocked(error) && attempt < maxAttempts;
         if (!shouldRetry) {
           throw error;
         }
-        await this.sleep(60 * attempt);
+
+        const delayMs = Math.min(120 * Math.pow(2, attempt - 1), 1200);
+        await this.sleep(delayMs);
       }
     }
+
+    throw new Error("Unexpected retry termination in CacheRepository");
   }
 
   /**
@@ -53,12 +58,14 @@ export class CacheRepository {
     try {
       await db.initialize();
       const connection = db.getConnection();
-      const result = await connection.getFirstAsync<{
-        cache_value: string;
-        expires_at: string | null;
-      }>(`SELECT cache_value, expires_at FROM kv_cache WHERE cache_key = ?`, [
-        key,
-      ]);
+      const result = await this.runWithRetry(() =>
+        connection.getFirstAsync<{
+          cache_value: string;
+          expires_at: string | null;
+        }>(`SELECT cache_value, expires_at FROM kv_cache WHERE cache_key = ?`, [
+          key,
+        ]),
+      );
 
       if (!result) return null;
 
@@ -118,9 +125,10 @@ export class CacheRepository {
       await this.enqueueWrite(async () => {
         await this.runWithRetry(async () => {
           const connection = db.getConnection();
-          await connection.runAsync(`DELETE FROM kv_cache WHERE cache_key = ?`, [
-            key,
-          ]);
+          await connection.runAsync(
+            `DELETE FROM kv_cache WHERE cache_key = ?`,
+            [key],
+          );
         });
       });
     } catch (error) {
@@ -135,8 +143,10 @@ export class CacheRepository {
     try {
       await db.initialize();
       const connection = db.getConnection();
-      const result = await connection.runAsync(
-        `DELETE FROM kv_cache WHERE expires_at IS NOT NULL AND expires_at < datetime('now')`,
+      const result = await this.runWithRetry(() =>
+        connection.runAsync(
+          `DELETE FROM kv_cache WHERE expires_at IS NOT NULL AND expires_at < datetime('now')`,
+        ),
       );
       return result.changes;
     } catch {

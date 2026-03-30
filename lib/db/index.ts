@@ -133,6 +133,166 @@ async function runMigrations(
       console.log("✅ Tablas de asignaciones creadas");
     }
 
+    // Migración versión 2 -> 3: remover hardcodeos de rol + permisos efectivos
+    if (fromVersion < 3) {
+      console.log("📦 Migrando auth legacy a permisos efectivos...");
+
+      await db.execAsync("PRAGMA foreign_keys=OFF;");
+
+      // users: remover CHECK de rol y agregar columnas para permisos efectivos
+      await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS users_v3 (
+          id TEXT PRIMARY KEY NOT NULL,
+          email TEXT UNIQUE NOT NULL,
+          password_hash TEXT NOT NULL,
+          full_name TEXT NOT NULL,
+          phone TEXT,
+          role TEXT NOT NULL DEFAULT 'BRIGADISTA',
+          role_template TEXT,
+          permissions_json TEXT NOT NULL DEFAULT '[]',
+          state TEXT NOT NULL CHECK(state IN ('INVITED', 'PENDING', 'ACTIVE', 'DISABLED')),
+          created_at TEXT NOT NULL DEFAULT (datetime('now')),
+          updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+          last_login_at TEXT,
+          created_by TEXT,
+          FOREIGN KEY (created_by) REFERENCES users_v3(id) ON DELETE SET NULL
+        );
+      `);
+
+      await db.execAsync(`
+        INSERT INTO users_v3 (
+          id,
+          email,
+          password_hash,
+          full_name,
+          phone,
+          role,
+          state,
+          created_at,
+          updated_at,
+          last_login_at,
+          created_by,
+          role_template,
+          permissions_json
+        )
+        SELECT
+          id,
+          email,
+          password_hash,
+          full_name,
+          phone,
+          role,
+          state,
+          created_at,
+          updated_at,
+          last_login_at,
+          created_by,
+          NULL,
+          '[]'
+        FROM users;
+      `);
+
+      await db.execAsync(`DROP TABLE users;`);
+      await db.execAsync(`ALTER TABLE users_v3 RENAME TO users;`);
+
+      // invitations: remover CHECK de rol para permitir plantillas/roles backend flexibles
+      await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS invitations_v3 (
+          id TEXT PRIMARY KEY NOT NULL,
+          code TEXT UNIQUE NOT NULL,
+          email TEXT NOT NULL,
+          role TEXT NOT NULL,
+          status TEXT NOT NULL CHECK(status IN ('PENDING', 'ACTIVATED', 'EXPIRED', 'REVOKED')),
+          created_at TEXT NOT NULL DEFAULT (datetime('now')),
+          expires_at TEXT NOT NULL,
+          activated_at TEXT,
+          activated_by TEXT,
+          created_by TEXT NOT NULL,
+          FOREIGN KEY (activated_by) REFERENCES users(id) ON DELETE SET NULL,
+          FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE
+        );
+      `);
+
+      await db.execAsync(`
+        INSERT INTO invitations_v3 (
+          id,
+          code,
+          email,
+          role,
+          status,
+          created_at,
+          expires_at,
+          activated_at,
+          activated_by,
+          created_by
+        )
+        SELECT
+          id,
+          code,
+          email,
+          role,
+          status,
+          created_at,
+          expires_at,
+          activated_at,
+          activated_by,
+          created_by
+        FROM invitations;
+      `);
+
+      await db.execAsync(`DROP TABLE invitations;`);
+      await db.execAsync(`ALTER TABLE invitations_v3 RENAME TO invitations;`);
+
+      // whitelist: remover CHECK de rol para no depender de roles hardcodeados
+      await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS whitelist_v3 (
+          id TEXT PRIMARY KEY NOT NULL,
+          user_id TEXT UNIQUE NOT NULL,
+          email TEXT NOT NULL,
+          role TEXT NOT NULL,
+          is_active INTEGER NOT NULL DEFAULT 1,
+          last_sync_at TEXT NOT NULL,
+          synced_at TEXT NOT NULL DEFAULT (datetime('now')),
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        );
+      `);
+
+      await db.execAsync(`
+        INSERT INTO whitelist_v3 (
+          id,
+          user_id,
+          email,
+          role,
+          is_active,
+          last_sync_at,
+          synced_at
+        )
+        SELECT
+          id,
+          user_id,
+          email,
+          role,
+          is_active,
+          last_sync_at,
+          synced_at
+        FROM whitelist;
+      `);
+
+      await db.execAsync(`DROP TABLE whitelist;`);
+      await db.execAsync(`ALTER TABLE whitelist_v3 RENAME TO whitelist;`);
+
+      // Re-crear índices/triggers dependientes de tablas recreadas
+      for (const indexSQL of CREATE_AUTH_INDEXES) {
+        await db.execAsync(indexSQL);
+      }
+      for (const triggerSQL of ALL_AUTH_TRIGGERS) {
+        await db.execAsync(triggerSQL);
+      }
+
+      await db.execAsync("PRAGMA foreign_keys=ON;");
+      console.log("✅ Auth legacy migrado a estrategia por permisos");
+    }
+
     // Actualizar versión
     await db.execAsync(SET_DB_VERSION(CURRENT_DB_VERSION));
 
