@@ -74,6 +74,7 @@ export default function BrigadistaLayout() {
             name="profile"
             options={{
               href: null, // Hidden from tabs - accessible via navigation
+              tabBarStyle: { display: "none" },
             }}
           />
           <Tabs.Screen

@@ -70,44 +70,96 @@ export interface UpdateAnswersParams {
 }
 
 export class ResponseRepository {
+  private writeQueue: Promise<unknown> = Promise.resolve();
+
+  private isDatabaseLocked(error: unknown): boolean {
+    if (!error) return false;
+    const message = error instanceof Error ? error.message : String(error);
+    return /database is locked|database is busy|SQLITE_BUSY|finalizeAsync/i.test(
+      message,
+    );
+  }
+
+  private async sleep(ms: number): Promise<void> {
+    await new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  private async withRetry<T>(task: () => Promise<T>): Promise<T> {
+    const maxAttempts = 4;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      try {
+        return await task();
+      } catch (error) {
+        const shouldRetry = this.isDatabaseLocked(error) && attempt < maxAttempts;
+        if (!shouldRetry) {
+          throw error;
+        }
+
+        const delayMs = Math.min(80 * Math.pow(2, attempt - 1), 800);
+        await this.sleep(delayMs);
+      }
+    }
+
+    throw new Error("Unexpected retry termination in ResponseRepository");
+  }
+
+  private enqueueWrite<T>(task: () => Promise<T>): Promise<T> {
+    const run = this.writeQueue.then(task, task);
+    this.writeQueue = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    return run;
+  }
+
+  private async getConnection(): Promise<ReturnType<typeof db.getConnection>> {
+    await db.initialize();
+    return db.getConnection();
+  }
+
   /**
    * Crear una nueva respuesta (draft)
    * Se guarda inmediatamente en SQLite
    */
   async createResponse(params: CreateResponseParams): Promise<string> {
-    const connection = db.getConnection();
+    const connection = await this.getConnection();
 
     const now = new Date().toISOString();
 
-    await connection.runAsync(
-      `INSERT INTO responses (
-        response_id, survey_id, survey_version,
-        status, answers_json,
-        brigadista_user_id, brigadista_name, brigadista_role,
-        latitude, longitude, accuracy, location_captured_at,
-        device_platform, device_os_version, device_app_version,
-        started_at, sync_status, offline_mode
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        params.response_id,
-        params.survey_id,
-        params.survey_version,
-        "draft",
-        "{}",
-        params.brigadista_user_id,
-        params.brigadista_name,
-        params.brigadista_role,
-        params.latitude ?? null,
-        params.longitude ?? null,
-        params.accuracy ?? null,
-        params.latitude ? now : null,
-        params.device_platform,
-        params.device_os_version,
-        params.device_app_version,
-        now,
-        "pending",
-        true,
-      ],
+    await this.enqueueWrite(() =>
+      this.withRetry(() =>
+        connection.runAsync(
+          `INSERT INTO responses (
+            response_id, survey_id, survey_version,
+            status, answers_json,
+            brigadista_user_id, brigadista_name, brigadista_role,
+            latitude, longitude, accuracy, location_captured_at,
+            device_platform, device_os_version, device_app_version,
+            started_at, sync_status, offline_mode
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            params.response_id,
+            params.survey_id,
+            params.survey_version,
+            "draft",
+            "{}",
+            params.brigadista_user_id,
+            params.brigadista_name,
+            params.brigadista_role,
+            params.latitude ?? null,
+            params.longitude ?? null,
+            params.accuracy ?? null,
+            params.latitude ? now : null,
+            params.device_platform,
+            params.device_os_version,
+            params.device_app_version,
+            now,
+            "pending",
+            true,
+          ],
+        ),
+      ),
     );
 
     console.log("✅ Response created:", params.response_id);
@@ -120,16 +172,20 @@ export class ResponseRepository {
    * Se ejecuta cada vez que el usuario responde una pregunta
    */
   async updateAnswers(params: UpdateAnswersParams): Promise<void> {
-    const connection = db.getConnection();
+    const connection = await this.getConnection();
 
     const answersJson = JSON.stringify(params.answers);
 
-    await connection.runAsync(
-      `UPDATE responses 
-       SET answers_json = ?,
-           updated_at = datetime('now')
-       WHERE response_id = ?`,
-      [answersJson, params.response_id],
+    await this.enqueueWrite(() =>
+      this.withRetry(() =>
+        connection.runAsync(
+          `UPDATE responses 
+           SET answers_json = ?,
+               updated_at = datetime('now')
+           WHERE response_id = ?`,
+          [answersJson, params.response_id],
+        ),
+      ),
     );
 
     if (params.autoSave !== false) {
@@ -141,7 +197,7 @@ export class ResponseRepository {
    * Marcar respuesta como completada
    */
   async completeResponse(responseId: string): Promise<void> {
-    const connection = db.getConnection();
+    const connection = await this.getConnection();
 
     // Obtener tiempo de inicio
     const response = await this.getResponseById(responseId);
@@ -153,14 +209,18 @@ export class ResponseRepository {
       (completedAt.getTime() - startedAt.getTime()) / 1000,
     );
 
-    await connection.runAsync(
-      `UPDATE responses 
-       SET status = 'completed',
-           completed_at = datetime('now'),
-           duration_seconds = ?,
-           updated_at = datetime('now')
-       WHERE response_id = ?`,
-      [durationSeconds, responseId],
+    await this.enqueueWrite(() =>
+      this.withRetry(() =>
+        connection.runAsync(
+          `UPDATE responses 
+           SET status = 'completed',
+               completed_at = datetime('now'),
+               duration_seconds = ?,
+               updated_at = datetime('now')
+           WHERE response_id = ?`,
+          [durationSeconds, responseId],
+        ),
+      ),
     );
 
     console.log("✅ Response completed:", responseId);
@@ -170,11 +230,13 @@ export class ResponseRepository {
    * Obtener una respuesta por ID
    */
   async getResponseById(responseId: string): Promise<ResponseRecord | null> {
-    const connection = db.getConnection();
+    const connection = await this.getConnection();
 
-    const result = await connection.getFirstAsync<ResponseRecord>(
-      `SELECT * FROM responses WHERE response_id = ?`,
-      [responseId],
+    const result = await this.withRetry(() =>
+      connection.getFirstAsync<ResponseRecord>(
+        `SELECT * FROM responses WHERE response_id = ?`,
+        [responseId],
+      ),
     );
 
     return result ?? null;
@@ -244,13 +306,15 @@ export class ResponseRepository {
    * Obtener todas las respuestas de un usuario
    */
   async getResponsesByUser(userId: string): Promise<ResponseRecord[]> {
-    const connection = db.getConnection();
+    const connection = await this.getConnection();
 
-    const result = await connection.getAllAsync<ResponseRecord>(
-      `SELECT * FROM responses 
-       WHERE brigadista_user_id = ? 
-       ORDER BY created_at DESC`,
-      [userId],
+    const result = await this.withRetry(() =>
+      connection.getAllAsync<ResponseRecord>(
+        `SELECT * FROM responses 
+         WHERE brigadista_user_id = ? 
+         ORDER BY created_at DESC`,
+        [userId],
+      ),
     );
 
     return result;
@@ -263,22 +327,26 @@ export class ResponseRepository {
     surveyId: string,
     version?: string,
   ): Promise<ResponseRecord[]> {
-    const connection = db.getConnection();
+    const connection = await this.getConnection();
 
     if (version) {
-      const result = await connection.getAllAsync<ResponseRecord>(
-        `SELECT * FROM responses 
-         WHERE survey_id = ? AND survey_version = ? 
-         ORDER BY created_at DESC`,
-        [surveyId, version],
+      const result = await this.withRetry(() =>
+        connection.getAllAsync<ResponseRecord>(
+          `SELECT * FROM responses 
+           WHERE survey_id = ? AND survey_version = ? 
+           ORDER BY created_at DESC`,
+          [surveyId, version],
+        ),
       );
       return result;
     } else {
-      const result = await connection.getAllAsync<ResponseRecord>(
-        `SELECT * FROM responses 
-         WHERE survey_id = ? 
-         ORDER BY created_at DESC`,
-        [surveyId],
+      const result = await this.withRetry(() =>
+        connection.getAllAsync<ResponseRecord>(
+          `SELECT * FROM responses 
+           WHERE survey_id = ? 
+           ORDER BY created_at DESC`,
+          [surveyId],
+        ),
       );
       return result;
     }
@@ -288,12 +356,14 @@ export class ResponseRepository {
    * Obtener respuestas pendientes de sincronizar
    */
   async getPendingSyncResponses(): Promise<ResponseRecord[]> {
-    const connection = db.getConnection();
+    const connection = await this.getConnection();
 
-    const result = await connection.getAllAsync<ResponseRecord>(
-      `SELECT * FROM responses 
-       WHERE sync_status = 'pending' 
-       ORDER BY created_at ASC`,
+    const result = await this.withRetry(() =>
+      connection.getAllAsync<ResponseRecord>(
+        `SELECT * FROM responses 
+         WHERE sync_status = 'pending' 
+         ORDER BY created_at ASC`,
+      ),
     );
 
     return result;
@@ -303,15 +373,19 @@ export class ResponseRepository {
    * Marcar respuesta como sincronizada
    */
   async markAsSynced(responseId: string): Promise<void> {
-    const connection = db.getConnection();
+    const connection = await this.getConnection();
 
-    await connection.runAsync(
-      `UPDATE responses 
-       SET sync_status = 'synced',
-           last_synced_at = datetime('now'),
-           updated_at = datetime('now')
-       WHERE response_id = ?`,
-      [responseId],
+    await this.enqueueWrite(() =>
+      this.withRetry(() =>
+        connection.runAsync(
+          `UPDATE responses 
+           SET sync_status = 'synced',
+               last_synced_at = datetime('now'),
+               updated_at = datetime('now')
+           WHERE response_id = ?`,
+          [responseId],
+        ),
+      ),
     );
 
     console.log("✅ Response synced:", responseId);
@@ -321,17 +395,21 @@ export class ResponseRepository {
    * Marcar respuesta con error de sincronización
    */
   async markSyncError(responseId: string, error: string): Promise<void> {
-    const connection = db.getConnection();
+    const connection = await this.getConnection();
 
-    await connection.runAsync(
-      `UPDATE responses 
-       SET sync_status = 'error',
-           sync_error = ?,
-           sync_attempts = sync_attempts + 1,
-           last_sync_attempt_at = datetime('now'),
-           updated_at = datetime('now')
-       WHERE response_id = ?`,
-      [error, responseId],
+    await this.enqueueWrite(() =>
+      this.withRetry(() =>
+        connection.runAsync(
+          `UPDATE responses 
+           SET sync_status = 'error',
+               sync_error = ?,
+               sync_attempts = sync_attempts + 1,
+               last_sync_attempt_at = datetime('now'),
+               updated_at = datetime('now')
+           WHERE response_id = ?`,
+          [error, responseId],
+        ),
+      ),
     );
 
     console.log("❌ Response sync error:", responseId, error);
@@ -378,14 +456,16 @@ export class ResponseRepository {
    * Obtener respuestas en borrador (draft)
    */
   async getDraftResponses(userId: string): Promise<ResponseRecord[]> {
-    const connection = db.getConnection();
+    const connection = await this.getConnection();
 
-    const result = await connection.getAllAsync<ResponseRecord>(
-      `SELECT * FROM responses 
-       WHERE brigadista_user_id = ? 
-       AND status = 'draft' 
-       ORDER BY updated_at DESC`,
-      [userId],
+    const result = await this.withRetry(() =>
+      connection.getAllAsync<ResponseRecord>(
+        `SELECT * FROM responses 
+         WHERE brigadista_user_id = ? 
+         AND status = 'draft' 
+         ORDER BY updated_at DESC`,
+        [userId],
+      ),
     );
 
     return result;
@@ -395,14 +475,16 @@ export class ResponseRepository {
    * Obtener respuestas completadas
    */
   async getCompletedResponses(userId: string): Promise<ResponseRecord[]> {
-    const connection = db.getConnection();
+    const connection = await this.getConnection();
 
-    const result = await connection.getAllAsync<ResponseRecord>(
-      `SELECT * FROM responses 
-       WHERE brigadista_user_id = ? 
-       AND status = 'completed' 
-       ORDER BY completed_at DESC`,
-      [userId],
+    const result = await this.withRetry(() =>
+      connection.getAllAsync<ResponseRecord>(
+        `SELECT * FROM responses 
+         WHERE brigadista_user_id = ? 
+         AND status = 'completed' 
+         ORDER BY completed_at DESC`,
+        [userId],
+      ),
     );
 
     return result;
@@ -412,7 +494,7 @@ export class ResponseRepository {
    * Eliminar una respuesta (solo si es draft y no sincronizada)
    */
   async deleteResponse(responseId: string): Promise<boolean> {
-    const connection = db.getConnection();
+    const connection = await this.getConnection();
 
     const response = await this.getResponseById(responseId);
 
@@ -424,9 +506,13 @@ export class ResponseRepository {
       return false;
     }
 
-    await connection.runAsync(`DELETE FROM responses WHERE response_id = ?`, [
-      responseId,
-    ]);
+    await this.enqueueWrite(() =>
+      this.withRetry(() =>
+        connection.runAsync(`DELETE FROM responses WHERE response_id = ?`, [
+          responseId,
+        ]),
+      ),
+    );
 
     console.log("🗑️ Response deleted:", responseId);
     return true;
@@ -442,24 +528,26 @@ export class ResponseRepository {
     validated: number;
     pending_sync: number;
   }> {
-    const connection = db.getConnection();
+    const connection = await this.getConnection();
 
-    const result = await connection.getFirstAsync<{
-      total: number;
-      draft: number;
-      completed: number;
-      validated: number;
-      pending_sync: number;
-    }>(
-      `SELECT 
-        COUNT(*) as total,
-        SUM(CASE WHEN status = 'draft' THEN 1 ELSE 0 END) as draft,
-        SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
-        SUM(CASE WHEN status = 'validated' THEN 1 ELSE 0 END) as validated,
-        SUM(CASE WHEN sync_status = 'pending' THEN 1 ELSE 0 END) as pending_sync
-       FROM responses 
-       WHERE brigadista_user_id = ?`,
-      [userId],
+    const result = await this.withRetry(() =>
+      connection.getFirstAsync<{
+        total: number;
+        draft: number;
+        completed: number;
+        validated: number;
+        pending_sync: number;
+      }>(
+        `SELECT 
+          COUNT(*) as total,
+          SUM(CASE WHEN status = 'draft' THEN 1 ELSE 0 END) as draft,
+          SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
+          SUM(CASE WHEN status = 'validated' THEN 1 ELSE 0 END) as validated,
+          SUM(CASE WHEN sync_status = 'pending' THEN 1 ELSE 0 END) as pending_sync
+         FROM responses 
+         WHERE brigadista_user_id = ?`,
+        [userId],
+      ),
     );
 
     return (

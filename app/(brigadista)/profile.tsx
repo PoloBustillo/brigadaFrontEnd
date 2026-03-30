@@ -17,10 +17,12 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function BrigadistaProfileScreen() {
   const colors = useThemeColors();
   const { contentPadding } = useTabBarHeight();
+  const { bottom: bottomInset } = useSafeAreaInsets();
   const router = useRouter();
   const { user, logout } = useAuth();
 
@@ -38,6 +40,19 @@ export default function BrigadistaProfileScreen() {
 
   const handleThemeSettings = () => {
     router.push("/theme-settings" as any);
+  };
+
+  const handleGoHome = () => {
+    router.push("/(brigadista)/" as any);
+  };
+
+  const handleGoMaps = () => {
+    // Maps lives in the Home screen main menu for now.
+    router.push("/(brigadista)/" as any);
+  };
+
+  const handleGoNotifications = () => {
+    router.push("/(brigadista)/notifications" as any);
   };
 
   const handleLogout = async () => {
@@ -98,6 +113,30 @@ export default function BrigadistaProfileScreen() {
     },
   ];
 
+  const bottomNavItems = [
+    {
+      id: "home",
+      icon: "home-outline",
+      label: "Home",
+      onPress: handleGoHome,
+      color: colors.primary,
+    },
+    {
+      id: "maps",
+      icon: "map-outline",
+      label: "Maps",
+      onPress: handleGoMaps,
+      color: colors.info,
+    },
+    {
+      id: "notifications",
+      icon: "notifications-outline",
+      label: "Notificaciones",
+      onPress: handleGoNotifications,
+      color: colors.warning,
+    },
+  ];
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
@@ -148,7 +187,7 @@ export default function BrigadistaProfileScreen() {
         style={styles.scrollView}
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingBottom: contentPadding },
+          { paddingBottom: contentPadding + 90 },
         ]}
         showsVerticalScrollIndicator={false}
       >
@@ -272,6 +311,42 @@ export default function BrigadistaProfileScreen() {
           </Text>
         </TouchableOpacity>
       </ScrollView>
+
+      <View
+        style={[
+          styles.bottomMenu,
+          {
+            backgroundColor: colors.surface,
+            borderTopColor: colors.border,
+            marginBottom: Math.max(bottomInset, 10),
+          },
+        ]}
+      >
+        {bottomNavItems.map((item) => (
+          <TouchableOpacity
+            key={item.id}
+            style={styles.bottomMenuItem}
+            onPress={item.onPress}
+            activeOpacity={0.8}
+          >
+            <View
+              style={[
+                styles.bottomMenuIconWrap,
+                { backgroundColor: item.color + "20" },
+              ]}
+            >
+              <Ionicons
+                name={item.icon as any}
+                size={20}
+                color={item.color}
+              />
+            </View>
+            <Text style={[styles.bottomMenuLabel, { color: colors.text }]}> 
+              {item.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
     </View>
   );
 }
@@ -389,6 +464,32 @@ const styles = StyleSheet.create({
   },
   logoutText: {
     fontSize: 16,
+    fontWeight: "600",
+  },
+  bottomMenu: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    alignItems: "center",
+    borderTopWidth: 1,
+    paddingTop: 10,
+    paddingBottom: 10,
+    paddingHorizontal: 12,
+  },
+  bottomMenuItem: {
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    minWidth: 84,
+  },
+  bottomMenuIconWrap: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  bottomMenuLabel: {
+    fontSize: 12,
     fontWeight: "600",
   },
 });

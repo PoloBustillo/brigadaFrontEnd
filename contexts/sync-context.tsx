@@ -71,6 +71,46 @@ const calculateRetryDelay = (retryCount: number): number => {
   return Math.min(delay, RETRY_CONFIG.maxDelay);
 };
 
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const isDatabaseLockedError = (error: unknown): boolean => {
+  if (!error) return false;
+  const message =
+    typeof error === "string"
+      ? error
+      : error instanceof Error
+        ? error.message
+        : String(error);
+
+  const normalized = message.toLowerCase();
+  return normalized.includes("database is locked") || normalized.includes("busy");
+};
+
+const loadPendingOperationsWithRetry = async (
+  maxAttempts = 4,
+): Promise<Awaited<ReturnType<typeof syncRepository.getPendingOperations>>> => {
+  let attempt = 0;
+
+  while (true) {
+    try {
+      return await syncRepository.getPendingOperations(50);
+    } catch (error) {
+      attempt += 1;
+      const shouldRetry = isDatabaseLockedError(error) && attempt < maxAttempts;
+
+      if (!shouldRetry) {
+        throw error;
+      }
+
+      const delayMs = Math.min(250 * Math.pow(2, attempt - 1), 2000);
+      console.warn(
+        `⏳ SQLite busy while loading pending sync items (attempt ${attempt}/${maxAttempts}). Retrying in ${delayMs}ms...`,
+      );
+      await sleep(delayMs);
+    }
+  }
+};
+
 export function SyncProvider({ children }: { children: React.ReactNode }) {
   const [pendingItems, setPendingItems] = useState<SyncItem[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -96,7 +136,7 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
     (async () => {
       try {
         await offlineSyncService.initialize();
-        const pendingOps = await syncRepository.getPendingOperations(50);
+        const pendingOps = await loadPendingOperationsWithRetry();
         if (mounted && pendingOps.length > 0) {
           const items: SyncItem[] = pendingOps.map((op) => ({
             id: op.entity_id,

@@ -10,5 +10,6 @@ export * from "./client";
 export * from "./memory-cache";
 export * from "./mobile";
 export * from "./notifications";
+export * from "./support";
 export * from "./types";
 export * from "./utils";

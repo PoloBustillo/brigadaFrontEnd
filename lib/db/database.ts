@@ -145,6 +145,7 @@ class DatabaseManager {
   private static instance: DatabaseManager;
   private db: SQLite.SQLiteDatabase | null = null;
   private drizzleDb: ReturnType<typeof drizzle> | null = null;
+  private initializationPromise: Promise<void> | null = null;
 
   private constructor() {}
 
@@ -163,20 +164,127 @@ class DatabaseManager {
       return; // Ya inicializada
     }
 
+    if (this.initializationPromise) {
+      await this.initializationPromise;
+      return;
+    }
+
+    this.initializationPromise = this.initializeInternal();
+
     try {
-      // Abrir base de datos
-      this.db = await SQLite.openDatabaseAsync("brigada.db");
+      await this.initializationPromise;
+    } finally {
+      this.initializationPromise = null;
+    }
+  }
 
-      // Inicializar Drizzle ORM
-      this.drizzleDb = drizzle(this.db);
+  private isDatabaseLockedError(error: unknown): boolean {
+    if (!error) return false;
+    const message =
+      error instanceof Error ? error.message : String(error);
+    return /database is locked|database is busy|SQLITE_BUSY/i.test(message);
+  }
 
-      // Ejecutar schema
-      await this.executeSchema();
+  private async sleep(ms: number): Promise<void> {
+    await new Promise((resolve) => setTimeout(resolve, ms));
+  }
 
-      console.log("✅ Database (brigada.db) initialized successfully");
+  private async withDbLockRetry<T>(
+    operation: () => Promise<T>,
+    label: string,
+    maxAttempts: number = 4,
+  ): Promise<T> {
+    let attempt = 0;
+
+    while (true) {
+      try {
+        return await operation();
+      } catch (error) {
+        attempt += 1;
+        const shouldRetry =
+          this.isDatabaseLockedError(error) && attempt < maxAttempts;
+
+        if (!shouldRetry) {
+          throw error;
+        }
+
+        const delayMs = Math.min(150 * Math.pow(2, attempt - 1), 1200);
+        console.warn(
+          `⏳ SQLite busy during ${label} (attempt ${attempt}/${maxAttempts}). Retrying in ${delayMs}ms...`,
+        );
+        await this.sleep(delayMs);
+      }
+    }
+  }
+
+  private async applyPragmaBestEffort(sql: string, label: string): Promise<void> {
+    try {
+      await this.withDbLockRetry(() => this.db!.execAsync(sql), label);
     } catch (error) {
-      console.error("❌ Database (brigada.db) initialization failed:", error);
+      if (this.isDatabaseLockedError(error)) {
+        console.warn(
+          `⚠️ Skipping ${label} due to transient SQLite lock. Initialization will continue.`,
+        );
+        return;
+      }
       throw error;
+    }
+  }
+
+  private async initializeInternal(): Promise<void> {
+    const maxAttempts = 4;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      try {
+        // Abrir base de datos
+        this.db = await SQLite.openDatabaseAsync("brigada.db");
+
+        // Reduce lock contention for concurrent async readers/writers.
+        await this.applyPragmaBestEffort(
+          "PRAGMA journal_mode = WAL;",
+          "PRAGMA journal_mode",
+        );
+        await this.applyPragmaBestEffort(
+          "PRAGMA synchronous = NORMAL;",
+          "PRAGMA synchronous",
+        );
+        await this.applyPragmaBestEffort(
+          "PRAGMA busy_timeout = 5000;",
+          "PRAGMA busy_timeout",
+        );
+
+        // Inicializar Drizzle ORM
+        this.drizzleDb = drizzle(this.db);
+
+        // Ejecutar schema
+        await this.executeSchema();
+
+        console.log("✅ Database (brigada.db) initialized successfully");
+        return;
+      } catch (error) {
+        const shouldRetry =
+          this.isDatabaseLockedError(error) && attempt < maxAttempts;
+
+        try {
+          await this.db?.closeAsync();
+        } catch {
+          // Ignore close errors while recovering from initialization failures.
+        }
+
+        this.db = null;
+        this.drizzleDb = null;
+
+        if (!shouldRetry) {
+          console.error("❌ Database (brigada.db) initialization failed:", error);
+          throw error;
+        }
+
+        const delayMs = Math.min(200 * Math.pow(2, attempt - 1), 1500);
+        console.warn(
+          `⏳ Retrying brigada.db initialization (attempt ${attempt + 1}/${maxAttempts}) in ${delayMs}ms...`,
+        );
+        await this.sleep(delayMs);
+      }
     }
   }
 
@@ -186,9 +294,13 @@ class DatabaseManager {
   private async executeSchema(): Promise<void> {
     if (!this.db) throw new Error("Database not initialized");
 
-    const versionResult = await this.db.getFirstAsync<{
-      user_version: number;
-    }>("PRAGMA user_version;");
+    const versionResult = await this.withDbLockRetry(
+      () =>
+        this.db!.getFirstAsync<{
+          user_version: number;
+        }>("PRAGMA user_version;"),
+      "read user_version",
+    );
     const currentVersion = versionResult?.user_version ?? 0;
 
     if (currentVersion >= APP_DB_VERSION) {
@@ -200,27 +312,57 @@ class DatabaseManager {
       `🔄 Migrating brigada.db from v${currentVersion} → v${APP_DB_VERSION}`,
     );
 
-    await this.db.execAsync("BEGIN TRANSACTION;");
+    await this.withDbLockRetry(
+      () => this.db!.execAsync("BEGIN TRANSACTION;"),
+      "BEGIN TRANSACTION",
+    );
 
     try {
       // Create all tables
-      await this.db.execAsync(CREATE_SURVEYS_TABLE);
-      await this.db.execAsync(CREATE_RESPONSES_TABLE);
-      await this.db.execAsync(CREATE_LOCAL_FILES_TABLE);
-      await this.db.execAsync(CREATE_SYNC_QUEUE_TABLE);
-      await this.db.execAsync(CREATE_KV_CACHE_TABLE);
+      await this.withDbLockRetry(
+        () => this.db!.execAsync(CREATE_SURVEYS_TABLE),
+        "create surveys table",
+      );
+      await this.withDbLockRetry(
+        () => this.db!.execAsync(CREATE_RESPONSES_TABLE),
+        "create responses table",
+      );
+      await this.withDbLockRetry(
+        () => this.db!.execAsync(CREATE_LOCAL_FILES_TABLE),
+        "create local_files table",
+      );
+      await this.withDbLockRetry(
+        () => this.db!.execAsync(CREATE_SYNC_QUEUE_TABLE),
+        "create sync_queue table",
+      );
+      await this.withDbLockRetry(
+        () => this.db!.execAsync(CREATE_KV_CACHE_TABLE),
+        "create kv_cache table",
+      );
 
       // Create indexes
       for (const idx of CREATE_INDEXES) {
-        await this.db.execAsync(idx);
+        await this.withDbLockRetry(
+          () => this.db!.execAsync(idx),
+          "create index",
+        );
       }
 
-      await this.db.execAsync(`PRAGMA user_version = ${APP_DB_VERSION};`);
-      await this.db.execAsync("COMMIT;");
+      await this.withDbLockRetry(
+        () => this.db!.execAsync(`PRAGMA user_version = ${APP_DB_VERSION};`),
+        "set user_version",
+      );
+      await this.withDbLockRetry(
+        () => this.db!.execAsync("COMMIT;"),
+        "COMMIT",
+      );
 
       console.log(`✅ brigada.db migrated to v${APP_DB_VERSION}`);
     } catch (error) {
-      await this.db.execAsync("ROLLBACK;");
+      await this.withDbLockRetry(
+        () => this.db!.execAsync("ROLLBACK;"),
+        "ROLLBACK",
+      );
       throw error;
     }
   }
@@ -268,6 +410,10 @@ class DatabaseManager {
    * Cerrar la base de datos
    */
   async close(): Promise<void> {
+    if (this.initializationPromise) {
+      await this.initializationPromise;
+    }
+
     if (this.db) {
       await this.db.closeAsync();
       this.db = null;

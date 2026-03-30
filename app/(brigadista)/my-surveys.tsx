@@ -16,7 +16,7 @@
  *   - rejected: Requires correction, can edit if supervisor allows
  */
 
-import { AppHeader } from "@/components/shared";
+import { BrigadistaTopBar } from "@/components/shared";
 import { typography } from "@/constants/typography";
 import { useSync } from "@/contexts/sync-context";
 import { useThemeColors } from "@/contexts/theme-context";
@@ -252,9 +252,32 @@ export default function BrigadistaSurveysScreen() {
     return null;
   })();
 
+  // Calculate extra surveys (visible but not in bottom menu)
+  const extraSurveys = visibleSurveys
+    .filter((survey) => {
+      const isInMenu = bottomBarMenuItems.some(
+        (m) => m.survey_id === survey.id || m.survey_id === survey.surveyId,
+      );
+      return !isInMenu;
+    })
+    .map((survey) => ({
+      id: survey.id,
+      title: survey.title,
+    }));
+
+  const handleExtraSurveyPress = (surveyId: number) => {
+    const survey = visibleSurveys.find((s) => s.id === surveyId);
+    if (!survey) return;
+    handleStartSurvey(survey, getTimeWindowStatus(survey));
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <AppHeader title="Mis Encuestas" />
+      {/* Top Bar */}
+      <BrigadistaTopBar
+        extraSurveys={extraSurveys}
+        onExtraSurveyPress={handleExtraSurveyPress}
+      />
 
       {/* Unified status bar (offline/sync/error) */}
       {unifiedStatus && (
@@ -1046,9 +1069,13 @@ export default function BrigadistaSurveysScreen() {
         >
           {unavailableBottomItemsCount > 0 && (
             <Text
-              style={[styles.bottomSurveyHintText, { color: colors.textSecondary }]}
+              style={[
+                styles.bottomSurveyHintText,
+                { color: colors.textSecondary },
+              ]}
             >
-              {unavailableBottomItemsCount} acceso(s) no disponible(s) por asignación o falta de publicación
+              {unavailableBottomItemsCount} acceso(s) no disponible(s) por
+              asignación o falta de publicación
             </Text>
           )}
           {bottomBarSurveys.length > 0 ? (
@@ -1068,7 +1095,10 @@ export default function BrigadistaSurveysScreen() {
                     },
                   ]}
                   onPress={() => {
-                    handleStartSurvey(item.survey, getTimeWindowStatus(item.survey));
+                    handleStartSurvey(
+                      item.survey,
+                      getTimeWindowStatus(item.survey),
+                    );
                   }}
                   activeOpacity={0.8}
                 >
@@ -1086,8 +1116,14 @@ export default function BrigadistaSurveysScreen() {
               ))}
             </ScrollView>
           ) : (
-            <Text style={[styles.bottomSurveyHintText, { color: colors.textSecondary }]}> 
-              No hay accesos disponibles por asignación o falta de versión publicada
+            <Text
+              style={[
+                styles.bottomSurveyHintText,
+                { color: colors.textSecondary },
+              ]}
+            >
+              No hay accesos disponibles por asignación o falta de versión
+              publicada
             </Text>
           )}
         </View>

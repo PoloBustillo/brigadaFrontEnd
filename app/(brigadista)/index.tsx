@@ -9,14 +9,15 @@
  * ✅ Offline Ready: Sync status and offline capabilities highlighted
  */
 
-import { ThemeToggleIcon } from "@/components/ui/theme-toggle";
+import { BrigadistaMainMenu, BrigadistaTopBar } from "@/components/shared";
 import { useAuth } from "@/contexts/auth-context";
 import { useSync } from "@/contexts/sync-context";
 import { useThemeColors } from "@/contexts/theme-context";
 import { useTabBarHeight } from "@/hooks/use-tab-bar-height";
 import {
-  type BottomBarMenuItem,
   fetchPublicAppConfig,
+  type BottomBarMenuItem,
+  type SocialLinkItem,
 } from "@/lib/api/app-config";
 import {
   getAssignedSurveys,
@@ -33,6 +34,8 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Linking,
+  Modal,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -41,6 +44,14 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+const GENERATED_QR_BASE_URL = "https://quickchart.io/qr?size=360&margin=1&text=";
+
+const buildGeneratedQrUrl = (url: string | null | undefined) => {
+  const normalized = url?.trim();
+  if (!normalized) return null;
+  return `${GENERATED_QR_BASE_URL}${encodeURIComponent(normalized)}`;
+};
 
 interface SurveyAssignmentCardProps {
   id: number;
@@ -230,6 +241,10 @@ export default function BrigadistaHome() {
   const [bottomBarMenuItems, setBottomBarMenuItems] = useState<
     BottomBarMenuItem[]
   >([]);
+  const [socialLinks, setSocialLinks] = useState<SocialLinkItem[]>([]);
+  const [showNetworksModal, setShowNetworksModal] = useState(false);
+  const [activeQrUrl, setActiveQrUrl] = useState<string | null>(null);
+  const SHOW_SOCIAL_QR = true;
 
   const CACHE_KEY = "assignments_active";
   const CACHE_TTL = 30 * 60 * 1000; // 30 min
@@ -332,6 +347,7 @@ export default function BrigadistaHome() {
   useEffect(() => {
     const loadBottomBarConfig = async () => {
       const config = await fetchPublicAppConfig();
+      setSocialLinks(config?.social_links ?? []);
       const configuredItems = config?.bottom_bar_menu_items ?? [];
       if (configuredItems.length > 0) {
         setBottomBarMenuItems(configuredItems);
@@ -514,8 +530,107 @@ export default function BrigadistaHome() {
     bottomBarMenuItems.length - matchedBottomBarAssignments.length,
   );
 
+  // Calculate extra surveys (assigned but not in bottom menu)
+  const extraSurveys = assignments
+    .filter((a) => {
+      const isInMenu = bottomBarMenuItems.some(
+        (m) => m.survey_id === a.survey_id || m.survey_id === a.assignment_id,
+      );
+      return !isInMenu;
+    })
+    .map((a) => ({
+      id: a.survey_id,
+      title: a.survey_title,
+    }));
+
+  const handleExtraSurveyPress = (surveyId: number) => {
+    const assignment = assignments.find((a) => a.survey_id === surveyId);
+    if (!assignment?.latest_version?.id) {
+      router.push("/(brigadista)/my-surveys" as any);
+      return;
+    }
+
+    router.push({
+      pathname: "/(brigadista)/surveys/fill",
+      params: {
+        surveyId: String(assignment.survey_id),
+        surveyTitle: assignment.survey_title,
+        versionId: String(assignment.latest_version.id),
+        questionsJson: JSON.stringify(
+          assignment.latest_version.questions ?? [],
+        ),
+      },
+    });
+  };
+
+  const handleReportIssue = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const url =
+      "mailto:brigadadigitalmorena@gmail.com?subject=Reporte%20de%20error%20-%20Brigada%20Digital";
+    const canOpen = await Linking.canOpenURL(url);
+    if (!canOpen) {
+      Alert.alert(
+        "No disponible",
+        "No se pudo abrir el correo en este dispositivo.",
+      );
+      return;
+    }
+    await Linking.openURL(url);
+  };
+
+  const handleOpenNetworks = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (socialLinks.length === 0) {
+      Alert.alert(
+        "Sin enlaces disponibles",
+        "Todavia no hay redes configuradas para mostrar.",
+      );
+      return;
+    }
+    setActiveQrUrl(null);
+    setShowNetworksModal(true);
+  };
+
+  const handleOpenSocialUrl = async (url: string | null) => {
+    if (!url) {
+      Alert.alert("Sin enlace", "Esta red no tiene enlace configurado.");
+      return;
+    }
+
+    const canOpen = await Linking.canOpenURL(url);
+    if (!canOpen) {
+      Alert.alert(
+        "Enlace no disponible",
+        "No se pudo abrir este enlace en el dispositivo.",
+      );
+      return;
+    }
+
+    await Linking.openURL(url);
+  };
+
+  const handleShowQr = (qrUrl: string | null) => {
+    if (!qrUrl) {
+      Alert.alert("Sin QR", "Esta red no tiene QR configurado.");
+      return;
+    }
+
+    setActiveQrUrl((current) => (current === qrUrl ? null : qrUrl));
+  };
+
+  const handleCloseNetworksModal = () => {
+    setActiveQrUrl(null);
+    setShowNetworksModal(false);
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
+      {/* Top Bar */}
+      <BrigadistaTopBar
+        extraSurveys={extraSurveys}
+        onExtraSurveyPress={handleExtraSurveyPress}
+      />
+
       <ScrollView
         style={[styles.container, { backgroundColor: colors.background }]}
         contentContainerStyle={[
@@ -531,336 +646,171 @@ export default function BrigadistaHome() {
           />
         }
       >
-      {/* Loading overlay */}
-      {isLoading && (
-        <View style={styles.loadingOverlay}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-            Cargando encuestas...
-          </Text>
-        </View>
-      )}
-
-      {/* Network error banner — only when we have partial/stale data */}
-      {!isLoading && fetchError && assignmentCards.length > 0 && (
-        <TouchableOpacity
-          style={[
-            styles.errorBanner,
-            { backgroundColor: colors.error + "15", borderColor: colors.error },
-          ]}
-          onPress={() => {
-            setIsLoading(true);
-            fetchAssignments();
+        {/* Main Menu */}
+        <BrigadistaMainMenu
+          onExtraPress={() => {
+            // Show extras modal or navigate
           }}
-          activeOpacity={0.8}
-        >
-          <Ionicons
-            name="cloud-offline-outline"
-            size={20}
-            color={colors.error}
-          />
-          <Text style={[styles.errorBannerText, { color: colors.error }]}>
-            No se pudo cargar. Toca para reintentar.
-          </Text>
-          <Ionicons name="refresh-outline" size={18} color={colors.error} />
-        </TouchableOpacity>
-      )}
+          onNetworksPress={handleOpenNetworks}
+          onReportIssuePress={handleReportIssue}
+          onExitAppPress={handleLogout}
+        />
 
-      {/* Offline banner */}
-      {!isOnline && (
-        <View
-          style={[
-            styles.offlineBanner,
-            { backgroundColor: colors.warning ?? "#f59e0b" },
-          ]}
-        >
-          <Ionicons name="cloud-offline-outline" size={16} color="#fff" />
-          <Text style={styles.offlineBannerText}>
-            Sin conexión — mostrando datos guardados
-          </Text>
-        </View>
-      )}
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <Text style={[styles.greeting, { color: colors.textSecondary }]}>
-            Hola de nuevo
-          </Text>
-          <Text style={[styles.title, { color: colors.text }]}>
-            {user?.name || "Brigadista"}
-          </Text>
-        </View>
-        <View style={styles.headerActions}>
-          {/* Connection Status */}
+      </ScrollView>
+
+      <Modal
+        visible={showNetworksModal}
+        transparent
+        animationType="slide"
+        onRequestClose={handleCloseNetworksModal}
+      >
+        <View style={styles.modalBackdrop}>
           <View
             style={[
-              styles.statusIndicator,
-              {
-                backgroundColor: isOnline
-                  ? colors.success + "20"
-                  : colors.error + "20",
-                borderColor: isOnline ? colors.success : colors.error,
-              },
-            ]}
-          >
-            <Ionicons
-              name={isOnline ? "wifi" : "wifi-outline"}
-              size={16}
-              color={isOnline ? colors.success : colors.error}
-            />
-          </View>
-          {/* Theme Toggle */}
-          <ThemeToggleIcon />
-          {/* Profile */}
-          <TouchableOpacity
-            style={[
-              styles.profileButton,
-              {
-                backgroundColor: colors.surface,
-                borderColor: colors.border,
-                overflow: "hidden",
-              },
-            ]}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              router.push("/(brigadista)/profile" as any);
-            }}
-            activeOpacity={0.7}
-          >
-            {user?.avatar_url ? (
-              <Image
-                source={{ uri: user.avatar_url }}
-                style={{ width: 44, height: 44, borderRadius: 22 }}
-              />
-            ) : (
-              <Ionicons
-                name="person-outline"
-                size={20}
-                color={colors.primary}
-              />
-            )}
-          </TouchableOpacity>
-          {/* Logout */}
-          <TouchableOpacity
-            style={[
-              styles.logoutButton,
+              styles.networksModal,
               { backgroundColor: colors.surface, borderColor: colors.border },
             ]}
-            onPress={handleLogout}
-            activeOpacity={0.7}
           >
-            <Ionicons name="log-out-outline" size={20} color={colors.error} />
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* Sync Status Card */}
-      <TouchableOpacity
-        style={[
-          styles.syncCard,
-          {
-            backgroundColor: syncStatus.isSynced
-              ? colors.success + "15"
-              : colors.warning + "15",
-            borderColor: syncStatus.isSynced ? colors.success : colors.warning,
-          },
-        ]}
-        activeOpacity={0.7}
-        onPress={handleSync}
-        disabled={isSyncing}
-      >
-        <View style={styles.syncHeader}>
-          <View style={styles.syncInfo}>
-            <Ionicons
-              name={syncStatus.isSynced ? "checkmark-circle" : "cloud-upload"}
-              size={24}
-              color={syncStatus.isSynced ? colors.success : colors.warning}
-            />
-            <View>
-              <Text
-                style={[
-                  styles.syncStatus,
-                  {
-                    color: syncStatus.isSynced
-                      ? colors.success
-                      : colors.warning,
-                  },
-                ]}
-              >
-                {syncStatus.isSynced
-                  ? "Todo Sincronizado"
-                  : "Pendiente de Sync"}
-              </Text>
-              <Text
-                style={[styles.syncDetails, { color: colors.textSecondary }]}
-              >
-                {syncStatus.lastSync}
-              </Text>
-            </View>
-          </View>
-          {isSyncing ? (
-            <Text style={[styles.syncingText, { color: colors.primary }]}>
-              Sincronizando...
-            </Text>
-          ) : (
-            <Ionicons name="sync" size={20} color={colors.primary} />
-          )}
-        </View>
-        {syncStatus.pendingResponses > 0 && (
-          <View
-            style={[
-              styles.pendingBadge,
-              { backgroundColor: colors.warning + "30" },
-            ]}
-          >
-            <Text style={[styles.pendingText, { color: colors.warning }]}>
-              {syncStatus.pendingResponses} respuestas pendientes de subir
-            </Text>
-          </View>
-        )}
-      </TouchableOpacity>
-
-      {/* Stats Grid */}
-      <View style={styles.statsGrid}>
-        {stats.map((stat, index) => (
-          <StatCard key={index} {...stat} />
-        ))}
-      </View>
-
-      {/* Assignments Section */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            Mis Asignaciones
-          </Text>
-          <TouchableOpacity
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              router.push("/(brigadista)/my-surveys" as any);
-            }}
-          >
-            <Text style={[styles.seeAllText, { color: colors.primary }]}>
-              Ver todas
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.assignmentsList}>
-          {assignmentCards.length > 0 ? (
-            assignmentCards.map((assignment) => (
-              <SurveyAssignmentCard key={assignment.id} {...assignment} />
-            ))
-          ) : !isLoading ? (
-            fetchError ? (
-              <TouchableOpacity
-                style={[
-                  styles.emptyState,
-                  {
-                    backgroundColor: colors.surface,
-                    borderColor: colors.error + "40",
-                  },
-                ]}
-                onPress={() => {
-                  setIsLoading(true);
-                  fetchAssignments();
-                }}
-                activeOpacity={0.7}
-              >
-                <Ionicons
-                  name="cloud-offline-outline"
-                  size={40}
-                  color={colors.error}
-                />
-                <Text style={[styles.emptyStateTitle, { color: colors.error }]}>
-                  Sin conexión
-                </Text>
+            <View style={styles.networksModalHeader}>
+              <View>
+                <Text style={[styles.networksModalTitle, { color: colors.text }]}>Redes</Text>
                 <Text
                   style={[
-                    styles.emptyStateText,
+                    styles.networksModalSubtitle,
                     { color: colors.textSecondary },
                   ]}
                 >
-                  No se pudo cargar. Toca para reintentar.
-                </Text>
-              </TouchableOpacity>
-            ) : (
-              <View
-                style={[
-                  styles.emptyState,
-                  {
-                    backgroundColor: colors.surface,
-                    borderColor: colors.border,
-                  },
-                ]}
-              >
-                <Ionicons
-                  name="clipboard-outline"
-                  size={40}
-                  color={colors.textTertiary}
-                />
-                <Text
-                  style={[
-                    styles.emptyStateTitle,
-                    { color: colors.textSecondary },
-                  ]}
-                >
-                  Sin encuestas asignadas
-                </Text>
-                <Text
-                  style={[
-                    styles.emptyStateText,
-                    { color: colors.textTertiary },
-                  ]}
-                >
-                  Tu encargado te asignará encuestas pronto. Usa el gesto de
-                  arrastrar hacia abajo para actualizar.
+                  Selecciona una red para abrir enlace o mostrar QR
                 </Text>
               </View>
-            )
-          ) : null}
-        </View>
-      </View>
+              <TouchableOpacity
+                onPress={handleCloseNetworksModal}
+                style={[
+                  styles.modalCloseButton,
+                  { backgroundColor: colors.background, borderColor: colors.border },
+                ]}
+              >
+                <Ionicons name="close" size={18} color={colors.text} />
+              </TouchableOpacity>
+            </View>
 
-      {/* Quick Actions */}
-      <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>
-          Acciones Rápidas
-        </Text>
-        <View style={styles.actionsGrid}>
-          <TouchableOpacity
-            style={[
-              styles.actionCard,
-              { backgroundColor: colors.surface, borderColor: colors.border },
-            ]}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              router.push("/(brigadista)/my-surveys" as any);
-            }}
-          >
-            <Ionicons name="clipboard" size={32} color={colors.primary} />
-            <Text style={[styles.actionText, { color: colors.text }]}>
-              Ver Encuestas
-            </Text>
-          </TouchableOpacity>
+            {socialLinks.map((social, index) => {
+              const hasUrl = Boolean(social.url);
+              const resolvedQrUrl = social.qr_url || buildGeneratedQrUrl(social.url);
+              const hasQr = Boolean(resolvedQrUrl);
+              const isQrActive = Boolean(hasQr && activeQrUrl === resolvedQrUrl);
 
-          <TouchableOpacity
-            style={[
-              styles.actionCard,
-              { backgroundColor: colors.surface, borderColor: colors.border },
-            ]}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              router.push("/(brigadista)/responses/" as any);
-            }}
-          >
-            <Ionicons name="list" size={32} color={colors.success} />
-            <Text style={[styles.actionText, { color: colors.text }]}>
-              Mis Respuestas
-            </Text>
-          </TouchableOpacity>
+              return (
+                <View
+                  key={`${social.platform}-${index}`}
+                  style={[
+                    styles.socialItem,
+                    { borderColor: colors.border, backgroundColor: colors.background },
+                  ]}
+                >
+                  <View style={styles.socialHeader}>
+                    <Text style={[styles.socialLabel, { color: colors.text }]}>
+                      {social.label}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.socialPlatform,
+                        { color: colors.textSecondary },
+                      ]}
+                    >
+                      {social.platform}
+                    </Text>
+                  </View>
+
+                  <View style={styles.socialActionsRow}>
+                    <TouchableOpacity
+                      style={[
+                        styles.socialActionButton,
+                        {
+                          backgroundColor: hasUrl
+                            ? colors.primary + "18"
+                            : colors.border + "66",
+                          borderColor: hasUrl
+                            ? colors.primary + "33"
+                            : colors.border,
+                        },
+                      ]}
+                      disabled={!hasUrl}
+                      onPress={() => handleOpenSocialUrl(social.url)}
+                    >
+                      <Ionicons
+                        name="open-outline"
+                        size={16}
+                        color={hasUrl ? colors.primary : colors.textSecondary}
+                      />
+                      <Text
+                        style={[
+                          styles.socialActionText,
+                          {
+                            color: hasUrl ? colors.primary : colors.textSecondary,
+                          },
+                        ]}
+                      >
+                        Abrir enlace
+                      </Text>
+                    </TouchableOpacity>
+
+                    {SHOW_SOCIAL_QR ? (
+                      <TouchableOpacity
+                        style={[
+                          styles.socialActionButton,
+                          {
+                            backgroundColor: hasQr
+                              ? colors.success + "18"
+                              : colors.border + "66",
+                            borderColor: hasQr
+                              ? colors.success + "33"
+                              : colors.border,
+                          },
+                        ]}
+                        disabled={!hasQr}
+                        onPress={() => handleShowQr(resolvedQrUrl)}
+                      >
+                        <Ionicons
+                          name="qr-code-outline"
+                          size={16}
+                          color={hasQr ? colors.success : colors.textSecondary}
+                        />
+                        <Text
+                          style={[
+                            styles.socialActionText,
+                            {
+                              color: hasQr ? colors.success : colors.textSecondary,
+                            },
+                          ]}
+                        >
+                          {isQrActive ? "Ocultar QR" : "Mostrar QR"}
+                        </Text>
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
+                </View>
+              );
+            })}
+
+            {SHOW_SOCIAL_QR && activeQrUrl ? (
+              <View
+                style={[
+                  styles.qrPreviewCard,
+                  { borderColor: colors.border, backgroundColor: colors.background },
+                ]}
+              >
+                <Text style={[styles.qrTitle, { color: colors.text }]}>Codigo QR</Text>
+                <Image
+                  source={{ uri: activeQrUrl }}
+                  style={styles.qrImage}
+                  resizeMode="contain"
+                />
+              </View>
+            ) : null}
+          </View>
         </View>
-      </View>
-      </ScrollView>
+      </Modal>
 
       {bottomBarMenuItems.length > 0 && (
         <View
@@ -875,9 +825,13 @@ export default function BrigadistaHome() {
         >
           {unavailableBottomItemsCount > 0 && (
             <Text
-              style={[styles.bottomSurveyHintText, { color: colors.textSecondary }]}
+              style={[
+                styles.bottomSurveyHintText,
+                { color: colors.textSecondary },
+              ]}
             >
-              {unavailableBottomItemsCount} acceso(s) no disponible(s) por asignación o falta de publicación
+              {unavailableBottomItemsCount} acceso(s) no disponible(s) por
+              asignación o falta de publicación
             </Text>
           )}
           {bottomBarAssignments.length > 0 ? (
@@ -918,7 +872,10 @@ export default function BrigadistaHome() {
                   <Ionicons name={item.icon} size={18} color={colors.primary} />
                   <Text
                     numberOfLines={1}
-                    style={[styles.bottomSurveyButtonText, { color: colors.primary }]}
+                    style={[
+                      styles.bottomSurveyButtonText,
+                      { color: colors.primary },
+                    ]}
                   >
                     {item.title}
                   </Text>
@@ -926,8 +883,14 @@ export default function BrigadistaHome() {
               ))}
             </ScrollView>
           ) : (
-            <Text style={[styles.bottomSurveyHintText, { color: colors.textSecondary }]}> 
-              No hay accesos disponibles por asignación o falta de versión publicada
+            <Text
+              style={[
+                styles.bottomSurveyHintText,
+                { color: colors.textSecondary },
+              ]}
+            >
+              No hay accesos disponibles por asignación o falta de versión
+              publicada
             </Text>
           )}
         </View>
@@ -1261,5 +1224,94 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "700",
     maxWidth: 170,
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    justifyContent: "flex-end",
+  },
+  networksModal: {
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+    borderWidth: 1,
+    padding: 16,
+    gap: 12,
+    maxHeight: "86%",
+  },
+  networksModalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  networksModalTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+  },
+  networksModalSubtitle: {
+    marginTop: 4,
+    fontSize: 13,
+  },
+  modalCloseButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  socialItem: {
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 12,
+    gap: 8,
+  },
+  socialHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  socialLabel: {
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  socialPlatform: {
+    textTransform: "capitalize",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  socialActionsRow: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  socialActionButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    borderRadius: 10,
+    borderWidth: 1,
+    paddingVertical: 10,
+  },
+  socialActionText: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  qrPreviewCard: {
+    marginTop: 2,
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 12,
+    alignItems: "center",
+    gap: 8,
+  },
+  qrTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  qrImage: {
+    width: 220,
+    height: 220,
+    borderRadius: 12,
   },
 });

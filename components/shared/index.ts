@@ -3,6 +3,8 @@
  */
 
 export { AppHeader } from "./app-header";
+export { BrigadistaMainMenu } from "./brigadista-main-menu";
+export { BrigadistaTopBar } from "./brigadista-top-bar";
 export { CMSNotice } from "./cms-notice";
 export { ConnectionStatus } from "./connection-status";
 export { ScreenHeader } from "./screen-header";

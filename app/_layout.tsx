@@ -4,7 +4,7 @@ import {
   ThemeProvider,
 } from "@react-navigation/native";
 import * as Sentry from "@sentry/react-native";
-import { Stack, useRouter } from "expo-router";
+import { Stack, useRouter, useSegments } from "expo-router";
 import * as ExpoSplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useRef, useState } from "react";
@@ -18,7 +18,7 @@ import { SyncProvider } from "@/contexts/sync-context";
 import { ThemeProvider as CustomThemeProvider } from "@/contexts/theme-context";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { getPrimaryMobileRouteGroup } from "@/lib/auth/capabilities";
-import { initializeDatabase } from "@/lib/db";
+import { db, initializeDatabase } from "@/lib/db";
 
 // ─── Sentry ────────────────────────────────────────────────────────────────
 const SENTRY_DSN = process.env.EXPO_PUBLIC_SENTRY_DSN ?? "";
@@ -138,6 +138,7 @@ function RootNavigator() {
   const [appReady, setAppReady] = useState(false);
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
+  const segments = useSegments();
   // Track if the user was ever authenticated so we only redirect on session loss,
   // not on the initial unauthenticated load.
   const wasAuthed = useRef(false);
@@ -158,6 +159,17 @@ function RootNavigator() {
       router.replace("/(auth)/welcome");
     }
   }, [user, appReady]);
+
+  // If user is already authenticated, keep auth screens inaccessible.
+  useEffect(() => {
+    if (!appReady || authLoading || !user) return;
+
+    const inAuthGroup = segments[0] === "(auth)";
+    if (!inAuthGroup) return;
+
+    const destination = getPrimaryMobileRouteGroup(user);
+    router.replace(`/${destination}` as any);
+  }, [appReady, authLoading, user, segments, router]);
 
   // ── Sentry user context ─────────────────────────────────────────────────
   // Attach user identity to every error/trace so Sentry shows who was affected.
@@ -183,9 +195,12 @@ function RootNavigator() {
     console.log("[App] Splash completed:", state);
 
     try {
-      // Inicializar base de datos
+      // Inicializar base de datos de autenticación
       console.log("🚀 Inicializando base de datos...");
       await initializeDatabase();
+
+      // Inicializar base de datos offline (repositorios/sync/cache)
+      await db.initialize();
       console.log("✅ Base de datos inicializada correctamente");
     } catch (error) {
       console.error("❌ Error inicializando base de datos:", error);

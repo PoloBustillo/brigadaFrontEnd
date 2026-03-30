@@ -57,7 +57,10 @@ export function useFillSurvey({
     }
 
     (async () => {
-      try {
+      const sleep = (ms: number) =>
+        new Promise((resolve) => setTimeout(resolve, ms));
+
+      const initializeDraft = async () => {
         const userId = user?.id ? String(user.id) : "unknown-user";
         const sid = surveyId || versionId || "unknown";
 
@@ -95,7 +98,6 @@ export function useFillSurvey({
             /* ignore JSON parse errors */
           }
           console.log("📋 Resumed draft:", existingDraft.response_id);
-          setDraftLoading(false);
           return;
         }
 
@@ -108,8 +110,17 @@ export function useFillSurvey({
         });
         draftIdRef.current = id;
         console.log("💾 Draft created:", id);
+      };
+
+      try {
+        await initializeDraft();
       } catch (err) {
-        console.error("⚠️ Failed to create/resume local draft:", err);
+        await sleep(220);
+        try {
+          await initializeDraft();
+        } catch (secondErr) {
+          console.error("⚠️ Failed to create/resume local draft:", secondErr);
+        }
       } finally {
         setDraftLoading(false);
       }

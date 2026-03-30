@@ -15,6 +15,24 @@ export interface BottomBarMenuItem {
   icon: BottomBarMenuIcon;
 }
 
+export type SocialPlatform =
+  | "whatsapp"
+  | "facebook"
+  | "instagram"
+  | "x"
+  | "youtube"
+  | "tiktok"
+  | "telegram"
+  | "website"
+  | "other";
+
+export interface SocialLinkItem {
+  platform: SocialPlatform;
+  label: string;
+  url: string | null;
+  qr_url: string | null;
+}
+
 export interface PublicAppConfig {
   id: number;
   app_display_name: string;
@@ -29,6 +47,7 @@ export interface PublicAppConfig {
   splash_font_type: "script" | "system" | "serif" | "mono" | "rounded";
   bottom_bar_survey_ids: number[];
   bottom_bar_menu_items: BottomBarMenuItem[];
+  social_links: SocialLinkItem[];
   created_at: string;
   updated_at: string | null;
 }
