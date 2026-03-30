@@ -32,7 +32,7 @@ export default function BrigadistaLayout() {
       <View style={{ flex: 1 }}>
         <OfflineBanner compact={false} showIfOnline={true} />
         <Tabs
-          initialRouteName="my-surveys"
+          initialRouteName="index"
           tabBar={(props) => <CustomTabBar {...props} />}
           screenOptions={{
             headerShown: false,
@@ -47,26 +47,6 @@ export default function BrigadistaLayout() {
               href: isOnline ? undefined : null,
               tabBarIcon: ({ color }) => (
                 <Ionicons name="home" size={24} color={color} />
-              ),
-            }}
-          />
-          <Tabs.Screen
-            name="my-surveys"
-            options={{
-              title: "Mis Encuestas",
-              tabBarStyle: { display: "none" },
-              tabBarIcon: ({ color }) => (
-                <Ionicons name="clipboard" size={24} color={color} />
-              ),
-            }}
-          />
-          <Tabs.Screen
-            name="responses/index"
-            options={{
-              title: "Respuestas",
-              href: isOnline ? undefined : null,
-              tabBarIcon: ({ color }) => (
-                <Ionicons name="checkmark-circle" size={24} color={color} />
               ),
             }}
           />
@@ -95,19 +75,19 @@ export default function BrigadistaLayout() {
               href: null, // Hidden from tabs
             }}
           />
-          <Tabs.Screen
-            name="surveys/index"
-            options={{
-              href: null, // Hidden from tabs
-            }}
-          />
+          <Tabs.Screen name="maps" options={{ href: null }} />
+          <Tabs.Screen name="tracking" options={{ href: null }} />
+          <Tabs.Screen name="questionnaires" options={{ href: null }} />
           <Tabs.Screen
             name="surveys/fill"
             options={{
-              href: null, // Hidden from tabs
+              href: null,
               tabBarStyle: { display: "none" },
             }}
           />
+          <Tabs.Screen name="extras" options={{ href: null }} />
+          <Tabs.Screen name="networks" options={{ href: null }} />
+          <Tabs.Screen name="report-issue" options={{ href: null }} />
           <Tabs.Screen
             name="notifications"
             options={{

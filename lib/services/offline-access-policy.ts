@@ -21,7 +21,11 @@ type ActionPermissionMap = {
 const ACTION_PERMISSION_MAP: ActionPermissionMap = {
   canViewSurveys: ["view_surveys"],
   canFillSurveys: ["submit_response"],
-  canViewResponses: ["view_own_responses", "view_assigned_responses", "view_all_responses"],
+  canViewResponses: [
+    "view_own_responses",
+    "view_assigned_responses",
+    "view_all_responses",
+  ],
   canCreateResponse: ["submit_response"],
   canEditResponse: ["submit_response"],
   canUploadDocuments: ["submit_response"],
@@ -36,7 +40,11 @@ const ENDPOINT_REQUIREMENTS: { endpoint: string; anyOf: string[] }[] = [
   { endpoint: "/mobile/documents/confirm", anyOf: ["submit_response"] },
   {
     endpoint: "/mobile/responses",
-    anyOf: ["view_own_responses", "view_assigned_responses", "view_all_responses"],
+    anyOf: [
+      "view_own_responses",
+      "view_assigned_responses",
+      "view_all_responses",
+    ],
   },
 ];
 
@@ -72,7 +80,9 @@ function buildAllowedEndpoints(effectivePermissions: string[]): string[] {
   ).map((item) => item.endpoint);
 }
 
-export function resolveOfflinePolicyForUser(user: UserLike): OfflineAccessPolicy {
+export function resolveOfflinePolicyForUser(
+  user: UserLike,
+): OfflineAccessPolicy {
   const effectivePermissions = getEffectivePermissions(user);
 
   return {
@@ -100,7 +110,10 @@ export function resolveOfflinePolicyForUser(user: UserLike): OfflineAccessPolicy
       effectivePermissions,
       ACTION_PERMISSION_MAP.canUploadDocuments,
     ),
-    canSync: hasAnyPermission(effectivePermissions, ACTION_PERMISSION_MAP.canSync),
+    canSync: hasAnyPermission(
+      effectivePermissions,
+      ACTION_PERMISSION_MAP.canSync,
+    ),
     canAccessReports: hasAnyPermission(
       effectivePermissions,
       ACTION_PERMISSION_MAP.canAccessReports,

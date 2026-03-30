@@ -76,13 +76,19 @@ export function BrigadistaMainMenu({
           id: "sections",
           label: "Secciones",
           icon: "layers-outline",
-          action: () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light),
+          action: () => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            router.push("/(brigadista)/maps?tab=sections" as any);
+          },
         },
         {
           id: "progress",
           label: "Avances",
           icon: "trending-up-outline",
-          action: () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light),
+          action: () => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            router.push("/(brigadista)/maps?tab=progress" as any);
+          },
         },
       ],
     },
@@ -93,7 +99,7 @@ export function BrigadistaMainMenu({
       expandable: false,
       action: () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        router.push("/(brigadista)/my-surveys" as any);
+        router.push("/(brigadista)/tracking" as any);
       },
     },
     {
@@ -109,7 +115,7 @@ export function BrigadistaMainMenu({
           icon: "play-circle-outline",
           action: () => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            router.push("/(brigadista)/my-surveys" as any);
+            router.push("/(brigadista)/questionnaires?filter=active" as any);
           },
         },
         {
@@ -118,7 +124,7 @@ export function BrigadistaMainMenu({
           icon: "checkmark-circle-outline",
           action: () => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            router.push("/(brigadista)/responses/" as any);
+            router.push("/(brigadista)/questionnaires?filter=completed" as any);
           },
         },
         {
@@ -127,7 +133,7 @@ export function BrigadistaMainMenu({
           icon: "time-outline",
           action: () => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            router.push("/(brigadista)/my-surveys" as any);
+            router.push("/(brigadista)/questionnaires?filter=pending" as any);
           },
         },
       ],
@@ -139,7 +145,7 @@ export function BrigadistaMainMenu({
       expandable: false,
       action: () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        onExtraPress?.();
+        router.push("/(brigadista)/extras" as any);
       },
     },
     {
@@ -149,7 +155,7 @@ export function BrigadistaMainMenu({
       expandable: false,
       action: () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        onNetworksPress?.();
+        router.push("/(brigadista)/networks" as any);
       },
     },
     {
@@ -169,7 +175,7 @@ export function BrigadistaMainMenu({
       expandable: false,
       action: () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        onReportIssuePress?.();
+        router.push("/(brigadista)/report-issue" as any);
       },
     },
     {

@@ -12,6 +12,7 @@ import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Image,
   Modal,
   ScrollView,
@@ -24,14 +25,22 @@ import {
 interface BrigadistaTopBarProps {
   extraSurveys?: { id: number; title: string }[];
   onExtraSurveyPress?: (surveyId: number) => void;
+  temporalSummary?: {
+    active: number;
+    upcoming: number;
+    expired: number;
+  };
+  onTemporalPress?: (window: "active" | "upcoming" | "expired") => void;
 }
 
 export function BrigadistaTopBar({
   extraSurveys = [],
   onExtraSurveyPress,
+  temporalSummary,
+  onTemporalPress,
 }: BrigadistaTopBarProps) {
   const colors = useThemeColors();
-  const { isOnline, isSyncing, pendingByType } = useSync();
+  const { isOnline, isSyncing, pendingByType, syncAll } = useSync();
   const { theme, toggleTheme } = useTheme();
   const router = useRouter();
   const { user } = useAuth();
@@ -45,8 +54,22 @@ export function BrigadistaTopBar({
 
   const handleSync = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    // Sync action will be handled by the sync context
-    // This is just a UI trigger
+
+    if (!isOnline) {
+      Alert.alert(
+        "Sin conexión",
+        "Necesitas conexión a internet para sincronizar.",
+      );
+      return;
+    }
+
+    try {
+      await syncAll();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert("Error", "No se pudo completar la sincronización.");
+    }
   };
 
   const handleThemeToggle = () => {
@@ -67,6 +90,12 @@ export function BrigadistaTopBar({
     }
   };
 
+  const handleTemporalPress = (window: "active" | "upcoming" | "expired") => {
+    if (!onTemporalPress) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    onTemporalPress(window);
+  };
+
   return (
     <>
       <View
@@ -81,7 +110,7 @@ export function BrigadistaTopBar({
         <View style={styles.content}>
           {/* Left: User Avatar/Initial & Greeting */}
           <View style={styles.leftSection}>
-            <View
+            <TouchableOpacity
               style={[
                 styles.avatarCircle,
                 {
@@ -90,6 +119,8 @@ export function BrigadistaTopBar({
                     : colors.primary + "20",
                 },
               ]}
+              onPress={() => router.push("/(brigadista)/profile" as any)}
+              activeOpacity={0.8}
             >
               {user?.avatar_url ? (
                 <Image
@@ -105,7 +136,7 @@ export function BrigadistaTopBar({
                   {user?.email?.charAt(0).toUpperCase() || "B"}
                 </Text>
               )}
-            </View>
+            </TouchableOpacity>
             <View style={styles.greetingText}>
               <Text
                 style={[styles.greetingLabel, { color: colors.textSecondary }]}
@@ -192,6 +223,67 @@ export function BrigadistaTopBar({
             </View>
           </View>
         </View>
+
+        {temporalSummary && (
+          <View style={styles.temporalRow}>
+            <TouchableOpacity
+              style={[
+                styles.temporalChip,
+                {
+                  backgroundColor: colors.success + "18",
+                  borderColor: colors.success + "33",
+                },
+              ]}
+              onPress={() => handleTemporalPress("active")}
+              activeOpacity={0.8}
+            >
+              <Ionicons
+                name="checkbox-outline"
+                size={14}
+                color={colors.success}
+              />
+              <Text
+                style={[styles.temporalChipText, { color: colors.success }]}
+              >
+                Disponibles ({temporalSummary.active})
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.temporalChip,
+                {
+                  backgroundColor: colors.info + "18",
+                  borderColor: colors.info + "33",
+                },
+              ]}
+              onPress={() => handleTemporalPress("upcoming")}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="calendar-outline" size={14} color={colors.info} />
+              <Text style={[styles.temporalChipText, { color: colors.info }]}>
+                Próximas ({temporalSummary.upcoming})
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.temporalChip,
+                {
+                  backgroundColor: colors.error + "18",
+                  borderColor: colors.error + "33",
+                },
+              ]}
+              onPress={() => handleTemporalPress("expired")}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="time-outline" size={14} color={colors.error} />
+              <Text style={[styles.temporalChipText, { color: colors.error }]}>
+                Vencidas ({temporalSummary.expired})
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
 
       {/* Extras Menu Modal */}
@@ -349,6 +441,26 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     justifyContent: "center",
     alignItems: "center",
+  },
+  temporalRow: {
+    marginTop: 10,
+    flexDirection: "row",
+    gap: 8,
+  },
+  temporalChip: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingVertical: 7,
+    paddingHorizontal: 8,
+  },
+  temporalChipText: {
+    fontSize: 11,
+    fontWeight: "700",
   },
   modalOverlay: {
     flex: 1,

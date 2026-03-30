@@ -5,13 +5,13 @@
  */
 
 import * as authAPI from "@/lib/api/auth";
+import { clearTokens, getAccessToken, isTokenExpired } from "@/lib/api/client";
+import { clearAllCached } from "@/lib/api/memory-cache";
 import {
   clearUserPermissionSnapshot,
   getUserPermissionSnapshot,
   saveUserPermissionSnapshot,
 } from "@/lib/auth/permission-cache";
-import { clearTokens, getAccessToken, isTokenExpired } from "@/lib/api/client";
-import { clearAllCached } from "@/lib/api/memory-cache";
 import { sessionEvents } from "@/lib/session-events";
 import type { User, UserRole } from "@/types/user";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -50,24 +50,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [pendingEmail, setPendingEmailState] = useState<string | null>(null);
 
-  const hydratePermissionsFromSnapshot = useCallback(async (candidate: User) => {
-    if (Array.isArray(candidate.permissions) && candidate.permissions.length > 0) {
-      void saveUserPermissionSnapshot(candidate).catch(() => {
-        // Keep login/session restore resilient if cache persistence fails.
-      });
-      return candidate;
-    }
+  const hydratePermissionsFromSnapshot = useCallback(
+    async (candidate: User) => {
+      if (
+        Array.isArray(candidate.permissions) &&
+        candidate.permissions.length > 0
+      ) {
+        void saveUserPermissionSnapshot(candidate).catch(() => {
+          // Keep login/session restore resilient if cache persistence fails.
+        });
+        return candidate;
+      }
 
-    const cachedPermissions = await getUserPermissionSnapshot(candidate.id);
-    if (!cachedPermissions || cachedPermissions.length === 0) {
-      return candidate;
-    }
+      const cachedPermissions = await getUserPermissionSnapshot(candidate.id);
+      if (!cachedPermissions || cachedPermissions.length === 0) {
+        return candidate;
+      }
 
-    return {
-      ...candidate,
-      permissions: cachedPermissions,
-    };
-  }, []);
+      return {
+        ...candidate,
+        permissions: cachedPermissions,
+      };
+    },
+    [],
+  );
 
   const clearSession = useCallback(async () => {
     const currentUserId = user?.id;

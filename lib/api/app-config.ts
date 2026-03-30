@@ -70,7 +70,10 @@ function isBottomBarMenuIcon(value: string): value is BottomBarMenuIcon {
   return ALLOWED_BOTTOM_BAR_ICONS.has(value as BottomBarMenuIcon);
 }
 
-function normalizeMenuTitle(title: string | undefined, surveyId: number): string {
+function normalizeMenuTitle(
+  title: string | undefined,
+  surveyId: number,
+): string {
   const normalized = title?.trim();
   if (normalized && normalized.length > 0) {
     return normalized;
@@ -78,7 +81,9 @@ function normalizeMenuTitle(title: string | undefined, surveyId: number): string
   return `Encuesta ${surveyId}`;
 }
 
-function normalizeMenuItems(items: BottomBarMenuItem[] | undefined): BottomBarMenuItem[] {
+function normalizeMenuItems(
+  items: BottomBarMenuItem[] | undefined,
+): BottomBarMenuItem[] {
   if (!Array.isArray(items) || items.length === 0) return [];
 
   const deduped = new Map<number, BottomBarMenuItem>();
@@ -112,7 +117,10 @@ function normalizeMenuItems(items: BottomBarMenuItem[] | undefined): BottomBarMe
 }
 
 export function resolveBottomBarMenuItems(
-  config: Pick<PublicAppConfig, "bottom_bar_menu_items" | "bottom_bar_survey_ids"> | null | undefined,
+  config:
+    | Pick<PublicAppConfig, "bottom_bar_menu_items" | "bottom_bar_survey_ids">
+    | null
+    | undefined,
 ): BottomBarMenuItem[] {
   if (!config) return [];
 
@@ -130,7 +138,11 @@ export function resolveBottomBarMenuItems(
 
   for (const value of config.bottom_bar_survey_ids) {
     const surveyId = Number(value);
-    if (!Number.isInteger(surveyId) || surveyId <= 0 || dedupedIds.has(surveyId)) {
+    if (
+      !Number.isInteger(surveyId) ||
+      surveyId <= 0 ||
+      dedupedIds.has(surveyId)
+    ) {
       continue;
     }
     dedupedIds.add(surveyId);

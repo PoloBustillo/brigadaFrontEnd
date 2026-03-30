@@ -1,9 +1,6 @@
 import type { User } from "@/types/user";
 
-import {
-  Permission,
-  hasAnyPermissionForUser,
-} from "./permissions";
+import { Permission, hasAnyPermissionForUser } from "./permissions";
 
 export type MobileRouteGroup = "(brigadista)";
 
@@ -17,9 +14,7 @@ const SURVEY_OPERATOR_PERMISSIONS: Permission[] = [
   Permission.VIEW_NOTIFICATIONS,
 ];
 
-const MOBILE_APP_PERMISSIONS: Permission[] = [
-  ...SURVEY_OPERATOR_PERMISSIONS,
-];
+const MOBILE_APP_PERMISSIONS: Permission[] = [...SURVEY_OPERATOR_PERMISSIONS];
 
 export function canAccessMobileApp(
   user: Pick<User, "role" | "permissions"> | null | undefined,
