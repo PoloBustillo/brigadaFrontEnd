@@ -142,14 +142,16 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
         if (mounted && pendingOps.length > 0) {
           const items: SyncItem[] = pendingOps.map((op) => ({
             id: op.entity_id,
-            type: op.entity_type as "survey" | "response" | "user",
+            type: op.entity_type as "survey" | "response" | "user" | "file",
             timestamp: new Date(op.created_at).getTime(),
             retryCount: op.retry_count,
             status: "pending" as const,
           }));
           setPendingItems((prev) => {
-            const existingIds = new Set(prev.map((p) => p.id));
-            const newItems = items.filter((i) => !existingIds.has(i.id));
+            const existingKeys = new Set(prev.map((p) => `${p.type}:${p.id}`));
+            const newItems = items.filter(
+              (i) => !existingKeys.has(`${i.type}:${i.id}`),
+            );
             return newItems.length > 0 ? [...prev, ...newItems] : prev;
           });
           console.log(
@@ -193,7 +195,7 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
       // Marcar items como "syncing"
       setPendingItems((prev) =>
         prev.map((item) =>
-          itemsToSync.find((i) => i.id === item.id)
+          itemsToSync.find((i) => i.id === item.id && i.type === item.type)
             ? { ...item, status: "syncing" as const }
             : item,
         ),
@@ -214,10 +216,12 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
       // Remover items sincronizados exitosamente
       const successfulIds = itemsToSync
         .filter((_, index) => results[index])
-        .map((item) => item.id);
+        .map((item) => `${item.type}:${item.id}`);
 
       setPendingItems((prev) =>
-        prev.filter((item) => !successfulIds.includes(item.id)),
+        prev.filter(
+          (item) => !successfulIds.includes(`${item.type}:${item.id}`),
+        ),
       );
 
       const successCount = results.filter((r) => r).length;
@@ -244,9 +248,15 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
 
         if (item.type === "response") {
           // Real sync: process the sync queue via offlineSyncService
+          const queueStatsBefore = await syncRepository.getQueueStats();
           const synced = await offlineSyncService.processSyncQueue();
-          if (synced > 0) {
-            console.log(`✅ Synced ${synced} queued response(s)`);
+          const queueStatsAfter = await syncRepository.getQueueStats();
+
+          if (
+            synced > 0 ||
+            queueStatsAfter.pending < queueStatsBefore.pending
+          ) {
+            console.log(`✅ Sync queue advanced by ${synced} operation(s)`);
             return true;
           }
           console.warn(`⚠️ No queued items were synced for ${item.id}`);
@@ -287,7 +297,7 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
           // REGLA 6: Máximo de reintentos alcanzado
           setPendingItems((prev) =>
             prev.map((i) =>
-              i.id === item.id
+              i.id === item.id && i.type === item.type
                 ? {
                     ...i,
                     error: `Max retries reached: ${error.message}`,
@@ -311,7 +321,7 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
         // Actualizar item con nuevo conteo de reintentos
         setPendingItems((prev) =>
           prev.map((i) =>
-            i.id === item.id
+            i.id === item.id && i.type === item.type
               ? {
                   ...i,
                   retryCount: newRetryCount,
@@ -327,19 +337,22 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
 
         // Programar reintento
         return new Promise((resolve) => {
+          const retryItem: SyncItem = {
+            ...item,
+            retryCount: newRetryCount,
+            lastAttempt: Date.now(),
+            error: error.message,
+            status: isPartialError ? "partial_error" : "pending",
+          };
+
           setTimeout(async () => {
-            const updatedItems = pendingItems.filter((i) => i.id === item.id);
-            if (updatedItems.length > 0) {
-              const success = await syncSingleItem(updatedItems[0]);
-              resolve(success);
-            } else {
-              resolve(false);
-            }
+            const success = await syncSingleItem(retryItem);
+            resolve(success);
           }, retryDelay);
         });
       }
     },
-    [pendingItems],
+    [],
   );
 
   // REGLA 6: Detectar cambios en conectividad

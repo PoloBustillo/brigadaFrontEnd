@@ -10,6 +10,7 @@ import {
   getAssignedSurveys,
   type AssignedSurveyResponse,
 } from "@/lib/api/mobile";
+import { cacheRepository } from "@/lib/db/repositories/cache.repository";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
@@ -34,6 +35,9 @@ export default function BrigadistaHome() {
   const [refreshing, setRefreshing] = useState(false);
   const [assignments, setAssignments] = useState<AssignedSurveyResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const ASSIGNMENTS_CACHE_KEY = "assignments_active";
+  const ASSIGNMENTS_CACHE_TTL = 30 * 60 * 1000;
+
   const [bottomBarMenuItems, setBottomBarMenuItems] = useState<
     BottomBarMenuItem[]
   >([]);
@@ -48,11 +52,39 @@ export default function BrigadistaHome() {
       setIsLoading(true);
     }
 
+    let hasAnyAssignments = false;
+
+    try {
+      const cached = await cacheRepository.get<AssignedSurveyResponse[]>(
+        ASSIGNMENTS_CACHE_KEY,
+        true,
+      );
+      if (cached && cached.length > 0) {
+        hasAnyAssignments = true;
+        setAssignments(cached);
+        if (showLoading) {
+          setIsLoading(false);
+        }
+      }
+    } catch {
+      // Ignore cache read errors; we'll still try API.
+    }
+
     try {
       const data = await getAssignedSurveys("active");
+      hasAnyAssignments = hasAnyAssignments || data.length > 0;
       setAssignments(data);
+
+      void cacheRepository
+        .set(ASSIGNMENTS_CACHE_KEY, data, ASSIGNMENTS_CACHE_TTL)
+        .catch(() => {
+          // Non-blocking cache persistence.
+        });
     } catch (err) {
       console.error("Error fetching brigadista assignments:", err);
+      if (!hasAnyAssignments) {
+        setAssignments([]);
+      }
     } finally {
       setIsLoading(false);
     }

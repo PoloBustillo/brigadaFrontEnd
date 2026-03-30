@@ -292,8 +292,21 @@ apiClient.interceptors.response.use(
       _retry?: boolean;
     };
 
-    // Handle 401 Unauthorized — attempt refresh once
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    const responseData = (error.response?.data ?? {}) as {
+      message?: string;
+      detail?: string;
+      code?: string;
+    };
+    const apiMessage = (responseData.message || "").toLowerCase();
+    const apiDetail = (responseData.detail || "").toLowerCase();
+    const isUnauthenticated403 =
+      error.response?.status === 403 &&
+      (apiMessage.includes("not authenticated") ||
+        apiDetail.includes("not authenticated") ||
+        responseData.code === "http_403");
+
+    // Handle auth/session errors (401 and backend 403 Not authenticated)
+    if ((error.response?.status === 401 || isUnauthenticated403) && !originalRequest._retry) {
       originalRequest._retry = true;
 
       if (isRefreshing) {
