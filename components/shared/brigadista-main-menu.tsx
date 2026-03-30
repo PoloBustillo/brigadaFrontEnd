@@ -106,37 +106,11 @@ export function BrigadistaMainMenu({
       id: "surveys",
       label: "Cuestionarios",
       icon: "clipboard-outline",
-      expandable: true,
-      action: () => toggleExpand("surveys"),
-      subItems: [
-        {
-          id: "active",
-          label: "Activos",
-          icon: "play-circle-outline",
-          action: () => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            router.push("/(brigadista)/questionnaires?filter=active" as any);
-          },
-        },
-        {
-          id: "completed",
-          label: "Completados",
-          icon: "checkmark-circle-outline",
-          action: () => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            router.push("/(brigadista)/questionnaires?filter=completed" as any);
-          },
-        },
-        {
-          id: "pending",
-          label: "Pendientes",
-          icon: "time-outline",
-          action: () => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            router.push("/(brigadista)/questionnaires?filter=pending" as any);
-          },
-        },
-      ],
+      expandable: false,
+      action: () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        router.push("/(brigadista)/questionnaires" as any);
+      },
     },
     {
       id: "extras",
@@ -166,6 +140,16 @@ export function BrigadistaMainMenu({
       action: () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         router.push("/(brigadista)/profile" as any);
+      },
+    },
+    {
+      id: "permissions",
+      label: "Permisos",
+      icon: "shield-checkmark-outline",
+      expandable: false,
+      action: () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        router.push("/(brigadista)/permissions" as any);
       },
     },
     {

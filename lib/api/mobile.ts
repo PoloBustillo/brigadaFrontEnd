@@ -38,9 +38,16 @@ export interface AssignedSurveyResponse {
   survey_id: number;
   survey_title: string;
   survey_description: string | null;
+  survey_type: "normal" | "gestion" | "extra";
   starts_at: string | null;
   ends_at: string | null;
   assignment_status: "active" | "inactive";
+  management_status:
+    | "pendiente"
+    | "en_tramite"
+    | "resuelto"
+    | "problema"
+    | null;
   assigned_location: string | null;
   latest_version: SurveyVersionResponse;
   assigned_at: string;

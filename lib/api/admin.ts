@@ -34,6 +34,7 @@ export interface AdminSurvey {
   id: number;
   title: string;
   description: string | null;
+  survey_type: "normal" | "gestion" | "extra";
   is_active: boolean;
   created_by: number;
   created_at: string;
@@ -42,8 +43,15 @@ export interface AdminSurvey {
 }
 
 /** GET /admin/surveys */
-export async function getAdminSurveys(): Promise<AdminSurvey[]> {
-  const { data } = await apiClient.get<AdminSurvey[]>("/admin/surveys");
+export async function getAdminSurveys(
+  publishedOnly: boolean = true,
+): Promise<AdminSurvey[]> {
+  const { data } = await apiClient.get<AdminSurvey[]>("/admin/surveys", {
+    params: {
+      published_only: publishedOnly,
+      is_active: true,
+    },
+  });
   return data;
 }
 

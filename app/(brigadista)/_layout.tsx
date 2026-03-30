@@ -87,6 +87,7 @@ export default function BrigadistaLayout() {
           />
           <Tabs.Screen name="extras" options={{ href: null }} />
           <Tabs.Screen name="networks" options={{ href: null }} />
+          <Tabs.Screen name="permissions" options={{ href: null }} />
           <Tabs.Screen name="report-issue" options={{ href: null }} />
           <Tabs.Screen
             name="notifications"
