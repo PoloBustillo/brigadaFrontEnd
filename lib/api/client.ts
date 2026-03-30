@@ -306,7 +306,10 @@ apiClient.interceptors.response.use(
         responseData.code === "http_403");
 
     // Handle auth/session errors (401 and backend 403 Not authenticated)
-    if ((error.response?.status === 401 || isUnauthenticated403) && !originalRequest._retry) {
+    if (
+      (error.response?.status === 401 || isUnauthenticated403) &&
+      !originalRequest._retry
+    ) {
       originalRequest._retry = true;
 
       if (isRefreshing) {

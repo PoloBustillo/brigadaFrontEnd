@@ -4,8 +4,8 @@ import {
   fetchPublicAppConfig,
   type SocialLinkItem,
 } from "@/lib/api/app-config";
-import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
@@ -128,12 +128,12 @@ export default function BrigadistaNetworksScreen() {
                 color={colors.primary}
               />
             </View>
-            <Text style={[styles.heroTitle, { color: colors.text }]}> 
+            <Text style={[styles.heroTitle, { color: colors.text }]}>
               Difusion en un toque
             </Text>
           </View>
 
-          <Text style={[styles.heroSubtitle, { color: colors.textSecondary }]}> 
+          <Text style={[styles.heroSubtitle, { color: colors.textSecondary }]}>
             Abre cada red, comparte el link oficial y muestra su QR para
             facilitar likes, follows y compartidos en campo.
           </Text>
@@ -148,10 +148,12 @@ export default function BrigadistaNetworksScreen() {
                 },
               ]}
             >
-              <Text style={[styles.heroStatValue, { color: colors.text }]}> 
+              <Text style={[styles.heroStatValue, { color: colors.text }]}>
                 {socialLinks.length}
               </Text>
-              <Text style={[styles.heroStatLabel, { color: colors.textSecondary }]}> 
+              <Text
+                style={[styles.heroStatLabel, { color: colors.textSecondary }]}
+              >
                 Canales
               </Text>
             </View>
@@ -164,10 +166,12 @@ export default function BrigadistaNetworksScreen() {
                 },
               ]}
             >
-              <Text style={[styles.heroStatValue, { color: colors.text }]}> 
+              <Text style={[styles.heroStatValue, { color: colors.text }]}>
                 {hasLinks ? "Activa" : "Pendiente"}
               </Text>
-              <Text style={[styles.heroStatLabel, { color: colors.textSecondary }]}> 
+              <Text
+                style={[styles.heroStatLabel, { color: colors.textSecondary }]}
+              >
                 Campana
               </Text>
             </View>
@@ -189,10 +193,10 @@ export default function BrigadistaNetworksScreen() {
               size={42}
               color={colors.textSecondary}
             />
-            <Text style={[styles.emptyTitle, { color: colors.text }]}> 
+            <Text style={[styles.emptyTitle, { color: colors.text }]}>
               Sin redes publicadas
             </Text>
-            <Text style={[styles.emptyText, { color: colors.textSecondary }]}> 
+            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
               Configura links en CMS para habilitar la difusion de campana desde
               esta pantalla.
             </Text>
@@ -223,7 +227,7 @@ export default function BrigadistaNetworksScreen() {
                 </View>
 
                 <View style={styles.socialInfo}>
-                  <Text style={[styles.socialLabel, { color: colors.text }]}> 
+                  <Text style={[styles.socialLabel, { color: colors.text }]}>
                     {social.label}
                   </Text>
                   <Text
@@ -265,8 +269,14 @@ export default function BrigadistaNetworksScreen() {
                   onPress={() => setSelectedSocial(social)}
                   activeOpacity={0.85}
                 >
-                  <Ionicons name="qr-code-outline" size={16} color={colors.text} />
-                  <Text style={[styles.socialActionText, { color: colors.text }]}> 
+                  <Ionicons
+                    name="qr-code-outline"
+                    size={16}
+                    color={colors.text}
+                  />
+                  <Text
+                    style={[styles.socialActionText, { color: colors.text }]}
+                  >
                     QR
                   </Text>
                 </TouchableOpacity>
@@ -282,8 +292,14 @@ export default function BrigadistaNetworksScreen() {
                   onPress={() => handleShareSocialUrl(social)}
                   activeOpacity={0.85}
                 >
-                  <Ionicons name="share-outline" size={16} color={colors.text} />
-                  <Text style={[styles.socialActionText, { color: colors.text }]}> 
+                  <Ionicons
+                    name="share-outline"
+                    size={16}
+                    color={colors.text}
+                  />
+                  <Text
+                    style={[styles.socialActionText, { color: colors.text }]}
+                  >
                     Compartir
                   </Text>
                 </TouchableOpacity>
@@ -330,7 +346,7 @@ export default function BrigadistaNetworksScreen() {
             ]}
           >
             <View style={styles.modalHeaderRow}>
-              <Text style={[styles.modalTitle, { color: colors.text }]}> 
+              <Text style={[styles.modalTitle, { color: colors.text }]}>
                 QR de Campana
               </Text>
               <TouchableOpacity
@@ -353,10 +369,10 @@ export default function BrigadistaNetworksScreen() {
                   <QRCode value={selectedSocial.url} size={220} />
                 </View>
 
-                <Text style={[styles.qrLabel, { color: colors.text }]}> 
+                <Text style={[styles.qrLabel, { color: colors.text }]}>
                   {selectedSocial.label}
                 </Text>
-                <Text style={[styles.qrHint, { color: colors.textSecondary }]}> 
+                <Text style={[styles.qrHint, { color: colors.textSecondary }]}>
                   Escanea para abrir y compartir desde la red social oficial.
                 </Text>
               </>
@@ -368,7 +384,10 @@ export default function BrigadistaNetworksScreen() {
                   color={colors.warning}
                 />
                 <Text
-                  style={[styles.qrMissingText, { color: colors.textSecondary }]}
+                  style={[
+                    styles.qrMissingText,
+                    { color: colors.textSecondary },
+                  ]}
                 >
                   Esta red no tiene link en CMS, no se puede generar el QR.
                 </Text>

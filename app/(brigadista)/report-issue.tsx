@@ -145,13 +145,17 @@ export default function BrigadistaReportIssueScreen() {
           ]}
         >
           <Ionicons name="bug-outline" size={20} color={colors.error} />
-          <Text style={[styles.title, { color: colors.text }]}>Enviar reporte</Text>
-          <Text style={[styles.description, { color: colors.textSecondary }]}> 
+          <Text style={[styles.title, { color: colors.text }]}>
+            Enviar reporte
+          </Text>
+          <Text style={[styles.description, { color: colors.textSecondary }]}>
             Completa la descripcion y adjunta una captura para enviarlo a
             soporte.
           </Text>
 
-          <Text style={[styles.label, { color: colors.text }]}>Descripcion</Text>
+          <Text style={[styles.label, { color: colors.text }]}>
+            Descripcion
+          </Text>
           <TextInput
             value={description}
             onChangeText={setDescription}
@@ -173,10 +177,16 @@ export default function BrigadistaReportIssueScreen() {
             <View
               style={[
                 styles.previewWrap,
-                { borderColor: colors.border, backgroundColor: colors.background },
+                {
+                  borderColor: colors.border,
+                  backgroundColor: colors.background,
+                },
               ]}
             >
-              <Image source={{ uri: screenshotUri }} style={styles.previewImage} />
+              <Image
+                source={{ uri: screenshotUri }}
+                style={styles.previewImage}
+              />
               <TouchableOpacity
                 style={[styles.removeChip, { backgroundColor: colors.error }]}
                 onPress={() => setScreenshotUri(null)}
@@ -188,13 +198,16 @@ export default function BrigadistaReportIssueScreen() {
             <TouchableOpacity
               style={[
                 styles.attachButton,
-                { borderColor: colors.border, backgroundColor: colors.background },
+                {
+                  borderColor: colors.border,
+                  backgroundColor: colors.background,
+                },
               ]}
               onPress={handlePickScreenshot}
               activeOpacity={0.85}
             >
               <Ionicons name="image-outline" size={18} color={colors.primary} />
-              <Text style={[styles.attachButtonText, { color: colors.text }]}> 
+              <Text style={[styles.attachButtonText, { color: colors.text }]}>
                 Seleccionar captura de pantalla
               </Text>
             </TouchableOpacity>
@@ -212,7 +225,7 @@ export default function BrigadistaReportIssueScreen() {
             activeOpacity={0.85}
             disabled={isSending}
           >
-            <Text style={[styles.buttonText, { color: colors.onPrimary }]}> 
+            <Text style={[styles.buttonText, { color: colors.onPrimary }]}>
               {isSending ? "Preparando correo..." : "Enviar reporte por correo"}
             </Text>
           </TouchableOpacity>
