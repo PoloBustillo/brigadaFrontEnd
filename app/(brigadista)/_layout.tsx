@@ -78,6 +78,7 @@ export default function BrigadistaLayout() {
           <Tabs.Screen name="maps" options={{ href: null }} />
           <Tabs.Screen name="tracking" options={{ href: null }} />
           <Tabs.Screen name="questionnaires" options={{ href: null }} />
+          <Tabs.Screen name="score-details" options={{ href: null }} />
           <Tabs.Screen
             name="surveys/fill"
             options={{

@@ -86,6 +86,52 @@ export interface SurveyResponseDetail {
   answers?: QuestionAnswerDetail[];
 }
 
+export interface ScoreConfigSummary {
+  id: number;
+  name: string;
+  status: string;
+  effective_from: string | null;
+}
+
+export interface ScoreBySurveyDetail {
+  survey_id: number;
+  version_id: number | null;
+  score_survey: number;
+  responses_count: number;
+  component_breakdown?: Record<string, unknown> | null;
+}
+
+export interface ScoreSnapshotDetail {
+  id: number;
+  window_start: string;
+  window_end: string;
+  score_global: number;
+  sample_size: number;
+  reliability_flag: string;
+  component_scores?: {
+    activity?: number;
+    sync?: number;
+    quality?: number;
+    total_responses?: number;
+    coverage?: number;
+    [key: string]: unknown;
+  } | null;
+  action_items?: Array<{
+    type?: string;
+    severity?: "low" | "medium" | "high" | string;
+    message?: string;
+    [key: string]: unknown;
+  }> | null;
+  created_at: string;
+  config_version: ScoreConfigSummary | null;
+  by_survey: ScoreBySurveyDetail[];
+}
+
+export interface LatestUserScoreResponse {
+  user_id: number;
+  snapshot: ScoreSnapshotDetail | null;
+}
+
 // ─── API calls ───────────────────────────────────────────────────────────────
 
 /**
@@ -205,5 +251,23 @@ export async function getMyResponses(
         })
         .then((r) => r.data),
     (res) => `${res.items.length}/${res.total} items`,
+  );
+}
+
+/**
+ * GET /mobile/score/latest
+ * Returns the latest brigadista score snapshot for the authenticated user.
+ */
+export async function getMyLatestScore(): Promise<LatestUserScoreResponse> {
+  return timedCall(
+    "GET /mobile/score/latest",
+    () =>
+      apiClient
+        .get<LatestUserScoreResponse>("/mobile/score/latest")
+        .then((r) => r.data),
+    (res) =>
+      res.snapshot
+        ? `score=${Math.round(res.snapshot.score_global)}`
+        : "no snapshot",
   );
 }

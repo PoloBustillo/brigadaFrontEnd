@@ -8,7 +8,9 @@ import {
 } from "@/lib/api/app-config";
 import {
   getAssignedSurveys,
+  getMyLatestScore,
   type AssignedSurveyResponse,
+  type LatestUserScoreResponse,
 } from "@/lib/api/mobile";
 import { cacheRepository } from "@/lib/db/repositories/cache.repository";
 import { Ionicons } from "@expo/vector-icons";
@@ -34,6 +36,9 @@ export default function BrigadistaHome() {
 
   const [refreshing, setRefreshing] = useState(false);
   const [assignments, setAssignments] = useState<AssignedSurveyResponse[]>([]);
+  const [latestScore, setLatestScore] =
+    useState<LatestUserScoreResponse["snapshot"]>(null);
+  const [isScoreLoading, setIsScoreLoading] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const ASSIGNMENTS_CACHE_KEY = "assignments_active";
   const ASSIGNMENTS_CACHE_TTL = 30 * 60 * 1000;
@@ -45,6 +50,19 @@ export default function BrigadistaHome() {
   const loadBottomBarConfig = async () => {
     const config = await fetchPublicAppConfig();
     setBottomBarMenuItems(resolveBottomBarMenuItems(config));
+  };
+
+  const fetchLatestScore = async () => {
+    setIsScoreLoading(true);
+    try {
+      const data = await getMyLatestScore();
+      setLatestScore(data.snapshot);
+    } catch (err) {
+      console.error("Error fetching brigadista score:", err);
+      setLatestScore(null);
+    } finally {
+      setIsScoreLoading(false);
+    }
   };
 
   const fetchAssignments = async (showLoading = true) => {
@@ -96,6 +114,11 @@ export default function BrigadistaHome() {
       setIsLoading(false);
     });
 
+    fetchLatestScore().catch((err) => {
+      console.error("Error bootstrapping brigadista score:", err);
+      setIsScoreLoading(false);
+    });
+
     loadBottomBarConfig().catch((err) => {
       console.error("Error loading bottom menu config:", err);
       setBottomBarMenuItems([]);
@@ -105,9 +128,52 @@ export default function BrigadistaHome() {
   const onRefresh = async () => {
     setRefreshing(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    await fetchAssignments(false);
+    await Promise.allSettled([fetchAssignments(false), fetchLatestScore()]);
     setRefreshing(false);
   };
+
+  const scoreSummary = useMemo(() => {
+    if (!latestScore) {
+      return {
+        label: "Sin score",
+        value: "-",
+        color: colors.textSecondary,
+        helper: "Aun no hay score calculado para este periodo",
+      };
+    }
+
+    const score = Number(latestScore.score_global || 0);
+    if (score < 50) {
+      return {
+        label: "Riesgo alto",
+        value: score.toFixed(1),
+        color: colors.error,
+        helper: "Prioriza capturas y sincronizacion oportuna",
+      };
+    }
+
+    if (score < 75) {
+      return {
+        label: "En seguimiento",
+        value: score.toFixed(1),
+        color: colors.warning,
+        helper: "Vas bien, aun hay margen de mejora",
+      };
+    }
+
+    return {
+      label: "Buen nivel",
+      value: score.toFixed(1),
+      color: colors.success,
+      helper: "Mantienes un desempeno solido",
+    };
+  }, [
+    colors.error,
+    colors.success,
+    colors.textSecondary,
+    colors.warning,
+    latestScore,
+  ]);
 
   const temporalSummary = useMemo(() => {
     const now = new Date();
@@ -142,6 +208,11 @@ export default function BrigadistaHome() {
       pathname: "/(brigadista)/questionnaires",
       params: { temporal: window },
     });
+  };
+
+  const handleScoreCardPress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push("/(brigadista)/score-details");
   };
 
   const handleExitApp = () => {
@@ -268,6 +339,66 @@ export default function BrigadistaHome() {
       >
         <BrigadistaMainMenu onExitAppPress={handleExitApp} />
 
+        <TouchableOpacity
+          style={[
+            styles.scoreCard,
+            {
+              backgroundColor: colors.surface,
+              borderColor: colors.border,
+            },
+          ]}
+          onPress={handleScoreCardPress}
+          activeOpacity={0.85}
+        >
+          <View style={styles.scoreCardHeader}>
+            <Text style={[styles.scoreCardTitle, { color: colors.text }]}>
+              Mi Score Quincenal
+            </Text>
+            <View style={styles.scoreCardActions}>
+              <Ionicons name="analytics" size={18} color={scoreSummary.color} />
+              <Ionicons
+                name="chevron-forward"
+                size={16}
+                color={colors.textSecondary}
+              />
+            </View>
+          </View>
+
+          {isScoreLoading ? (
+            <Text
+              style={[styles.scoreCardLoading, { color: colors.textSecondary }]}
+            >
+              Cargando score...
+            </Text>
+          ) : (
+            <>
+              <View style={styles.scoreRow}>
+                <Text
+                  style={[styles.scoreValue, { color: scoreSummary.color }]}
+                >
+                  {scoreSummary.value}
+                </Text>
+                <Text
+                  style={[
+                    styles.scoreBadge,
+                    {
+                      color: scoreSummary.color,
+                      borderColor: scoreSummary.color,
+                    },
+                  ]}
+                >
+                  {scoreSummary.label}
+                </Text>
+              </View>
+              <Text
+                style={[styles.scoreHelper, { color: colors.textSecondary }]}
+              >
+                {scoreSummary.helper}
+              </Text>
+            </>
+          )}
+        </TouchableOpacity>
+
         {isLoading ? (
           <Text style={[styles.helperText, { color: colors.textSecondary }]}>
             Cargando informacion temporal...
@@ -360,6 +491,54 @@ const styles = StyleSheet.create({
     fontSize: 13,
     textAlign: "center",
     marginTop: 14,
+  },
+  scoreCard: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    borderWidth: 1,
+    borderRadius: 16,
+    padding: 14,
+    gap: 8,
+  },
+  scoreCardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  scoreCardActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  scoreCardTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  scoreCardLoading: {
+    fontSize: 13,
+    fontWeight: "500",
+  },
+  scoreRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  scoreValue: {
+    fontSize: 28,
+    fontWeight: "800",
+  },
+  scoreBadge: {
+    fontSize: 12,
+    fontWeight: "700",
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  scoreHelper: {
+    fontSize: 12,
+    lineHeight: 17,
   },
   bottomSurveyBar: {
     position: "absolute",
