@@ -223,8 +223,6 @@ export function BrigadistaTopBar({
             </View>
           </View>
         </View>
-
-
       </View>
 
       {/* Extras Menu Modal */}

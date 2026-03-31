@@ -3,8 +3,8 @@
  * Lists notifications with pull-to-refresh and mark-read actions.
  */
 
-import { useThemeColors } from "@/contexts/theme-context";
 import { useAuth } from "@/contexts/auth-context";
+import { useThemeColors } from "@/contexts/theme-context";
 import { useTabBarHeight } from "@/hooks/use-tab-bar-height";
 import {
   getNotifications,
@@ -86,7 +86,8 @@ const mapActionUrlToAppRoute = (actionUrl?: string | null): string | null => {
   if (!path) return null;
   if (path.includes("surveys")) return "/(brigadista)/surveys";
   if (path.includes("assignments")) return "/(brigadista)/questionnaires";
-  if (path.includes("areas") || path.includes("maps")) return "/(brigadista)/maps";
+  if (path.includes("areas") || path.includes("maps"))
+    return "/(brigadista)/maps";
   if (path.includes("reports")) return "/(brigadista)/tracking";
   if (path.includes("notifications")) return "/(brigadista)/notifications";
   return null;
@@ -128,7 +129,14 @@ export default function NotificationsScreen() {
     if (!user?.phone) score -= 5;
     if (!user?.avatar_url) score -= 5;
     return Math.max(0, Math.min(100, score));
-  }, [unreadCount, inaccessibleCount, user?.state, user?.phone, user?.avatar_url, permissions]);
+  }, [
+    unreadCount,
+    inaccessibleCount,
+    user?.state,
+    user?.phone,
+    user?.avatar_url,
+    permissions,
+  ]);
 
   const scoreLevel: "estable" | "atencion" | "riesgo" =
     statusScore >= 80 ? "estable" : statusScore >= 60 ? "atencion" : "riesgo";
@@ -377,9 +385,15 @@ export default function NotificationsScreen() {
                 },
               ]}
             >
-              <Text style={[styles.statusTitle, { color: colors.text }]}>Status Score</Text>
-              <Text style={[styles.statusScore, { color: colors.text }]}>{statusScore}/100</Text>
-              <Text style={[styles.statusSubtitle, { color: colors.textSecondary }]}> 
+              <Text style={[styles.statusTitle, { color: colors.text }]}>
+                Status Score
+              </Text>
+              <Text style={[styles.statusScore, { color: colors.text }]}>
+                {statusScore}/100
+              </Text>
+              <Text
+                style={[styles.statusSubtitle, { color: colors.textSecondary }]}
+              >
                 {scoreLevel === "estable"
                   ? "Estado estable"
                   : scoreLevel === "atencion"
@@ -387,7 +401,9 @@ export default function NotificationsScreen() {
                     : "Riesgo alto, atiende action items"}
               </Text>
               {inaccessibleCount > 0 && (
-                <Text style={[styles.statusHint, { color: colors.textTertiary }]}> 
+                <Text
+                  style={[styles.statusHint, { color: colors.textTertiary }]}
+                >
                   {inaccessibleCount} notificaciones ocultas por permisos
                 </Text>
               )}
@@ -398,10 +414,24 @@ export default function NotificationsScreen() {
                     <TouchableOpacity
                       key={item.key}
                       onPress={item.action}
-                      style={[styles.actionItemBtn, { borderColor: colors.border, backgroundColor: colors.surface }]}
+                      style={[
+                        styles.actionItemBtn,
+                        {
+                          borderColor: colors.border,
+                          backgroundColor: colors.surface,
+                        },
+                      ]}
                     >
-                      <Ionicons name="construct-outline" size={14} color={colors.primary} />
-                      <Text style={[styles.actionItemText, { color: colors.text }]}>{item.label}</Text>
+                      <Ionicons
+                        name="construct-outline"
+                        size={14}
+                        color={colors.primary}
+                      />
+                      <Text
+                        style={[styles.actionItemText, { color: colors.text }]}
+                      >
+                        {item.label}
+                      </Text>
                     </TouchableOpacity>
                   ))}
                 </View>

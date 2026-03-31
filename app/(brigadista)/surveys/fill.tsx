@@ -30,8 +30,8 @@ import { offlineSyncService } from "@/lib/services/offline-sync";
 import type { FillQuestion } from "@/types/survey-schema.types";
 import { getErrorMessage } from "@/utils/translate-error";
 import { Ionicons } from "@expo/vector-icons";
-import { useFocusEffect } from "@react-navigation/native";
 import NetInfo, { NetInfoState } from "@react-native-community/netinfo";
+import { useFocusEffect } from "@react-navigation/native";
 import * as Haptics from "expo-haptics";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, {
@@ -311,9 +311,11 @@ export default function FillSurveyScreen() {
       }
     };
 
-    NetInfo.fetch().then(pushSnapshot).catch(() => {
-      // Ignore best-effort network snapshot failures
-    });
+    NetInfo.fetch()
+      .then(pushSnapshot)
+      .catch(() => {
+        // Ignore best-effort network snapshot failures
+      });
 
     const unsubscribe = NetInfo.addEventListener(pushSnapshot);
     return () => unsubscribe();
@@ -544,7 +546,9 @@ export default function FillSurveyScreen() {
                 questionTimeValues.length,
             ),
             min_ms: Math.round(questionTimeValues[0]),
-            max_ms: Math.round(questionTimeValues[questionTimeValues.length - 1]),
+            max_ms: Math.round(
+              questionTimeValues[questionTimeValues.length - 1],
+            ),
             p50_ms: getPercentile(questionTimeValues, 50),
             p90_ms: getPercentile(questionTimeValues, 90),
           }
@@ -553,8 +557,11 @@ export default function FillSurveyScreen() {
     const questionTimings = rawAnswers.map((answer) => ({
       question_id: answer.question_id,
       time_spent_ms: Number(answer.answer_meta?.time_spent_ms ?? 0),
-      time_to_first_interaction_ms: answer.answer_meta?.time_to_first_interaction_ms,
-      changed_answer_count: Number(answer.answer_meta?.changed_answer_count ?? 0),
+      time_to_first_interaction_ms:
+        answer.answer_meta?.time_to_first_interaction_ms,
+      changed_answer_count: Number(
+        answer.answer_meta?.changed_answer_count ?? 0,
+      ),
       revisited: Boolean(answer.answer_meta?.revisited),
     }));
 
