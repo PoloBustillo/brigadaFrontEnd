@@ -224,66 +224,7 @@ export function BrigadistaTopBar({
           </View>
         </View>
 
-        {temporalSummary && (
-          <View style={styles.temporalRow}>
-            <TouchableOpacity
-              style={[
-                styles.temporalChip,
-                {
-                  backgroundColor: colors.success + "18",
-                  borderColor: colors.success + "33",
-                },
-              ]}
-              onPress={() => handleTemporalPress("active")}
-              activeOpacity={0.8}
-            >
-              <Ionicons
-                name="checkbox-outline"
-                size={14}
-                color={colors.success}
-              />
-              <Text
-                style={[styles.temporalChipText, { color: colors.success }]}
-              >
-                Disponibles ({temporalSummary.active})
-              </Text>
-            </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[
-                styles.temporalChip,
-                {
-                  backgroundColor: colors.info + "18",
-                  borderColor: colors.info + "33",
-                },
-              ]}
-              onPress={() => handleTemporalPress("upcoming")}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="calendar-outline" size={14} color={colors.info} />
-              <Text style={[styles.temporalChipText, { color: colors.info }]}>
-                Próximas ({temporalSummary.upcoming})
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.temporalChip,
-                {
-                  backgroundColor: colors.error + "18",
-                  borderColor: colors.error + "33",
-                },
-              ]}
-              onPress={() => handleTemporalPress("expired")}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="time-outline" size={14} color={colors.error} />
-              <Text style={[styles.temporalChipText, { color: colors.error }]}>
-                Vencidas ({temporalSummary.expired})
-              </Text>
-            </TouchableOpacity>
-          </View>
-        )}
       </View>
 
       {/* Extras Menu Modal */}
@@ -441,26 +382,6 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     justifyContent: "center",
     alignItems: "center",
-  },
-  temporalRow: {
-    marginTop: 10,
-    flexDirection: "row",
-    gap: 8,
-  },
-  temporalChip: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 4,
-    borderWidth: 1,
-    borderRadius: 999,
-    paddingVertical: 7,
-    paddingHorizontal: 8,
-  },
-  temporalChipText: {
-    fontSize: 11,
-    fontWeight: "700",
   },
   modalOverlay: {
     flex: 1,

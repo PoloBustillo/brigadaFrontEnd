@@ -4,6 +4,7 @@
  */
 
 import { useThemeColors } from "@/contexts/theme-context";
+import { useAuth } from "@/contexts/auth-context";
 import { useTabBarHeight } from "@/hooks/use-tab-bar-height";
 import {
   getNotifications,
@@ -13,7 +14,7 @@ import {
 } from "@/lib/api/notifications";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -40,8 +41,60 @@ const iconForType = (type: string): keyof typeof Ionicons.glyphMap => {
 
 const ItemSeparator = () => <View style={{ height: 10 }} />;
 
+const normalizePath = (actionUrl?: string | null): string => {
+  if (!actionUrl) return "";
+  const clean = actionUrl.trim();
+  if (!clean) return "";
+  const noQuery = clean.split("?")[0] ?? "";
+  const noHash = noQuery.split("#")[0] ?? "";
+  return noHash.endsWith("/") && noHash.length > 1
+    ? noHash.slice(0, -1)
+    : noHash;
+};
+
+const requiredPermissionsForPath = (path: string): string[] => {
+  if (!path) return [];
+  if (path.includes("surveys")) return ["view_surveys", "view_all_surveys"];
+  if (path.includes("assignments")) {
+    return [
+      "view_assignments",
+      "view_all_assignments",
+      "manage_assignments",
+      "manage_brigadista_assignments",
+    ];
+  }
+  if (path.includes("areas")) return ["view_areas", "view_all_areas"];
+  if (path.includes("reports")) return ["view_reports", "view_responses"];
+  if (path.includes("notifications")) {
+    return ["view_notifications", "view_all_notifications"];
+  }
+  return [];
+};
+
+const canAccessNotification = (
+  notification: NotificationItem,
+  permissions: string[],
+) => {
+  const path = normalizePath(notification.action_url);
+  const required = requiredPermissionsForPath(path);
+  if (required.length === 0) return true;
+  return required.some((permission) => permissions.includes(permission));
+};
+
+const mapActionUrlToAppRoute = (actionUrl?: string | null): string | null => {
+  const path = normalizePath(actionUrl);
+  if (!path) return null;
+  if (path.includes("surveys")) return "/(brigadista)/surveys";
+  if (path.includes("assignments")) return "/(brigadista)/questionnaires";
+  if (path.includes("areas") || path.includes("maps")) return "/(brigadista)/maps";
+  if (path.includes("reports")) return "/(brigadista)/tracking";
+  if (path.includes("notifications")) return "/(brigadista)/notifications";
+  return null;
+};
+
 export default function NotificationsScreen() {
   const colors = useThemeColors();
+  const { user } = useAuth();
   const { contentPadding } = useTabBarHeight();
   const router = useRouter();
 
@@ -50,6 +103,35 @@ export default function NotificationsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const permissions = Array.isArray(user?.permissions) ? user.permissions : [];
+
+  const accessibleNotifications = useMemo(
+    () =>
+      notifications.filter((notification) =>
+        canAccessNotification(notification, permissions),
+      ),
+    [notifications, permissions],
+  );
+
+  const inaccessibleCount = Math.max(
+    0,
+    notifications.length - accessibleNotifications.length,
+  );
+
+  const statusScore = useMemo(() => {
+    let score = 100;
+    score -= Math.min(35, unreadCount * 3);
+    score -= Math.min(20, inaccessibleCount * 5);
+    if (user?.state !== "ACTIVE") score -= 35;
+    if (!permissions.includes("view_notifications")) score -= 15;
+    if (!user?.phone) score -= 5;
+    if (!user?.avatar_url) score -= 5;
+    return Math.max(0, Math.min(100, score));
+  }, [unreadCount, inaccessibleCount, user?.state, user?.phone, user?.avatar_url, permissions]);
+
+  const scoreLevel: "estable" | "atencion" | "riesgo" =
+    statusScore >= 80 ? "estable" : statusScore >= 60 ? "atencion" : "riesgo";
 
   const fetchNotifications = useCallback(async () => {
     try {
@@ -98,6 +180,65 @@ export default function NotificationsScreen() {
     }
   }, []);
 
+  const actionItems = useMemo(() => {
+    const items: Array<{ key: string; label: string; action: () => void }> = [];
+
+    if (unreadCount > 0) {
+      items.push({
+        key: "read_all",
+        label: `Marcar ${unreadCount} pendientes como leidas`,
+        action: handleMarkAllRead,
+      });
+    }
+
+    if (inaccessibleCount > 0) {
+      items.push({
+        key: "check_permissions",
+        label: "Revisar permisos para ver todas tus notificaciones",
+        action: () => router.push("/(brigadista)/permissions"),
+      });
+    }
+
+    if (!user?.phone || !user?.avatar_url) {
+      items.push({
+        key: "complete_profile",
+        label: "Completar perfil para mejorar soporte y trazabilidad",
+        action: () => router.push("/(brigadista)/edit-profile"),
+      });
+    }
+
+    if (user?.state !== "ACTIVE") {
+      items.push({
+        key: "report_issue",
+        label: "Tu estatus no esta activo. Reportar para resolverlo",
+        action: () => router.push("/(brigadista)/report-issue"),
+      });
+    }
+
+    return items;
+  }, [
+    unreadCount,
+    inaccessibleCount,
+    user?.phone,
+    user?.avatar_url,
+    user?.state,
+    handleMarkAllRead,
+    router,
+  ]);
+
+  const handleOpenNotification = useCallback(
+    async (item: NotificationItem) => {
+      if (!item.read) {
+        await handleMarkRead(item.id);
+      }
+      const route = mapActionUrlToAppRoute(item.action_url);
+      if (route) {
+        router.push(route as any);
+      }
+    },
+    [handleMarkRead, router],
+  );
+
   const renderItem = useCallback(
     ({ item }: { item: NotificationItem }) => (
       <TouchableOpacity
@@ -108,7 +249,7 @@ export default function NotificationsScreen() {
             borderColor: colors.border,
           },
         ]}
-        onPress={() => !item.read && handleMarkRead(item.id)}
+        onPress={() => handleOpenNotification(item)}
         activeOpacity={0.7}
       >
         <View
@@ -159,7 +300,7 @@ export default function NotificationsScreen() {
         )}
       </TouchableOpacity>
     ),
-    [colors, handleMarkRead],
+    [colors, handleOpenNotification],
   );
 
   return (
@@ -200,7 +341,7 @@ export default function NotificationsScreen() {
             <Text style={{ color: "#fff", fontWeight: "600" }}>Reintentar</Text>
           </TouchableOpacity>
         </View>
-      ) : notifications.length === 0 ? (
+      ) : accessibleNotifications.length === 0 ? (
         <View style={styles.center}>
           <Ionicons
             name="notifications-off-outline"
@@ -208,14 +349,65 @@ export default function NotificationsScreen() {
             color={colors.textTertiary}
           />
           <Text style={[styles.emptyText, { color: colors.textTertiary }]}>
-            No tienes notificaciones
+            No tienes notificaciones accesibles
           </Text>
         </View>
       ) : (
         <FlatList
-          data={notifications}
+          data={accessibleNotifications}
           keyExtractor={(item) => String(item.id)}
           renderItem={renderItem}
+          ListHeaderComponent={
+            <View
+              style={[
+                styles.statusCard,
+                {
+                  borderColor:
+                    scoreLevel === "riesgo"
+                      ? colors.error
+                      : scoreLevel === "atencion"
+                        ? colors.warning
+                        : colors.success,
+                  backgroundColor:
+                    scoreLevel === "riesgo"
+                      ? colors.error + "12"
+                      : scoreLevel === "atencion"
+                        ? colors.warning + "12"
+                        : colors.success + "12",
+                },
+              ]}
+            >
+              <Text style={[styles.statusTitle, { color: colors.text }]}>Status Score</Text>
+              <Text style={[styles.statusScore, { color: colors.text }]}>{statusScore}/100</Text>
+              <Text style={[styles.statusSubtitle, { color: colors.textSecondary }]}> 
+                {scoreLevel === "estable"
+                  ? "Estado estable"
+                  : scoreLevel === "atencion"
+                    ? "Requiere atencion"
+                    : "Riesgo alto, atiende action items"}
+              </Text>
+              {inaccessibleCount > 0 && (
+                <Text style={[styles.statusHint, { color: colors.textTertiary }]}> 
+                  {inaccessibleCount} notificaciones ocultas por permisos
+                </Text>
+              )}
+
+              {actionItems.length > 0 && (
+                <View style={styles.actionItemsWrap}>
+                  {actionItems.map((item) => (
+                    <TouchableOpacity
+                      key={item.key}
+                      onPress={item.action}
+                      style={[styles.actionItemBtn, { borderColor: colors.border, backgroundColor: colors.surface }]}
+                    >
+                      <Ionicons name="construct-outline" size={14} color={colors.primary} />
+                      <Text style={[styles.actionItemText, { color: colors.text }]}>{item.label}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
+          }
           contentContainerStyle={[
             styles.list,
             { paddingBottom: contentPadding },
@@ -248,6 +440,27 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 18, fontWeight: "700" },
   markAll: { fontSize: 14, fontWeight: "600" },
   list: { padding: 16 },
+  statusCard: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+  },
+  statusTitle: { fontSize: 13, fontWeight: "600" },
+  statusScore: { fontSize: 24, fontWeight: "700", marginTop: 2 },
+  statusSubtitle: { fontSize: 12, marginTop: 2 },
+  statusHint: { fontSize: 11, marginTop: 6 },
+  actionItemsWrap: { marginTop: 10, gap: 8 },
+  actionItemBtn: {
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  actionItemText: { fontSize: 12, fontWeight: "500", flex: 1 },
   card: {
     flexDirection: "row",
     alignItems: "center",

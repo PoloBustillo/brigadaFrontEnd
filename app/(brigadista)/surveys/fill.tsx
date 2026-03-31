@@ -31,6 +31,7 @@ import type { FillQuestion } from "@/types/survey-schema.types";
 import { getErrorMessage } from "@/utils/translate-error";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
+import NetInfo, { NetInfoState } from "@react-native-community/netinfo";
 import * as Haptics from "expo-haptics";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, {
@@ -62,6 +63,26 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 export type { FillQuestion } from "@/types/survey-schema.types";
 
 type Answers = Record<number, any>; // questionId → value
+
+type NavigationDirection = "next" | "back" | "auto" | "jump";
+
+interface QuestionSequenceEvent {
+  from_question_id: number | null;
+  to_question_id: number;
+  from_index: number | null;
+  to_index: number;
+  direction: NavigationDirection;
+  dwell_time_ms: number;
+  at: string;
+}
+
+interface NetworkSnapshot {
+  at: string;
+  type: string;
+  is_connected: boolean;
+  is_internet_reachable: boolean;
+  cellular_generation: string | null;
+}
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -205,6 +226,14 @@ export default function FillSurveyScreen() {
     >
   >({});
   const submitLockRef = useRef(false);
+  const navIntentRef = useRef<NavigationDirection>("jump");
+  const questionEntryRef = useRef<{
+    questionId: number | null;
+    index: number | null;
+    enteredAtMs: number;
+  } | null>(null);
+  const questionSequenceRef = useRef<QuestionSequenceEvent[]>([]);
+  const networkSnapshotsRef = useRef<NetworkSnapshot[]>([]);
 
   // ── Offline draft management (via hook) ────────────────────────────────────
   const {
@@ -255,6 +284,71 @@ export default function FillSurveyScreen() {
     }
   }, [current]);
 
+  useEffect(() => {
+    const pushSnapshot = (state: NetInfoState) => {
+      const snapshot: NetworkSnapshot = {
+        at: new Date().toISOString(),
+        type: String(state.type ?? "unknown"),
+        is_connected: Boolean(state.isConnected),
+        is_internet_reachable: Boolean(state.isInternetReachable),
+        cellular_generation:
+          state.type === "cellular"
+            ? String(state.details?.cellularGeneration ?? "unknown")
+            : null,
+      };
+
+      const previous =
+        networkSnapshotsRef.current[networkSnapshotsRef.current.length - 1];
+      const changed =
+        !previous ||
+        previous.type !== snapshot.type ||
+        previous.is_connected !== snapshot.is_connected ||
+        previous.is_internet_reachable !== snapshot.is_internet_reachable ||
+        previous.cellular_generation !== snapshot.cellular_generation;
+
+      if (changed) {
+        networkSnapshotsRef.current.push(snapshot);
+      }
+    };
+
+    NetInfo.fetch().then(pushSnapshot).catch(() => {
+      // Ignore best-effort network snapshot failures
+    });
+
+    const unsubscribe = NetInfo.addEventListener(pushSnapshot);
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (!current) return;
+
+    const nowMs = Date.now();
+    const previous = questionEntryRef.current;
+
+    if (
+      previous &&
+      previous.questionId !== null &&
+      (previous.questionId !== current.id || previous.index !== currentIndex)
+    ) {
+      questionSequenceRef.current.push({
+        from_question_id: previous.questionId,
+        to_question_id: current.id,
+        from_index: previous.index,
+        to_index: currentIndex,
+        direction: navIntentRef.current,
+        dwell_time_ms: Math.max(0, nowMs - previous.enteredAtMs),
+        at: new Date(nowMs).toISOString(),
+      });
+    }
+
+    questionEntryRef.current = {
+      questionId: current.id,
+      index: currentIndex,
+      enteredAtMs: nowMs,
+    };
+    navIntentRef.current = "jump";
+  }, [current, currentIndex]);
+
   // Animate progress bar on question change
   useEffect(() => {
     Animated.timing(progressAnim, {
@@ -302,6 +396,7 @@ export default function FillSurveyScreen() {
       saveAnswer(current.id, value);
 
       if (advance && !isLast) {
+        navIntentRef.current = "auto";
         // Slight delay so user sees their selection highlighted before moving
         setTimeout(() => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -316,6 +411,7 @@ export default function FillSurveyScreen() {
     if (!current) return;
     const value = answers[current.id];
     if (value !== undefined && value !== null && !isLast) {
+      navIntentRef.current = "auto";
       setTimeout(() => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         setCurrentIndex((i) => i + 1);
@@ -342,6 +438,7 @@ export default function FillSurveyScreen() {
     if (isLast) {
       handleSubmit();
     } else {
+      navIntentRef.current = "next";
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       setCurrentIndex((i) => i + 1);
     }
@@ -372,6 +469,7 @@ export default function FillSurveyScreen() {
     if (isFirst) {
       handleCancel();
     } else {
+      navIntentRef.current = "back";
       Keyboard.dismiss();
       setFieldError(null);
       setCurrentIndex((i) => i - 1);
@@ -422,6 +520,102 @@ export default function FillSurveyScreen() {
         };
       });
 
+    const questionTimeValues = rawAnswers
+      .map((answer) => Number(answer.answer_meta?.time_spent_ms ?? 0))
+      .filter((value) => Number.isFinite(value) && value >= 0)
+      .sort((a, b) => a - b);
+    const veryFastThresholdMs = 2500;
+
+    const getPercentile = (values: number[], percentile: number) => {
+      if (values.length === 0) return 0;
+      const index = Math.min(
+        values.length - 1,
+        Math.max(0, Math.ceil((percentile / 100) * values.length) - 1),
+      );
+      return Math.round(values[index]);
+    };
+
+    const questionTimingSummary =
+      questionTimeValues.length > 0
+        ? {
+            count: questionTimeValues.length,
+            avg_ms: Math.round(
+              questionTimeValues.reduce((sum, value) => sum + value, 0) /
+                questionTimeValues.length,
+            ),
+            min_ms: Math.round(questionTimeValues[0]),
+            max_ms: Math.round(questionTimeValues[questionTimeValues.length - 1]),
+            p50_ms: getPercentile(questionTimeValues, 50),
+            p90_ms: getPercentile(questionTimeValues, 90),
+          }
+        : null;
+
+    const questionTimings = rawAnswers.map((answer) => ({
+      question_id: answer.question_id,
+      time_spent_ms: Number(answer.answer_meta?.time_spent_ms ?? 0),
+      time_to_first_interaction_ms: answer.answer_meta?.time_to_first_interaction_ms,
+      changed_answer_count: Number(answer.answer_meta?.changed_answer_count ?? 0),
+      revisited: Boolean(answer.answer_meta?.revisited),
+    }));
+
+    const sequenceEvents = [...questionSequenceRef.current];
+    const activeEntry = questionEntryRef.current;
+    if (
+      activeEntry?.questionId != null &&
+      activeEntry.index != null &&
+      current?.id === activeEntry.questionId
+    ) {
+      sequenceEvents.push({
+        from_question_id: activeEntry.questionId,
+        to_question_id: activeEntry.questionId,
+        from_index: activeEntry.index,
+        to_index: activeEntry.index,
+        direction: "jump",
+        dwell_time_ms: Math.max(0, Date.now() - activeEntry.enteredAtMs),
+        at: new Date().toISOString(),
+      });
+    }
+
+    const dwellValues = sequenceEvents
+      .map((event) => Number(event.dwell_time_ms))
+      .filter((value) => Number.isFinite(value) && value >= 0)
+      .sort((a, b) => a - b);
+    const questionDwellSummary =
+      dwellValues.length > 0
+        ? {
+            count: dwellValues.length,
+            avg_dwell_ms: Math.round(
+              dwellValues.reduce((sum, value) => sum + value, 0) /
+                dwellValues.length,
+            ),
+            min_dwell_ms: Math.round(dwellValues[0]),
+            max_dwell_ms: Math.round(dwellValues[dwellValues.length - 1]),
+            p50_dwell_ms: getPercentile(dwellValues, 50),
+            p90_dwell_ms: getPercentile(dwellValues, 90),
+          }
+        : null;
+
+    const networkSnapshots = [...networkSnapshotsRef.current];
+    const initialNetwork = networkSnapshots[0];
+    const finalNetwork =
+      networkSnapshots.length > 0
+        ? networkSnapshots[networkSnapshots.length - 1]
+        : null;
+    const connectivityChanges = Math.max(0, networkSnapshots.length - 1);
+    const offlineEvents = networkSnapshots.filter(
+      (snapshot) => !snapshot.is_connected || !snapshot.is_internet_reachable,
+    ).length;
+
+    const veryFastCount = questionTimeValues.filter(
+      (value) => value <= veryFastThresholdMs,
+    ).length;
+    const veryFastAnswerRatio =
+      questionTimeValues.length > 0
+        ? Number((veryFastCount / questionTimeValues.length).toFixed(4))
+        : 0;
+    const suspiciousAutoAnswering =
+      questionTimeValues.length >= 5 && veryFastAnswerRatio >= 0.6;
+
     if (rawAnswers.length === 0) {
       submitLockRef.current = false;
       Alert.alert(
@@ -460,6 +654,23 @@ export default function FillSurveyScreen() {
             0,
             new Date(answeredAt).getTime() - new Date(startedAt).getTime(),
           ),
+          question_timing_summary: questionTimingSummary,
+          question_timings: questionTimings,
+          question_dwell_summary: questionDwellSummary,
+          question_sequence: sequenceEvents,
+          network_capture: {
+            started: initialNetwork ?? null,
+            ended: finalNetwork ?? null,
+            connectivity_changes: connectivityChanges,
+            offline_events: offlineEvents,
+            total_samples: networkSnapshots.length,
+          },
+          suspicious_automation: {
+            very_fast_threshold_ms: veryFastThresholdMs,
+            very_fast_answer_count: veryFastCount,
+            very_fast_answer_ratio: veryFastAnswerRatio,
+            suspected_auto_answering: suspiciousAutoAnswering,
+          },
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
           app_capture_source: "mobile_brigadista",
         },
